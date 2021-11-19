@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Google.Cloud.Spanner.Connection\Google.Cloud.Spanner.Connection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="NHibernate" Version="5.3.10" />
+    </ItemGroup>
+
+</Project>

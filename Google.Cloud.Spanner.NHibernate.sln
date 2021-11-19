@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.NHibernate", "Google.Cloud.Spanner.NHibernate\Google.Cloud.Spanner.NHibernate.csproj", "{4CD54993-F98B-47E8-944E-D6EE9789FE15}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.Data", "..\google-cloud-dotnet\apis\Google.Cloud.Spanner.Data\Google.Cloud.Spanner.Data\Google.Cloud.Spanner.Data.csproj", "{22EDD242-B02C-42FB-8983-22D72D5DBBED}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.Connection", "Google.Cloud.Spanner.Connection\Google.Cloud.Spanner.Connection.csproj", "{87D0559B-08A6-4B52-B545-E8ABBD82838A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.Connection.Tests", "Google.Cloud.Spanner.Connection.Tests\Google.Cloud.Spanner.Connection.Tests.csproj", "{91FC74D9-F003-4035-B13F-B9E892FE2A69}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.NHibernate.Tests", "Google.Cloud.Spanner.NHibernate.Tests\Google.Cloud.Spanner.NHibernate.Tests.csproj", "{6B37A43A-9121-42D8-A274-CA7B47098BCE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4CD54993-F98B-47E8-944E-D6EE9789FE15}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CD54993-F98B-47E8-944E-D6EE9789FE15}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CD54993-F98B-47E8-944E-D6EE9789FE15}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4CD54993-F98B-47E8-944E-D6EE9789FE15}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22EDD242-B02C-42FB-8983-22D72D5DBBED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22EDD242-B02C-42FB-8983-22D72D5DBBED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22EDD242-B02C-42FB-8983-22D72D5DBBED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22EDD242-B02C-42FB-8983-22D72D5DBBED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{87D0559B-08A6-4B52-B545-E8ABBD82838A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87D0559B-08A6-4B52-B545-E8ABBD82838A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87D0559B-08A6-4B52-B545-E8ABBD82838A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87D0559B-08A6-4B52-B545-E8ABBD82838A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{91FC74D9-F003-4035-B13F-B9E892FE2A69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91FC74D9-F003-4035-B13F-B9E892FE2A69}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91FC74D9-F003-4035-B13F-B9E892FE2A69}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91FC74D9-F003-4035-B13F-B9E892FE2A69}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6B37A43A-9121-42D8-A274-CA7B47098BCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B37A43A-9121-42D8-A274-CA7B47098BCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B37A43A-9121-42D8-A274-CA7B47098BCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B37A43A-9121-42D8-A274-CA7B47098BCE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
