@@ -41,6 +41,9 @@ namespace Google.Cloud.Spanner.NHibernate
 			// Override standard HQL function
 			RegisterFunction("current_timestamp", new NoArgSQLFunction("CURRENT_TIMESTAMP", NHibernateUtil.LocalDateTime, true));
 			RegisterFunction("str", new SQLFunctionTemplate(NHibernateUtil.String, "cast(?1 as STRING)"));
+			RegisterFunction("locate", new SQLFunctionTemplate(NHibernateUtil.String, "STRPOS(?2, ?1)"));
+			RegisterFunction("substring", new StandardSQLFunction("SUBSTR", NHibernateUtil.String));
+			RegisterFunction("trim", new AnsiTrimEmulationFunction());
 
 			RegisterKeywords();
 		}
@@ -77,6 +80,14 @@ namespace Google.Cloud.Spanner.NHibernate
 		{
 			SqlStringBuilder pagingBuilder = new SqlStringBuilder();
 			pagingBuilder.Add(queryString);
+			if (offset != null && limit == null)
+			{
+				// Cloud Spanner requires limit if offset is specified.
+				// This creates a LIMIT clause contains a very large number
+				// rows. The sum of LIMIT and OFFSET may not exceed the max
+				// value for INT64.
+				pagingBuilder.Add($" LIMIT {long.MaxValue / 2}");
+			}
 
 			if (limit != null)
 			{
@@ -86,7 +97,6 @@ namespace Google.Cloud.Spanner.NHibernate
 
 			if (offset != null)
 			{
-				// TODO: OFFSET is only supported in combination with LIMIT
 				pagingBuilder.Add(" OFFSET ");
 				pagingBuilder.Add(offset);
 			}

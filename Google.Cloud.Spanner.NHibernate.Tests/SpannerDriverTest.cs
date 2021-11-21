@@ -16,6 +16,7 @@ using Google.Cloud.Spanner.Connection;
 using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
+using Google.Cloud.Spanner.V1;
 using Google.Protobuf.WellKnownTypes;
 using System;
 using System.Collections.Generic;
@@ -61,7 +62,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             Assert.Equal("Alice", singer.FirstName);
             Assert.Equal("Alice Morrison", singer.FullName);
             Assert.Equal("Morrison", singer.LastName);
-            Assert.Null(singer.Picture);
+            Assert.Equal(new byte[]{1,2,3}, singer.Picture);
 
             Assert.Collection(
                 _fixture.SpannerMock.Requests.OfType<V1.ExecuteSqlRequest>(),
@@ -76,9 +77,52 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
 
         [Fact]
+        public async Task CanGetListOfAlbumsFromSinger()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singerSql = AddSingerResult(GetSelectSingerSql());
+            var albumsSql = AddSingerAlbumsResults(GetSelectSingerAlbumsSql(), new []
+            {
+                new object[] { 1L, 1L, 1L, "Title 1", null, 1L },
+                new object[] { 1L, 2L, 2L, "Title 2", null, 1L },
+            });
+            
+            var singer = await session.GetAsync<Singer>(1L);
+            var albums = singer.Albums;
+            
+            Assert.Collection(albums,
+                album =>
+                {
+                    Assert.Equal(1L, album.AlbumId);
+                    Assert.Equal("Title 1", album.Title);
+                },
+                album =>
+                {
+                    Assert.Equal(2L, album.AlbumId);
+                    Assert.Equal("Title 2", album.Title);
+                }
+            );
+            Assert.Collection(
+                _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>(),
+                request =>
+                {
+                    Assert.Equal(singerSql, request.Sql);
+                    Assert.Null(request.Transaction);
+                },
+                request =>
+                {
+                    Assert.Equal(albumsSql, request.Sql);
+                    Assert.Null(request.Transaction);
+                }
+            );
+            // A read-only operation should not initiate and commit a transaction.
+            Assert.Empty(_fixture.SpannerMock.Requests.OfType<CommitRequest>());
+        }
+
+        [Fact]
         public async Task InsertMultipleSingers_UsesSameTransaction()
         {
-            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, SingerId) VALUES (@p0, @p1, @p2, @p3)";
+            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, Picture, SingerId) VALUES (@p0, @p1, @p2, @p3, @p4)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
             var selectFullNameSql = AddSelectSingerFullNameResult("Alice Morrison", 0);
 
@@ -131,7 +175,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         {
             using var session = _fixture.SessionFactory.OpenSession();
 
-            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, SingerId) VALUES (@p0, @p1, @p2, @p3)";
+            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, Picture, SingerId) VALUES (@p0, @p1, @p2, @p3, @p4)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
             var selectFullNameSql = AddSelectSingerFullNameResult("Alice Morrison", 0);
 
@@ -173,7 +217,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task UpdateSinger_SelectsFullName()
         {
             // Setup results.
-            var updateSql = "UPDATE Singer SET FirstName = @p0, LastName = @p1, BirthDate = @p2 WHERE SingerId = @p3";
+            var updateSql = "UPDATE Singer SET FirstName = @p0, LastName = @p1, BirthDate = @p2, Picture = @p3 WHERE SingerId = @p4";
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(1L));
             var selectSingerSql = AddSingerResult(GetSelectSingerSql());
             var selectFullNameSql = AddSelectSingerFullNameResult("Alice Pieterson-Morrison", 0);
@@ -208,6 +252,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task DeleteSinger_DoesNotSelectFullName()
         {
             // Setup results.
+            var updateSql = "UPDATE Album SET Singer = null WHERE Singer = @p0";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(0L));
             var deleteSql = $"DELETE FROM Singer WHERE SingerId = @p0";
             _fixture.SpannerMock.AddOrUpdateStatementResult(deleteSql, StatementResult.CreateUpdateCount(1L));
             var selectSingerSql = AddSingerResult(GetSelectSingerSql());
@@ -226,11 +272,17 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 },
                 request =>
                 {
+                    Assert.Equal(updateSql, request.Sql);
+                    Assert.NotNull(request.Transaction?.Id);
+                },
+                request =>
+                {
                     Assert.Equal(deleteSql, request.Sql);
                     Assert.NotNull(request.Transaction?.Id);
                 }
             );
-            Assert.Single(_fixture.SpannerMock.Requests.Where(request => request is V1.CommitRequest));
+            // The update and the delete are done in separate transactions, as there is no explicit transaction defined.
+            Assert.Equal(2, _fixture.SpannerMock.Requests.Count(request => request is CommitRequest));
         }
 
         [Fact]
@@ -1036,10 +1088,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
 
         private static string GetSelectSingerSql() =>
-            "SELECT singer0_.SingerId as singerid1_0_0_, singer0_.FirstName as firstname2_0_0_, singer0_.LastName as lastname3_0_0_, singer0_.FullName as fullname4_0_0_"
-                + ", singer0_.BirthDate as birthdate5_0_0_"
-                // + ", singer0_.Picture as picture6_0_0_"
-                + " FROM Singer singer0_ WHERE singer0_.SingerId=@p0";
+            "SELECT singer0_.SingerId as singerid1_0_0_, singer0_.FirstName as firstname2_0_0_, singer0_.LastName as lastname3_0_0_, "
+            + "singer0_.FullName as fullname4_0_0_, singer0_.BirthDate as birthdate5_0_0_, singer0_.Picture as picture6_0_0_ "
+            + "FROM Singer singer0_ WHERE singer0_.SingerId=@p0";
         
         private void AddEmptySingerResult(string sql) => AddSingerResults(sql, new List<object[]>());
 
@@ -1079,6 +1130,27 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 }
             ));
             return selectFullNameSql;
+        }
+        
+        private static string GetSelectSingerAlbumsSql() =>
+            "SELECT albums0_.Singer as singer5_1_1_, albums0_.AlbumId as albumid1_1_1_, "
+            + "albums0_.AlbumId as albumid1_1_0_, albums0_.Title as title2_1_0_, "
+            + "albums0_.ReleaseDate as releasedate3_1_0_, albums0_.SingerId as singerid4_1_0_ "
+            + "FROM Album albums0_ WHERE albums0_.Singer=@p0";
+        
+        private string AddSingerAlbumsResults(string sql, IEnumerable<object[]> rows)
+        {
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
+                new List<Tuple<V1.TypeCode, string>>
+                {
+                    Tuple.Create(V1.TypeCode.Int64, "singer5_1_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "albumid1_1_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "albumid1_1_0_"),
+                    Tuple.Create(V1.TypeCode.String, "title2_1_0_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_0_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_0_"),
+                }, rows));
+            return sql;
         }
 
         private StatementResult CreateTableWithAllColumnTypesResultSet(TableWithAllColumnTypes row)

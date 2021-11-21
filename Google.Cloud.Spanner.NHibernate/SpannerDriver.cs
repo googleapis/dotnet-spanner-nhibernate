@@ -20,6 +20,7 @@ using NHibernate.AdoNet;
 using NHibernate.Driver;
 using NHibernate.SqlTypes;
 using System;
+using System.Data;
 using System.Data.Common;
 using System.Threading;
 
@@ -72,9 +73,26 @@ namespace Google.Cloud.Spanner.NHibernate
                 }
                 else
                 {
-                    spannerParameter.DbType = sqlType.DbType;
+                    spannerParameter.SpannerDbType = ToSpannerDbType(sqlType.DbType);
                 }
             }
         }
+
+        private static SpannerDbType ToSpannerDbType(DbType dbType) => dbType switch
+        {
+            DbType.Binary => SpannerDbType.Bytes,
+            DbType.Boolean => SpannerDbType.Bool,
+            DbType.Date => SpannerDbType.Date,
+            DbType.DateTime => SpannerDbType.Timestamp,
+            DbType.Single => SpannerDbType.Float64,
+            DbType.Double => SpannerDbType.Float64,
+            DbType.Int16 => SpannerDbType.Int64,
+            DbType.Int32 => SpannerDbType.Int64,
+            DbType.Int64 => SpannerDbType.Int64,
+            DbType.VarNumeric => SpannerDbType.Numeric,
+            DbType.Object => SpannerDbType.Unspecified,
+            DbType.String => SpannerDbType.String,
+            _ => SpannerDbType.Unspecified
+        };
     }
 }

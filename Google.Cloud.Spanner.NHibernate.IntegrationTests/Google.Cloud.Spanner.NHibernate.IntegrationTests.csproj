@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
+        <PackageReference Include="xunit" Version="2.4.0" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.4.0" />
+        <PackageReference Include="coverlet.collector" Version="1.2.0" />
+        <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Google.Cloud.Spanner.NHibernate\Google.Cloud.Spanner.NHibernate.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="SampleDataModel.sql" />
+      <Content Include="SampleDataModel.sql">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+      <None Remove="SampleDataModel - Emulator.sql" />
+      <Content Include="SampleDataModel - Emulator.sql">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+
+</Project>
