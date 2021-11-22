@@ -85,7 +85,7 @@ CREATE TABLE TableWithAllColumnTypes (
 	ColJson JSON(MAX),
 	ColDate DATE,
 	ColTimestamp TIMESTAMP,
-	ColCommitTS TIMESTAMP OPTIONS (allow_commit_timestamp=true),
+	ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true),
 	ColInt64Array ARRAY<INT64>,
 	ColFloat64Array ARRAY<FLOAT64>,
 	ColNumericArray ARRAY<NUMERIC>,
@@ -98,7 +98,7 @@ CREATE TABLE TableWithAllColumnTypes (
 	ColDateArray ARRAY<DATE>,
 	ColTimestampArray ARRAY<TIMESTAMP>,
 	ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED,
-	`ASC` STRING(MAX),
+	ColASC STRING(MAX),
 ) PRIMARY KEY (ColInt64);
 
-CREATE NULL_FILTERED INDEX IDX_TableWithAllColumnTypes_ColDate_ColCommitTS ON TableWithAllColumnTypes (ColDate, ColCommitTS);
+CREATE NULL_FILTERED INDEX IDX_TableWithAllColumnTypes_ColDate_ColCommitTs ON TableWithAllColumnTypes (ColDate, ColCommitTs);

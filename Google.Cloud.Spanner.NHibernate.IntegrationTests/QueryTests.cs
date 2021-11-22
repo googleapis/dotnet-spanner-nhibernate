@@ -12,17 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
-using Google.Cloud.Spanner.V1;
-using NHibernate.Id;
 using NHibernate.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -540,19 +535,17 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 
             Assert.Equal("Alice Morrison$$$$$$", paddedName);
         }
-/*
+
         [Fact]
         public async Task CanUseDateTimeAddDays()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
             var timestamp = new DateTime(2021, 1, 21, 11, 40, 10, DateTimeKind.Utc);
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = timestamp }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = timestamp });
+            await session.FlushAsync();
 
-            var date = await db.TableWithAllColumnTypes
+            var date = await session.Query<TableWithAllColumnTypes>()
                 .Where(s => s.ColInt64 == id)
                 .Select(s => new { D1 = ((DateTime)s.ColTimestamp).AddDays(23), D2 = ((DateTime)s.ColTimestamp).AddDays(100) })
                 .FirstOrDefaultAsync();
@@ -564,14 +557,13 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanUseDateTimeAddHours()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = new DateTime(2021, 1, 21, 11, 40, 10, DateTimeKind.Utc) }
-            );
-            await db.SaveChangesAsync();
+            var timestamp = new DateTime(2021, 1, 21, 11, 40, 10, DateTimeKind.Utc);
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = timestamp });
+            await session.FlushAsync();
 
-            var date = await db.TableWithAllColumnTypes
+            var date = await session.Query<TableWithAllColumnTypes>()
                 .Where(s => s.ColInt64 == id)
                 .Select(s => ((DateTime)s.ColTimestamp).AddHours(47))
                 .FirstOrDefaultAsync();
@@ -582,14 +574,13 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanUseDateTimeAddTicks()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = new DateTime(2021, 1, 21, 11, 40, 10, DateTimeKind.Utc) }
-            );
-            await db.SaveChangesAsync();
+            var timestamp = new DateTime(2021, 1, 21, 11, 40, 10, DateTimeKind.Utc);
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = timestamp });
+            await session.FlushAsync();
 
-            var date = await db.TableWithAllColumnTypes
+            var date = await session.Query<TableWithAllColumnTypes>()
                 .Where(s => s.ColInt64 == id)
                 .Select(s => ((DateTime)s.ColTimestamp).AddTicks(20))
                 .FirstOrDefaultAsync();
@@ -598,72 +589,27 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         }
 
         [Fact]
-        public async Task CanUseNumericValueOrDefaultAsDecimal_ThenRoundWithDigits()
-        {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColNumeric = V1.SpannerNumeric.FromDecimal(3.14m, LossOfPrecisionHandling.Throw) }
-            );
-            await db.SaveChangesAsync();
-
-            var expectedValue = 3.1m;
-            var dbValue = await db.TableWithAllColumnTypes
-                // Only rounding with the option AwayFromZero can be handled server side, as that is the only option offered by
-                // Cloud Spanner. If the user does not specify this rounding mode, this query would fail as it cannot be constructed.
-                .Where(s => s.ColInt64 == id && Math.Round(s.ColNumeric.GetValueOrDefault().ToDecimal(LossOfPrecisionHandling.Throw), 1, MidpointRounding.AwayFromZero) == expectedValue)
-                .Select(s => Math.Round(s.ColNumeric.GetValueOrDefault().ToDecimal(LossOfPrecisionHandling.Throw), 1, MidpointRounding.AwayFromZero))
-                .FirstOrDefaultAsync();
-
-            Assert.Equal(expectedValue, dbValue);
-        }
-
-        [Fact]
-        public async Task CanUseLongMax()
-        {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            var id = _fixture.RandomLong();
-            var randomLong = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id }
-            );
-            await db.SaveChangesAsync();
-
-            var expectedValue = Math.Max(id, randomLong);
-            var dbValue = await db.TableWithAllColumnTypes
-                .Where(s => s.ColInt64 == id && Math.Max(s.ColInt64, randomLong) == expectedValue)
-                .Select(s => Math.Max(s.ColInt64, randomLong))
-                .FirstOrDefaultAsync();
-
-            Assert.Equal(expectedValue, dbValue);
-        }
-
-        [Fact]
         public async Task CanUseDateTimeProperties()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            var randomLong = _fixture.RandomLong();
             var timestamp = new DateTime(2021, 1, 25, 14, 29, 15, 182, DateTimeKind.Utc);
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = timestamp }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = timestamp });
+            await session.FlushAsync();
 
-            var extracted = await db.TableWithAllColumnTypes
+            var extracted = await session.Query<TableWithAllColumnTypes>()
                 .Where(t => t.ColInt64 == id)
                 .Select(t => new
                 {
-                    t.ColTimestamp.GetValueOrDefault().Year,
-                    t.ColTimestamp.GetValueOrDefault().Month,
-                    t.ColTimestamp.GetValueOrDefault().Day,
-                    t.ColTimestamp.GetValueOrDefault().DayOfYear,
-                    t.ColTimestamp.GetValueOrDefault().DayOfWeek,
-                    t.ColTimestamp.GetValueOrDefault().Hour,
-                    t.ColTimestamp.GetValueOrDefault().Minute,
-                    t.ColTimestamp.GetValueOrDefault().Second,
-                    t.ColTimestamp.GetValueOrDefault().Millisecond,
-                    t.ColTimestamp.GetValueOrDefault().Date,
+                    t.ColTimestamp.Value.Year,
+                    t.ColTimestamp.Value.Month,
+                    t.ColTimestamp.Value.Day,
+                    t.ColTimestamp.Value.DayOfYear,
+                    t.ColTimestamp.Value.DayOfWeek,
+                    t.ColTimestamp.Value.Hour,
+                    t.ColTimestamp.Value.Minute,
+                    t.ColTimestamp.Value.Second,
+                    t.ColTimestamp.Value.Millisecond,
                 })
                 .FirstOrDefaultAsync();
             Assert.Equal(timestamp.Year, extracted.Year);
@@ -675,50 +621,17 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             Assert.Equal(timestamp.Minute, extracted.Minute);
             Assert.Equal(timestamp.Second, extracted.Second);
             Assert.Equal(timestamp.Millisecond, extracted.Millisecond);
-            Assert.Equal(timestamp.Date, extracted.Date);
-        }
-
-        [Fact]
-        public async Task CanUseSpannerDateProperties()
-        {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            var id = _fixture.RandomLong();
-            var randomLong = _fixture.RandomLong();
-            var date = new SpannerDate(2021, 1, 25);
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColDate = date }
-            );
-            await db.SaveChangesAsync();
-
-            var extracted = await db.TableWithAllColumnTypes
-                .Where(t => t.ColInt64 == id)
-                .Select(t => new
-                {
-                    t.ColDate.GetValueOrDefault().Year,
-                    t.ColDate.GetValueOrDefault().Month,
-                    t.ColDate.GetValueOrDefault().Day,
-                    t.ColDate.GetValueOrDefault().DayOfYear,
-                    t.ColDate.GetValueOrDefault().DayOfWeek,
-                })
-                .FirstOrDefaultAsync();
-            Assert.Equal(date.Year, extracted.Year);
-            Assert.Equal(date.Month, extracted.Month);
-            Assert.Equal(date.Day, extracted.Day);
-            Assert.Equal(date.DayOfYear, extracted.DayOfYear);
-            Assert.Equal(date.DayOfWeek, extracted.DayOfWeek);
         }
 
         [Fact]
         public async Task CanUseBoolToString()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColBool = true }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColBool = true });
+            await session.FlushAsync();
 
-            var converted = await db.TableWithAllColumnTypes
+            var converted = await session.Query<TableWithAllColumnTypes>()
                 .Where(t => t.ColInt64 == id)
                 .Select(t => t.ColBool.GetValueOrDefault().ToString())
                 .FirstOrDefaultAsync();
@@ -728,14 +641,12 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanUseBytesToString()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColBytes = Encoding.UTF8.GetBytes("test") }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColBytes = Encoding.UTF8.GetBytes("test") });
+            await session.FlushAsync();
 
-            var converted = await db.TableWithAllColumnTypes
+            var converted = await session.Query<TableWithAllColumnTypes>()
                 .Where(t => t.ColInt64 == id)
                 .Select(t => t.ColBytes.ToString())
                 .FirstOrDefaultAsync();
@@ -745,14 +656,12 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanUseLongToString()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id });
+            await session.FlushAsync();
 
-            var converted = await db.TableWithAllColumnTypes
+            var converted = await session.Query<TableWithAllColumnTypes>()
                 .Where(t => t.ColInt64 == id)
                 .Select(t => t.ColInt64.ToString())
                 .FirstOrDefaultAsync();
@@ -762,16 +671,14 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanUseSpannerNumericToString()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColNumeric = V1.SpannerNumeric.Parse("3.14") }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColNumeric = new SpannerNumeric(V1.SpannerNumeric.Parse("3.14")) });
+            await session.FlushAsync();
 
-            var converted = await db.TableWithAllColumnTypes
+            var converted = await session.Query<TableWithAllColumnTypes>()
                 .Where(t => t.ColInt64 == id)
-                .Select(t => t.ColNumeric.GetValueOrDefault().ToString())
+                .Select(t => t.ColNumeric.Value.ToString())
                 .FirstOrDefaultAsync();
             // The emulator and real Spanner have a slight difference in casting this FLOAT64 to STRING.
             // Real Spanner returns '3.14' and the emulator returns '3.1400000000000001'.
@@ -781,14 +688,12 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanUseDoubleToString()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColFloat64 = 3.14d }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColFloat64 = 3.14d });
+            await session.FlushAsync();
 
-            var converted = await db.TableWithAllColumnTypes
+            var converted = await session.Query<TableWithAllColumnTypes>()
                 .Where(t => t.ColInt64 == id)
                 .Select(t => t.ColFloat64.GetValueOrDefault().ToString())
                 .FirstOrDefaultAsync();
@@ -800,16 +705,14 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanUseSpannerDateToString()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColDate = new SpannerDate(2021, 1, 25) }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColDate = new SpannerDate(2021, 1, 25) });
+            await session.FlushAsync();
 
-            var converted = await db.TableWithAllColumnTypes
+            var converted = await session.Query<TableWithAllColumnTypes>()
                 .Where(t => t.ColInt64 == id)
-                .Select(t => t.ColDate.GetValueOrDefault().ToString())
+                .Select(t => t.ColDate.ToString())
                 .FirstOrDefaultAsync();
             Assert.Equal("2021-01-25", converted);
         }
@@ -817,53 +720,31 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanUseDateTimeToString()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = new DateTime(2021, 1, 25, 12, 46, 1, 982, DateTimeKind.Utc) }
-            );
-            await db.SaveChangesAsync();
+            await session.SaveAsync(new TableWithAllColumnTypes { ColInt64 = id, ColTimestamp = new DateTime(2021, 1, 25, 12, 46, 1, 982, DateTimeKind.Utc) });
+            await session.FlushAsync();
 
-            var converted = await db.TableWithAllColumnTypes
+            var converted = await session.Query<TableWithAllColumnTypes>()
                 .Where(t => t.ColInt64 == id)
-                .Select(t => t.ColTimestamp.GetValueOrDefault().ToString())
+                .Select(t => t.ColTimestamp.ToString())
                 .FirstOrDefaultAsync();
-            Assert.Equal("2021-01-25T12:46:01.982Z", converted);
-        }
-
-        [Fact]
-        public async Task CanFilterOnArrayLength()
-        {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-                new TableWithAllColumnTypes { ColInt64 = id, ColStringArray = new List<string> { "1", "2" } }
-            );
-            await db.SaveChangesAsync();
-
-            var selectedId = await db.TableWithAllColumnTypes
-                .Where(t => t.ColInt64 == id && t.ColStringArray.Count == 2)
-                .Select(t => t.ColInt64)
-                .FirstOrDefaultAsync();
-            Assert.Equal(id, selectedId);
+            Assert.Equal("2021-01-25 04:46:01.982-08", converted);
         }
 
         [Fact]
         public async Task CanQueryRawSqlWithParameters()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            var singerId1 = _fixture.RandomLong();
-            var singerId2 = _fixture.RandomLong();
-            db.Singers.AddRange(
-                new Singers { SingerId = singerId1, FirstName = "Pete", LastName = "Peterson" },
-                new Singers { SingerId = singerId2, FirstName = "Zeke", LastName = "Allison" }
-            );
-            await db.SaveChangesAsync();
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singerId1 = (string) await session.SaveAsync(new Singer { FirstName = "Pete", LastName = "Peterson" });
+            var singerId2 = (string) await session.SaveAsync(new Singer { FirstName = "Zeke", LastName = "Allison" });
+            await session.FlushAsync();
 
-            var singers = await db.Singers
-                .FromSqlRaw("SELECT * FROM Singers WHERE SingerId IN UNNEST(@id)", new SpannerParameter("id", SpannerDbType.ArrayOf(SpannerDbType.Int64), new List<long> { singerId1, singerId2 }))
-                .OrderBy(s => s.LastName)
-                .ToListAsync();
+            var singers = await session
+                .CreateSQLQuery("SELECT * FROM Singers WHERE Id IN UNNEST(:id) ORDER BY LastName")
+                .AddEntity(typeof(Singer))
+                .SetParameter("id", new SpannerStringArray(new List<string> { singerId1, singerId2 }))
+                .ListAsync<Singer>();
             Assert.Collection(singers,
                 s => Assert.Equal("Allison", s.LastName),
                 s => Assert.Equal("Peterson", s.LastName)
@@ -873,43 +754,36 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanInsertSingerUsingRawSql()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            var singerId1 = _fixture.RandomLong();
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singerId1 = Guid.NewGuid().ToString();
             var firstName1 = "Pete";
             var lastName1 = "Peterson";
-            var updateCount1 = await db.Database.ExecuteSqlRawAsync(
-                "INSERT INTO Singers (SingerId, FirstName, LastName) VALUES (@id, @firstName, @lastName)",
-                new SpannerParameter("id", SpannerDbType.Int64, singerId1),
-                new SpannerParameter("firstName", SpannerDbType.String, firstName1),
-                new SpannerParameter("lastName", SpannerDbType.String, lastName1)
-            );
+            var updateCount1 = await session
+                .CreateSQLQuery(
+                    "INSERT INTO Singers (Id, FirstName, LastName) VALUES (:id, :firstName, :lastName)")
+                .SetParameter("id", singerId1)
+                .SetParameter("firstName", firstName1)
+                .SetParameter("lastName", lastName1)
+                .ExecuteUpdateAsync();
 
-            var singerId2 = _fixture.RandomLong();
+            var singerId2 = Guid.NewGuid().ToString();
             var firstName2 = "Zeke";
             var lastName2 = "Allison";
-            var updateCount2 = await db.Database.ExecuteSqlInterpolatedAsync(
-                $"INSERT INTO Singers (SingerId, FirstName, LastName) VALUES ({singerId2}, {firstName2}, {lastName2})"
-            );
-
-            var singerId3 = _fixture.RandomLong();
-            var firstName3 = "Luke";
-            var lastName3 = "Harrison";
-            var updateCount3 = await db.Database.ExecuteSqlRawAsync(
-                "INSERT INTO Singers (SingerId, FirstName, LastName) VALUES ({0}, {1}, {2})",
-                singerId3, firstName3, lastName3
-            );
+            var updateCount2 = await session
+                .CreateSQLQuery(
+                    $"INSERT INTO Singers (Id, FirstName, LastName) VALUES ('{singerId2}', '{firstName2}', '{lastName2}')")
+                .ExecuteUpdateAsync();
 
             Assert.Equal(1, updateCount1);
             Assert.Equal(1, updateCount2);
-            Assert.Equal(1, updateCount3);
 
-            var singers = await db.Singers
-                .FromSqlRaw("SELECT * FROM Singers WHERE SingerId IN UNNEST(@id)", new SpannerParameter("id", SpannerDbType.ArrayOf(SpannerDbType.Int64), new List<long> { singerId1, singerId2, singerId3 }))
-                .OrderBy(s => s.LastName)
-                .ToListAsync();
+            var singers = await session
+                .CreateSQLQuery("SELECT * FROM Singers WHERE Id IN UNNEST(:id) ORDER BY LastName")
+                .AddEntity(typeof(Singer))
+                .SetParameter("id", new SpannerStringArray(new List<string>{singerId1, singerId2}))
+                .ListAsync<Singer>();
             Assert.Collection(singers,
                 s => Assert.Equal("Allison", s.LastName),
-                s => Assert.Equal("Harrison", s.LastName),
                 s => Assert.Equal("Peterson", s.LastName)
             );
         }
@@ -917,7 +791,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task CanInsertRowWithAllColumnTypesUsingRawSql()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
+            using var session = _fixture.SessionFactory.OpenSession();
             var id1 = _fixture.RandomLong();
             var today = SpannerDate.FromDateTime(DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Unspecified));
             var now = DateTime.UtcNow;
@@ -925,171 +799,72 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             var row = new TableWithAllColumnTypes
             {
                 ColBool = true,
-                ColBoolArray = new List<bool?> { true, false, true },
+                ColBoolArray = new SpannerBoolArray(new List<bool?> { true, false, true }),
                 ColBytes = new byte[] { 1, 2, 3 },
                 ColBytesMax = Encoding.UTF8.GetBytes("This is a long string"),
-                ColBytesArray = new List<byte[]> { new byte[] { 3, 2, 1 }, new byte[] { }, new byte[] { 4, 5, 6 } },
-                ColBytesMaxArray = new List<byte[]> { Encoding.UTF8.GetBytes("string 1"), Encoding.UTF8.GetBytes("string 2"), Encoding.UTF8.GetBytes("string 3") },
+                ColBytesArray = new SpannerBytesArray(new List<byte[]> { new byte[] { 3, 2, 1 }, new byte[] { }, new byte[] { 4, 5, 6 } }),
+                ColBytesMaxArray = new SpannerBytesArray(new List<byte[]> { Encoding.UTF8.GetBytes("string 1"), Encoding.UTF8.GetBytes("string 2"), Encoding.UTF8.GetBytes("string 3") }),
                 ColDate = new SpannerDate(2020, 12, 28),
-                ColDateArray = new List<SpannerDate?> { new SpannerDate(2020, 12, 28), new SpannerDate(2010, 1, 1), today },
+                ColDateArray = new SpannerDateArray(new List<DateTime?> { new SpannerDate(2020, 12, 28).ToDateTime(), new SpannerDate(2010, 1, 1).ToDateTime(), today.ToDateTime() }),
                 ColFloat64 = 3.14D,
-                ColFloat64Array = new List<double?> { 3.14D, 6.626D },
+                ColFloat64Array = new SpannerFloat64Array(new List<double?> { 3.14D, 6.626D }),
                 ColInt64 = id1,
-                ColInt64Array = new List<long?> { 1L, 2L, 4L, 8L },
-                ColJson = JsonDocument.Parse("{\"key\": \"value\"}"),
-                ColJsonArray = new List<JsonDocument>{JsonDocument.Parse("{\"key1\": \"value1\"}"), null, JsonDocument.Parse("{\"key2\": \"value2\"}")},
-                ColNumeric = (V1.SpannerNumeric?)3.14m,
-                ColNumericArray = new List<V1.SpannerNumeric?> { (V1.SpannerNumeric)3.14m, (V1.SpannerNumeric)6.626m },
+                ColInt64Array = new SpannerInt64Array(new List<long?> { 1L, 2L, 4L, 8L }),
+                ColJson = new SpannerJson("{\"key\": \"value\"}"),
+                ColJsonArray = new SpannerJsonArray(new List<string>{"{\"key1\": \"value1\"}", null, "{\"key2\": \"value2\"}"}),
+                ColNumeric = new SpannerNumeric((V1.SpannerNumeric)3.14m),
+                ColNumericArray = new SpannerNumericArray(new List<V1.SpannerNumeric?> { (V1.SpannerNumeric)3.14m, (V1.SpannerNumeric)6.626m }),
                 ColString = "some string",
-                ColStringArray = new List<string> { "string1", "string2", "string3" },
+                ColStringArray = new SpannerStringArray(new List<string> { "string1", "string2", "string3" }),
                 ColStringMax = "some longer string",
-                ColStringMaxArray = new List<string> { "longer string1", "longer string2", "longer string3" },
+                ColStringMaxArray = new SpannerStringArray(new List<string> { "longer string1", "longer string2", "longer string3" }),
                 ColTimestamp = new DateTime(2020, 12, 28, 15, 16, 28, 148).AddTicks(1839288),
-                ColTimestampArray = new List<DateTime?> { new DateTime(2020, 12, 28, 15, 16, 28, 148).AddTicks(1839288), now },
+                ColTimestampArray = new SpannerTimestampArray(new List<DateTime?> { new DateTime(2020, 12, 28, 15, 16, 28, 148).AddTicks(1839288), now }),
             };
-            var updateCount1 = await db.Database.ExecuteSqlRawAsync(@"INSERT INTO TableWithAllColumnTypes 
+            var updateCount1 = await session
+                .CreateSQLQuery(@"INSERT INTO TableWithAllColumnTypes 
                               (ColBool, ColBoolArray, ColBytes, ColBytesMax, ColBytesArray, ColBytesMaxArray,
                                ColDate, ColDateArray, ColFloat64, ColFloat64Array, ColInt64, ColInt64Array,
-                               ColJson, ColJsonArray, ColNumeric, ColNumericArray, ColString, ColStringArray,
+                               /*ColJson, ColJsonArray,*/ ColNumeric, ColNumericArray, ColString, ColStringArray,
                                ColStringMax, ColStringMaxArray, ColTimestamp, ColTimestampArray)
                               VALUES
-                              (@ColBool, @ColBoolArray, @ColBytes, @ColBytesMax, @ColBytesArray, @ColBytesMaxArray,
-                               @ColDate, @ColDateArray, @ColFloat64, @ColFloat64Array, @ColInt64, @ColInt64Array,
-                               @ColJson, @ColJsonArray, @ColNumeric, @ColNumericArray, @ColString, @ColStringArray,
-                               @ColStringMax, @ColStringMaxArray, @ColTimestamp, @ColTimestampArray)",
-                new SpannerParameter("ColBool", SpannerDbType.Bool, row.ColBool),
-                new SpannerParameter("ColBoolArray", SpannerDbType.ArrayOf(SpannerDbType.Bool), row.ColBoolArray),
-                new SpannerParameter("ColBytes", SpannerDbType.Bytes, row.ColBytes),
-                new SpannerParameter("ColBytesMax", SpannerDbType.Bytes, row.ColBytesMax),
-                new SpannerParameter("ColBytesArray", SpannerDbType.ArrayOf(SpannerDbType.Bytes), row.ColBytesArray),
-                new SpannerParameter("ColBytesMaxArray", SpannerDbType.ArrayOf(SpannerDbType.Bytes), row.ColBytesMaxArray),
-                new SpannerParameter("ColDate", SpannerDbType.Date, row.ColDate),
-                new SpannerParameter("ColDateArray", SpannerDbType.ArrayOf(SpannerDbType.Date), row.ColDateArray),
-                new SpannerParameter("ColFloat64", SpannerDbType.Float64, row.ColFloat64),
-                new SpannerParameter("ColFloat64Array", SpannerDbType.ArrayOf(SpannerDbType.Float64), row.ColFloat64Array),
-                new SpannerParameter("ColInt64", SpannerDbType.Int64, row.ColInt64),
-                new SpannerParameter("ColInt64Array", SpannerDbType.ArrayOf(SpannerDbType.Int64), row.ColInt64Array),
-                new SpannerParameter("ColJson", db.IsEmulator ? SpannerDbType.String : SpannerDbType.Json, row.ColJson.RootElement.ToString()),
-                new SpannerParameter("ColJsonArray", SpannerDbType.ArrayOf(db.IsEmulator ? SpannerDbType.String : SpannerDbType.Json), row.ColJsonArray.Select(v => v?.RootElement.ToString())),
-                new SpannerParameter("ColNumeric", SpannerDbType.Numeric, row.ColNumeric),
-                new SpannerParameter("ColNumericArray", SpannerDbType.ArrayOf(SpannerDbType.Numeric), row.ColNumericArray),
-                new SpannerParameter("ColString", SpannerDbType.String, row.ColString),
-                new SpannerParameter("ColStringArray", SpannerDbType.ArrayOf(SpannerDbType.String), row.ColStringArray),
-                new SpannerParameter("ColStringMax", SpannerDbType.String, row.ColStringMax),
-                new SpannerParameter("ColStringMaxArray", SpannerDbType.ArrayOf(SpannerDbType.String), row.ColStringMaxArray),
-                new SpannerParameter("ColTimestamp", SpannerDbType.Timestamp, row.ColTimestamp),
-                new SpannerParameter("ColTimestampArray", SpannerDbType.ArrayOf(SpannerDbType.Timestamp), row.ColTimestampArray)
-            );
+                              (:ColBool, :ColBoolArray, :ColBytes, :ColBytesMax, :ColBytesArray, :ColBytesMaxArray,
+                               :ColDate, :ColDateArray, :ColFloat64, :ColFloat64Array, :ColInt64, :ColInt64Array,
+                               /*:ColJson, :ColJsonArray,*/ :ColNumeric, :ColNumericArray, :ColString, :ColStringArray,
+                               :ColStringMax, :ColStringMaxArray, :ColTimestamp, :ColTimestampArray)")
+                .SetParameter("ColBool", row.ColBool)
+                .SetParameter("ColBoolArray", row.ColBoolArray)
+                .SetParameter("ColBytes", row.ColBytes)
+                .SetParameter("ColBytesMax", row.ColBytesMax)
+                .SetParameter("ColBytesArray", row.ColBytesArray)
+                .SetParameter("ColBytesMaxArray", row.ColBytesMaxArray)
+                .SetParameter("ColDate", row.ColDate)
+                .SetParameter("ColDateArray", row.ColDateArray)
+                .SetParameter("ColFloat64", row.ColFloat64)
+                .SetParameter("ColFloat64Array", row.ColFloat64Array)
+                .SetParameter("ColInt64", row.ColInt64)
+                .SetParameter("ColInt64Array", row.ColInt64Array)
+                // .SetParameter("ColJson", row.ColJson)
+                // .SetParameter("ColJsonArray", row.ColJsonArray)
+                .SetParameter("ColNumeric", row.ColNumeric)
+                .SetParameter("ColNumericArray", row.ColNumericArray)
+                .SetParameter("ColString", row.ColString)
+                .SetParameter("ColStringArray", row.ColStringArray)
+                .SetParameter("ColStringMax", row.ColStringMax)
+                .SetParameter("ColStringMaxArray", row.ColStringMaxArray)
+                .SetParameter("ColTimestamp", row.ColTimestamp)
+                .SetParameter("ColTimestampArray", row.ColTimestampArray)
+                .ExecuteUpdateAsync();
             Assert.Equal(1, updateCount1);
 
-            var id2 = _fixture.RandomLong();
-            row.ColInt64 = id2;
-            var updateCount2 = await db.Database.ExecuteSqlInterpolatedAsync(
-                @$"INSERT INTO TableWithAllColumnTypes 
-                              (ColBool, ColBoolArray, ColBytes, ColBytesMax, ColBytesArray, ColBytesMaxArray,
-                               ColDate, ColDateArray, ColFloat64, ColFloat64Array, ColInt64, ColInt64Array,
-                               ColJson, ColJsonArray, ColNumeric, ColNumericArray, ColString, ColStringArray,
-                               ColStringMax, ColStringMaxArray, ColTimestamp, ColTimestampArray)
-                              VALUES
-                              ({ row.ColBool}, { row.ColBoolArray}, { row.ColBytes}, { row.ColBytesMax}, { row.ColBytesArray}, { row.ColBytesMaxArray},
-                               { row.ColDate}, { row.ColDateArray}, { row.ColFloat64}, { row.ColFloat64Array}, { row.ColInt64}, { row.ColInt64Array},
-                               { (db.IsEmulator ? (object) row.ColJson.RootElement.ToString() : row.ColJson)},
-                               { (db.IsEmulator ? (object) row.ColJsonArray.Select(v => v?.RootElement.ToString()).ToList() : row.ColJsonArray)},
-                               { row.ColNumeric}, { row.ColNumericArray}, { row.ColString}, { row.ColStringArray},
-                               { row.ColStringMax}, { row.ColStringMaxArray}, { row.ColTimestamp}, { row.ColTimestampArray})"
-            );
-            Assert.Equal(1, updateCount2);
-
-            var id3 = _fixture.RandomLong();
-            row.ColInt64 = id3;
-            var updateCount3 = await db.Database.ExecuteSqlRawAsync(
-                @"INSERT INTO TableWithAllColumnTypes 
-                              (ColBool, ColBoolArray, ColBytes, ColBytesMax, ColBytesArray, ColBytesMaxArray,
-                               ColDate, ColDateArray, ColFloat64, ColFloat64Array, ColInt64, ColInt64Array,
-                               ColJson, ColJsonArray, ColNumeric, ColNumericArray, ColString, ColStringArray,
-                               ColStringMax, ColStringMaxArray, ColTimestamp, ColTimestampArray)
-                              VALUES
-                              ({0}, {1}, {2}, {3}, {4}, {5},
-                               {6}, {7}, {8}, {9}, {10}, {11},
-                               {12}, {13}, {14}, {15}, {16}, {17},
-                               {18}, {19}, {20}, {21})",
-                               row.ColBool, row.ColBoolArray, row.ColBytes, row.ColBytesMax, row.ColBytesArray, row.ColBytesMaxArray,
-                               row.ColDate, row.ColDateArray, row.ColFloat64, row.ColFloat64Array, row.ColInt64, row.ColInt64Array,
-                               db.IsEmulator ? (object) row.ColJson.RootElement.ToString() : row.ColJson,
-                               db.IsEmulator ? (object) row.ColJsonArray.Select(v => v?.RootElement.ToString()).ToList() : row.ColJsonArray,
-                               row.ColNumeric, row.ColNumericArray, row.ColString, row.ColStringArray,
-                               row.ColStringMax, row.ColStringMaxArray, row.ColTimestamp, row.ColTimestampArray
-            );
-            Assert.Equal(1, updateCount3);
-
-            var rows = await db.TableWithAllColumnTypes
-                .FromSqlRaw("SELECT * FROM TableWithAllColumnTypes WHERE ColInt64 IN UNNEST(@id)", new SpannerParameter("id", SpannerDbType.ArrayOf(SpannerDbType.Int64), new List<long> { id1, id2, id3 }))
-                .OrderBy(s => s.ColString)
-                .ToListAsync();
+            var rows = await session
+                .CreateSQLQuery("SELECT * FROM TableWithAllColumnTypes WHERE ColInt64 IN UNNEST(:id) ORDER BY ColString")
+                .AddEntity(typeof(TableWithAllColumnTypes))
+                .SetParameter("id", new SpannerInt64Array(new List<long?>{id1}))
+                .ListAsync<TableWithAllColumnTypes>();
             Assert.Collection(rows,
-                row => Assert.NotNull(row.ColDateArray),
-                row => Assert.NotNull(row.ColDateArray),
                 row => Assert.NotNull(row.ColDateArray)
             );
         }
-
-        [Fact]
-        public async Task CanQueryOnReservedKeywords()
-        {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            var id1 = _fixture.RandomLong();
-            var id2 = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(
-               new TableWithAllColumnTypes
-               {
-                   ColInt64 = id1,
-                   ASC = "This is reserved keyword"
-               });
-            await db.SaveChangesAsync();
-            db.TableWithAllColumnTypes.Add(new TableWithAllColumnTypes
-            {
-                ColInt64 = id2,
-                ASC = "string1"
-            });
-            await db.SaveChangesAsync();
-
-            // Select query
-            var result = db.TableWithAllColumnTypes
-                .Where(s => new long[] { id1, id2 }.Contains(s.ColInt64))
-                .OrderBy(s => s.ASC)
-                .Select(c => c.ASC).ToList();
-            Assert.Collection(result,
-                s => Assert.Equal("This is reserved keyword", s),
-                s => Assert.Equal("string1", s));
-
-            // Where clause
-            var result1 = db.TableWithAllColumnTypes
-                .Where(s => new long[] { id1, id2 }.Contains(s.ColInt64))
-                .Where(s => s.ASC == "string1")
-                .Select(c => c.ASC).ToList();
-            Assert.Collection(result1, s => Assert.Equal("string1", s));
-
-            // Start with query
-            var result2 = db.TableWithAllColumnTypes
-                .Where(s => new long[] { id1, id2 }.Contains(s.ColInt64))
-                .Where(s => s.ASC.StartsWith("This"))
-                .Select(c => c.ASC).ToList();
-            Assert.Collection(result2, s => Assert.Equal("This is reserved keyword", s));
-
-            // Contain query
-            var result3 = db.TableWithAllColumnTypes
-                .Where(s => new long[] { id1, id2 }.Contains(s.ColInt64))
-                .Where(s => s.ASC.Contains("1"))
-                .Select(c => c.ASC).ToList();
-            Assert.Collection(result3, s => Assert.Equal("string1", s));
-
-            // Like function
-            var result4 = db.TableWithAllColumnTypes
-                .Where(s => new long[] { id1, id2 }.Contains(s.ColInt64))
-                .Where(s => EF.Functions.Like(s.ASC, "%1"))
-                .Select(c => c.ASC).ToList();
-            Assert.Collection(result4, s => Assert.Equal("string1", s));
-        }
-        */
     }
 }

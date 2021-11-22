@@ -1,3 +1,4 @@
+using Google.Cloud.Spanner.NHibernate.Functions;
 using NHibernate;
 using NHibernate.Dialect;
 using NHibernate.Dialect.Function;
@@ -44,7 +45,16 @@ namespace Google.Cloud.Spanner.NHibernate
 			RegisterFunction("locate", new SQLFunctionTemplate(NHibernateUtil.String, "STRPOS(?2, ?1)"));
 			RegisterFunction("substring", new StandardSQLFunction("SUBSTR", NHibernateUtil.String));
 			RegisterFunction("trim", new AnsiTrimEmulationFunction());
-
+			RegisterFunction("extract", new SpannerExtractFunction());
+			RegisterFunction("second", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(second from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("minute", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(minute from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("hour", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(hour from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("day", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(day from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("dayofyear", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(dayofyear from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("dayofweek", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(dayofweek from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("month", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(month from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("year", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(year from ?1 AT TIME ZONE 'UTC')"));
+			
 			RegisterKeywords();
 		}
 
@@ -52,6 +62,7 @@ namespace Google.Cloud.Spanner.NHibernate
 
 		private static readonly string[] DialectKeywords =
 		{
+			"ASC"
 		};
 
 		#endregion
@@ -65,8 +76,13 @@ namespace Google.Cloud.Spanner.NHibernate
 
 		protected virtual void RegisterKeywords()
 		{
+			base.RegisterKeywords();
 			RegisterKeywords(DialectKeywords);
 		}
+
+		public override char OpenQuote => '`';
+
+		public override char CloseQuote => '`';
 
 		public override string AddColumnString => "ADD COLUMN";
 
