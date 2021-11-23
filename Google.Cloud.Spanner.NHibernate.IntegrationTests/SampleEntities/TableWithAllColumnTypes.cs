@@ -85,6 +85,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
     {
         public TableWithAllColumnTypesMapping()
         {
+            Persister<SpannerDefaultValueSingleTableEntityPersister>();
             Id(x => x.ColInt64);
             Property(x => x.ColFloat64);
             Property(x => x.ColNumeric);
@@ -96,7 +97,14 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Property(x => x.ColDate);
             Property(x => x.ColTimestamp);
             //Property(x => x.ColJson);
-            Property(x => x.ColCommitTs);
+            Property(x => x.ColCommitTs, m =>
+            {
+                // The following ensures that the SpannerDefaultValueSingleTableEntityPersister will set the column
+                // to the default value for both inserts and updates.
+                m.Insert(false); // This will prevent Hibernate from assigning a value to the column during inserts.
+                m.Update(false); // This will prevent Hibernate from assigning a value to the column during updates.
+                m.Column(c => c.Default("PENDING_COMMIT_TIMESTAMP()"));
+            });
             Property(x => x.ColInt64Array);
             Property(x => x.ColFloat64Array);
             Property(x => x.ColNumericArray);

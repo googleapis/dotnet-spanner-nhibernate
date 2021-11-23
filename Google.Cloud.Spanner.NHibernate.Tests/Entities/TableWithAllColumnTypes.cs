@@ -85,6 +85,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
     {
         public TableWithAllColumnTypesMapping()
         {
+            Persister<SpannerDefaultValueSingleTableEntityPersister>();
             Id(x => x.ColInt64);
             Property(x => x.ColFloat64);
             Property(x => x.ColNumeric);
@@ -96,7 +97,15 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.ColDate);
             Property(x => x.ColTimestamp);
             Property(x => x.ColJson);
-            Property(x => x.ColCommitTs);
+            Property(x => x.ColCommitTs, mapper =>
+            {
+                mapper.Insert(false);
+                mapper.Update(false);
+                mapper.Column(c =>
+                {
+                    c.Default("PENDING_COMMIT_TIMESTAMP()");
+                });
+            });
             Property(x => x.ColInt64Array);
             Property(x => x.ColFloat64Array);
             Property(x => x.ColNumericArray);
