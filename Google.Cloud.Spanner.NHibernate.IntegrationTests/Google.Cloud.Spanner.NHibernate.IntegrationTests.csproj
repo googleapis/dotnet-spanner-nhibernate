@@ -21,6 +21,9 @@
 
     <ItemGroup>
       <None Remove="SampleDataModel.sql" />
+      <Content Include="InterleavedTableTests\InterleavedTableDataModel.sql">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
       <Content Include="SampleDataModel.sql">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>
