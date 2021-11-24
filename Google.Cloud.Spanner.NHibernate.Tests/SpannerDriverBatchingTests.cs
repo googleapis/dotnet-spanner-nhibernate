@@ -35,7 +35,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task InsertMultipleAlbums_UsesBatchDml(bool async)
         {
-            var insertSql = "INSERT INTO Album (Title, ReleaseDate, Singer, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
+            var insertSql = "INSERT INTO Album (Title, ReleaseDate, SingerId, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
 
             using var session = _fixture.SessionFactory.OpenSession();
@@ -69,7 +69,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task UpdateMultipleAlbums_UsesBatchDml(bool async)
         {
-            var updateSql = "UPDATE Album SET Title = @p0, ReleaseDate = @p1, Singer = @p2 WHERE AlbumId = @p3";
+            var updateSql = "UPDATE Album SET Title = @p0, ReleaseDate = @p1, SingerId = @p2 WHERE AlbumId = @p3";
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(1L));
 
             using var session = _fixture.SessionFactory.OpenSession();
@@ -142,7 +142,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             // That would mean overriding the heart of NHibernate, and is not worth the effort when compared to the
             // relatively small upside.
             
-            var insertSql = "INSERT INTO Album (Title, ReleaseDate, Singer, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
+            var insertSql = "INSERT INTO Album (Title, ReleaseDate, SingerId, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
 
             using var session = _fixture.SessionFactory.OpenSession();

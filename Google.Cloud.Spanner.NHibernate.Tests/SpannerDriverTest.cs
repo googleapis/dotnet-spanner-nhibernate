@@ -16,6 +16,7 @@ using Google.Cloud.Spanner.Connection;
 using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
+using Google.Cloud.Spanner.V1;
 using Google.Protobuf.WellKnownTypes;
 using System;
 using System.Collections.Generic;
@@ -61,7 +62,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             Assert.Equal("Alice", singer.FirstName);
             Assert.Equal("Alice Morrison", singer.FullName);
             Assert.Equal("Morrison", singer.LastName);
-            Assert.Null(singer.Picture);
+            Assert.Equal(new byte[]{1,2,3}, singer.Picture);
 
             Assert.Collection(
                 _fixture.SpannerMock.Requests.OfType<V1.ExecuteSqlRequest>(),
@@ -76,9 +77,52 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
 
         [Fact]
+        public async Task CanGetListOfAlbumsFromSinger()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singerSql = AddSingerResult(GetSelectSingerSql());
+            var albumsSql = AddSingerAlbumsResults(GetSelectSingerAlbumsSql(), new []
+            {
+                new object[] { 1L, 1L, 1L, "Title 1", null, 1L },
+                new object[] { 1L, 2L, 2L, "Title 2", null, 1L },
+            });
+            
+            var singer = await session.GetAsync<Singer>(1L);
+            var albums = singer.Albums;
+            
+            Assert.Collection(albums,
+                album =>
+                {
+                    Assert.Equal(1L, album.AlbumId);
+                    Assert.Equal("Title 1", album.Title);
+                },
+                album =>
+                {
+                    Assert.Equal(2L, album.AlbumId);
+                    Assert.Equal("Title 2", album.Title);
+                }
+            );
+            Assert.Collection(
+                _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>(),
+                request =>
+                {
+                    Assert.Equal(singerSql, request.Sql);
+                    Assert.Null(request.Transaction);
+                },
+                request =>
+                {
+                    Assert.Equal(albumsSql, request.Sql);
+                    Assert.Null(request.Transaction);
+                }
+            );
+            // A read-only operation should not initiate and commit a transaction.
+            Assert.Empty(_fixture.SpannerMock.Requests.OfType<CommitRequest>());
+        }
+
+        [Fact]
         public async Task InsertMultipleSingers_UsesSameTransaction()
         {
-            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, SingerId) VALUES (@p0, @p1, @p2, @p3)";
+            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, Picture, SingerId) VALUES (@p0, @p1, @p2, @p3, @p4)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
             var selectFullNameSql = AddSelectSingerFullNameResult("Alice Morrison", 0);
 
@@ -131,7 +175,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         {
             using var session = _fixture.SessionFactory.OpenSession();
 
-            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, SingerId) VALUES (@p0, @p1, @p2, @p3)";
+            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, Picture, SingerId) VALUES (@p0, @p1, @p2, @p3, @p4)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
             var selectFullNameSql = AddSelectSingerFullNameResult("Alice Morrison", 0);
 
@@ -173,7 +217,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task UpdateSinger_SelectsFullName()
         {
             // Setup results.
-            var updateSql = "UPDATE Singer SET FirstName = @p0, LastName = @p1, BirthDate = @p2 WHERE SingerId = @p3";
+            var updateSql = "UPDATE Singer SET FirstName = @p0, LastName = @p1, BirthDate = @p2, Picture = @p3 WHERE SingerId = @p4";
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(1L));
             var selectSingerSql = AddSingerResult(GetSelectSingerSql());
             var selectFullNameSql = AddSelectSingerFullNameResult("Alice Pieterson-Morrison", 0);
@@ -208,6 +252,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task DeleteSinger_DoesNotSelectFullName()
         {
             // Setup results.
+            var updateSql = "UPDATE Album SET Singer = null WHERE Singer = @p0";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(0L));
             var deleteSql = $"DELETE FROM Singer WHERE SingerId = @p0";
             _fixture.SpannerMock.AddOrUpdateStatementResult(deleteSql, StatementResult.CreateUpdateCount(1L));
             var selectSingerSql = AddSingerResult(GetSelectSingerSql());
@@ -226,11 +272,17 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 },
                 request =>
                 {
+                    Assert.Equal(updateSql, request.Sql);
+                    Assert.NotNull(request.Transaction?.Id);
+                },
+                request =>
+                {
                     Assert.Equal(deleteSql, request.Sql);
                     Assert.NotNull(request.Transaction?.Id);
                 }
             );
-            Assert.Single(_fixture.SpannerMock.Requests.Where(request => request is V1.CommitRequest));
+            // The update and the delete are done in separate transactions, as there is no explicit transaction defined.
+            Assert.Equal(2, _fixture.SpannerMock.Requests.Count(request => request is CommitRequest));
         }
 
         [Fact]
@@ -580,7 +632,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Fact]
         public async Task CanInsertRecordWithAllTypes()
         {
-            var insertSql = "INSERT INTO TableWithAllColumnTypes (ColFloat64, ColNumeric, ColBool, ColString, ColStringMax, ColBytes, ColBytesMax, ColDate, ColTimestamp, ColJson, ColCommitTs, ColInt64Array, ColFloat64Array, ColNumericArray, ColBoolArray, ColStringArray, ColStringMaxArray, ColBytesArray, ColBytesMaxArray, ColDateArray, ColTimestampArray, ColJsonArray, ASC, ColInt64) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19, @p20, @p21, @p22, @p23)";
+            var insertSql = "INSERT INTO TableWithAllColumnTypes (ColFloat64, ColNumeric, ColBool, ColString, ColStringMax, ColBytes, ColBytesMax, ColDate, ColTimestamp, ColJson, ColInt64Array, ColFloat64Array, ColNumericArray, ColBoolArray, ColStringArray, ColStringMaxArray, ColBytesArray, ColBytesMaxArray, ColDateArray, ColTimestampArray, ColJsonArray, ASC, ColCommitTs, ColInt64) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19, @p20, @p21, PENDING_COMMIT_TIMESTAMP(), @p22)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
             var selectSql =
                 "SELECT tablewitha_.ColComputed as colcomputed24_2_ FROM TableWithAllColumnTypes tablewitha_ WHERE tablewitha_.ColInt64=@p0";
@@ -599,7 +651,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUpdateRecordWithAllTypes()
         {
             var updateSql =
-                "UPDATE TableWithAllColumnTypes SET ColFloat64 = @p0, ColNumeric = @p1, ColBool = @p2, ColString = @p3, ColStringMax = @p4, ColBytes = @p5, ColBytesMax = @p6, ColDate = @p7, ColTimestamp = @p8, ColJson = @p9, ColCommitTs = @p10, ColInt64Array = @p11, ColFloat64Array = @p12, ColNumericArray = @p13, ColBoolArray = @p14, ColStringArray = @p15, ColStringMaxArray = @p16, ColBytesArray = @p17, ColBytesMaxArray = @p18, ColDateArray = @p19, ColTimestampArray = @p20, ColJsonArray = @p21, ASC = @p22 WHERE ColInt64 = @p23";
+                "UPDATE TableWithAllColumnTypes SET ColFloat64 = @p0, ColNumeric = @p1, ColBool = @p2, ColString = @p3, ColStringMax = @p4, ColBytes = @p5, ColBytesMax = @p6, ColDate = @p7, ColTimestamp = @p8, ColJson = @p9, ColInt64Array = @p10, ColFloat64Array = @p11, ColNumericArray = @p12, ColBoolArray = @p13, ColStringArray = @p14, ColStringMaxArray = @p15, ColBytesArray = @p16, ColBytesMaxArray = @p17, ColDateArray = @p18, ColTimestampArray = @p19, ColJsonArray = @p20, ASC = @p21 WHERE ColInt64 = @p22";
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(1L));
             var selectSql =
                 "SELECT tablewitha_.ColComputed as colcomputed24_2_ FROM TableWithAllColumnTypes tablewitha_ WHERE tablewitha_.ColInt64=@p0";
@@ -713,31 +765,32 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         paramType =>
                         {
                             Assert.Equal("p10", paramType.Key);
-                            Assert.Equal(V1.TypeCode.Timestamp, paramType.Value.Code);
-                        },
-                        paramType =>
-                        {
-                            Assert.Equal("p11", paramType.Key);
                             Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
                             Assert.Equal(V1.TypeCode.Int64, paramType.Value.ArrayElementType.Code);
                         },
                         paramType =>
                         {
-                            Assert.Equal("p12", paramType.Key);
+                            Assert.Equal("p11", paramType.Key);
                             Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
                             Assert.Equal(V1.TypeCode.Float64, paramType.Value.ArrayElementType.Code);
                         },
                         paramType =>
                         {
-                            Assert.Equal("p13", paramType.Key);
+                            Assert.Equal("p12", paramType.Key);
                             Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
                             Assert.Equal(V1.TypeCode.Numeric, paramType.Value.ArrayElementType.Code);
                         },
                         paramType =>
                         {
-                            Assert.Equal("p14", paramType.Key);
+                            Assert.Equal("p13", paramType.Key);
                             Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
                             Assert.Equal(V1.TypeCode.Bool, paramType.Value.ArrayElementType.Code);
+                        },
+                        paramType =>
+                        {
+                            Assert.Equal("p14", paramType.Key);
+                            Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
+                            Assert.Equal(V1.TypeCode.String, paramType.Value.ArrayElementType.Code);
                         },
                         paramType =>
                         {
@@ -749,7 +802,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         {
                             Assert.Equal("p16", paramType.Key);
                             Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
-                            Assert.Equal(V1.TypeCode.String, paramType.Value.ArrayElementType.Code);
+                            Assert.Equal(V1.TypeCode.Bytes, paramType.Value.ArrayElementType.Code);
                         },
                         paramType =>
                         {
@@ -761,36 +814,30 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         {
                             Assert.Equal("p18", paramType.Key);
                             Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
-                            Assert.Equal(V1.TypeCode.Bytes, paramType.Value.ArrayElementType.Code);
+                            Assert.Equal(V1.TypeCode.Date, paramType.Value.ArrayElementType.Code);
                         },
                         paramType =>
                         {
                             Assert.Equal("p19", paramType.Key);
                             Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
-                            Assert.Equal(V1.TypeCode.Date, paramType.Value.ArrayElementType.Code);
-                        },
-                        paramType =>
-                        {
-                            Assert.Equal("p20", paramType.Key);
-                            Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
                             Assert.Equal(V1.TypeCode.Timestamp, paramType.Value.ArrayElementType.Code);
                         },
                         paramType =>
                         {
-                            Assert.Equal("p21", paramType.Key);
+                            Assert.Equal("p20", paramType.Key);
                             Assert.Equal(V1.TypeCode.Array, paramType.Value.Code);
                             Assert.Equal(V1.TypeCode.Json, paramType.Value.ArrayElementType.Code);
                         },
                         paramType =>
                         {
                             // ASC
-                            Assert.Equal("p22", paramType.Key);
+                            Assert.Equal("p21", paramType.Key);
                             Assert.Equal(V1.TypeCode.String, paramType.Value.Code);
                         },
                         paramType =>
                         {
                             // ColInt64
-                            Assert.Equal("p23", paramType.Key);
+                            Assert.Equal("p22", paramType.Key);
                             Assert.Equal(V1.TypeCode.Int64, paramType.Value.Code);
                         }
                     );
@@ -853,12 +900,6 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         param =>
                         {
                             Assert.Equal("p10", param.Key);
-                            // TODO: Implement commit timestamps
-                            // Assert.Equal("PENDING_COMMIT_TIMESTAMP()", param.Value.StringValue);
-                        },
-                        param =>
-                        {
-                            Assert.Equal("p11", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(row.ColInt64Array.Array[0]!.Value.ToString(), value.StringValue),
                                 value => Assert.Equal(row.ColInt64Array.Array[1]!.Value.ToString(), value.StringValue),
@@ -869,7 +910,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p12", param.Key);
+                            Assert.Equal("p11", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(row.ColFloat64Array.Array[0]!.Value, value.NumberValue),
                                 value => Assert.Equal(row.ColFloat64Array.Array[1]!.Value, value.NumberValue),
@@ -878,7 +919,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p13", param.Key);
+                            Assert.Equal("p12", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(row.ColNumericArray.Array[0]!.Value.ToString(), value.StringValue),
                                 value => Assert.Equal(row.ColNumericArray.Array[1]!.Value.ToString(), value.StringValue),
@@ -887,7 +928,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p14", param.Key);
+                            Assert.Equal("p13", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(row.ColBoolArray.Array[0]!.Value, value.BoolValue),
                                 value => Assert.Equal(row.ColBoolArray.Array[1]!.Value, value.BoolValue),
@@ -897,7 +938,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p15", param.Key);
+                            Assert.Equal("p14", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(row.ColStringArray.Array[0], value.StringValue),
                                 value => Assert.Equal(row.ColStringArray.Array[1], value.StringValue),
@@ -907,7 +948,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p16", param.Key);
+                            Assert.Equal("p15", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(row.ColStringMaxArray.Array[0], value.StringValue),
                                 value => Assert.Equal(row.ColStringMaxArray.Array[1], value.StringValue),
@@ -917,7 +958,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p17", param.Key);
+                            Assert.Equal("p16", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(Convert.ToBase64String(row.ColBytesArray.Array[0]), value.StringValue),
                                 value => Assert.Equal(Convert.ToBase64String(row.ColBytesArray.Array[1]), value.StringValue),
@@ -927,7 +968,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p18", param.Key);
+                            Assert.Equal("p17", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(Convert.ToBase64String(row.ColBytesMaxArray.Array[0]), value.StringValue),
                                 value => Assert.Equal(Convert.ToBase64String(row.ColBytesMaxArray.Array[1]), value.StringValue),
@@ -937,7 +978,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p19", param.Key);
+                            Assert.Equal("p18", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(SpannerDate.FromDateTime(row.ColDateArray.Array[0]!.Value).ToString(), value.StringValue),
                                 value => Assert.Equal(SpannerDate.FromDateTime(row.ColDateArray.Array[1]!.Value).ToString(), value.StringValue),
@@ -946,7 +987,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p20", param.Key);
+                            Assert.Equal("p19", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(row.ColTimestampArray.Array[0]!.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ"), value.StringValue),
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase)
@@ -954,7 +995,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         },
                         param =>
                         {
-                            Assert.Equal("p21", param.Key);
+                            Assert.Equal("p20", param.Key);
                             Assert.Collection(param.Value.ListValue.Values,
                                 value => Assert.Equal(row.ColJsonArray.Array[0], value.StringValue),
                                 value => Assert.Equal(row.ColJsonArray.Array[1], value.StringValue),
@@ -964,13 +1005,13 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         param =>
                         {
                             // ASC
-                            Assert.Equal("p22", param.Key);
+                            Assert.Equal("p21", param.Key);
                             Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase);
                         },
                         paramType =>
                         {
                             // ColInt64
-                            Assert.Equal("p23", paramType.Key);
+                            Assert.Equal("p22", paramType.Key);
                             Assert.Equal(row.ColInt64.ToString(), paramType.Value.StringValue);
                         }
                     );
@@ -980,7 +1021,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Fact]
         public async Task CanInsertRecordWithAllTypesWithNullValues()
         {
-            var insertSql = "INSERT INTO TableWithAllColumnTypes (ColFloat64, ColNumeric, ColBool, ColString, ColStringMax, ColBytes, ColBytesMax, ColDate, ColTimestamp, ColJson, ColCommitTs, ColInt64Array, ColFloat64Array, ColNumericArray, ColBoolArray, ColStringArray, ColStringMaxArray, ColBytesArray, ColBytesMaxArray, ColDateArray, ColTimestampArray, ColJsonArray, ASC, ColInt64) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19, @p20, @p21, @p22, @p23)";
+            var insertSql = "INSERT INTO TableWithAllColumnTypes (ColFloat64, ColNumeric, ColBool, ColString, ColStringMax, ColBytes, ColBytesMax, ColDate, ColTimestamp, ColJson, ColInt64Array, ColFloat64Array, ColNumericArray, ColBoolArray, ColStringArray, ColStringMaxArray, ColBytesArray, ColBytesMaxArray, ColDateArray, ColTimestampArray, ColJsonArray, ASC, ColCommitTs, ColInt64) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19, @p20, @p21, PENDING_COMMIT_TIMESTAMP(), @p22)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
             var selectSql =
                 "SELECT tablewitha_.ColComputed as colcomputed24_2_ FROM TableWithAllColumnTypes tablewitha_ WHERE tablewitha_.ColInt64=@p0";
@@ -997,7 +1038,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             foreach (var param in request.Params.Fields)
             {
                 // Only the id should be filled.
-                if (param.Key == "p23")
+                if (param.Key == "p22")
                 {
                     Assert.Equal("1", param.Value.StringValue);
                 }
@@ -1036,10 +1077,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
 
         private static string GetSelectSingerSql() =>
-            "SELECT singer0_.SingerId as singerid1_0_0_, singer0_.FirstName as firstname2_0_0_, singer0_.LastName as lastname3_0_0_, singer0_.FullName as fullname4_0_0_"
-                + ", singer0_.BirthDate as birthdate5_0_0_"
-                // + ", singer0_.Picture as picture6_0_0_"
-                + " FROM Singer singer0_ WHERE singer0_.SingerId=@p0";
+            "SELECT singer0_.SingerId as singerid1_0_0_, singer0_.FirstName as firstname2_0_0_, singer0_.LastName as lastname3_0_0_, "
+            + "singer0_.FullName as fullname4_0_0_, singer0_.BirthDate as birthdate5_0_0_, singer0_.Picture as picture6_0_0_ "
+            + "FROM Singer singer0_ WHERE singer0_.SingerId=@p0";
         
         private void AddEmptySingerResult(string sql) => AddSingerResults(sql, new List<object[]>());
 
@@ -1079,6 +1119,27 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 }
             ));
             return selectFullNameSql;
+        }
+        
+        private static string GetSelectSingerAlbumsSql() =>
+            "SELECT albums0_.Singer as singer5_1_1_, albums0_.AlbumId as albumid1_1_1_, "
+            + "albums0_.AlbumId as albumid1_1_0_, albums0_.Title as title2_1_0_, "
+            + "albums0_.ReleaseDate as releasedate3_1_0_, albums0_.SingerId as singerid4_1_0_ "
+            + "FROM Album albums0_ WHERE albums0_.Singer=@p0";
+        
+        private string AddSingerAlbumsResults(string sql, IEnumerable<object[]> rows)
+        {
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
+                new List<Tuple<V1.TypeCode, string>>
+                {
+                    Tuple.Create(V1.TypeCode.Int64, "singer5_1_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "albumid1_1_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "albumid1_1_0_"),
+                    Tuple.Create(V1.TypeCode.String, "title2_1_0_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_0_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_0_"),
+                }, rows));
+            return sql;
         }
 
         private StatementResult CreateTableWithAllColumnTypesResultSet(TableWithAllColumnTypes row)

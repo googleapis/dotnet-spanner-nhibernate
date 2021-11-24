@@ -17,7 +17,7 @@ using NHibernate.Mapping.ByCode.Conformist;
 using System;
 using System.Linq;
 
-namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
+namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
 {
     public class TableWithAllColumnTypes
     {
@@ -45,7 +45,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
         public virtual SpannerTimestampArray ColTimestampArray { get; set; }
         public virtual SpannerJsonArray ColJsonArray { get; set; }
         public virtual string ColComputed { get; set; }
-        public virtual string ASC { get; set; }
+        public virtual string ColASC { get; set; }
 
         public override bool Equals(object other)
         {
@@ -96,15 +96,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.ColBytesMax);
             Property(x => x.ColDate);
             Property(x => x.ColTimestamp);
-            Property(x => x.ColJson);
-            Property(x => x.ColCommitTs, mapper =>
+            //Property(x => x.ColJson);
+            Property(x => x.ColCommitTs, m =>
             {
-                mapper.Insert(false);
-                mapper.Update(false);
-                mapper.Column(c =>
-                {
-                    c.Default("PENDING_COMMIT_TIMESTAMP()");
-                });
+                // The following ensures that the SpannerDefaultValueSingleTableEntityPersister will set the column
+                // to the default value for both inserts and updates.
+                m.Insert(false); // This will prevent Hibernate from assigning a value to the column during inserts.
+                m.Update(false); // This will prevent Hibernate from assigning a value to the column during updates.
+                m.Column(c => c.Default("PENDING_COMMIT_TIMESTAMP()"));
             });
             Property(x => x.ColInt64Array);
             Property(x => x.ColFloat64Array);
@@ -116,9 +115,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.ColBytesMaxArray);
             Property(x => x.ColDateArray);
             Property(x => x.ColTimestampArray);
-            Property(x => x.ColJsonArray);
+            //Property(x => x.ColJsonArray);
             Property(x => x.ColComputed, mapper => mapper.Generated(PropertyGeneration.Always));
-            Property(x => x.ASC);
+            Property(x => x.ColASC);
         }
     }
 }

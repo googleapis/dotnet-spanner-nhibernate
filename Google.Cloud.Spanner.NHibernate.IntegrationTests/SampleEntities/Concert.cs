@@ -12,33 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using NHibernate.Mapping.ByCode;
 using NHibernate.Mapping.ByCode.Conformist;
+using System;
+using System.Collections.Generic;
 
-namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
+namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
 {
-    public class Album
+    public class Concert
     {
-        public Album()
+        public Concert()
         {
         }
 
-        public virtual long AlbumId { get; set; }
+        public virtual string Id { get; set; }
+        public virtual Venue Venue { get; set; }
+        public virtual DateTime StartTime { get; set; }
         public virtual string Title { get; set; }
-        public virtual SpannerDate ReleaseDate { get; set; }
         public virtual Singer Singer { get; set; }
+        public virtual IList<Performance> Performances { get; set; }
     }
 
-    public class AlbumMapping : ClassMapping<Album>
+    public class ConcertMapping : ClassMapping<Concert>
     {
-        public AlbumMapping()
+        public ConcertMapping()
         {
-            Id(x => x.AlbumId);
+            Table("Concerts");
+            Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
+            ManyToOne(x => x.Venue);
+            Property(x => x.StartTime);
             Property(x => x.Title);
-            Property(x => x.ReleaseDate);
-            ManyToOne(x => x.Singer, m =>
-            {
-                m.Column("SingerId");
-            });
+            ManyToOne(x => x.Singer);
+            Bag(x => x.Performances, c => { }, r => r.OneToMany());
         }
     }
 }

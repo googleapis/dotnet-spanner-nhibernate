@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.Connec
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.NHibernate.Tests", "Google.Cloud.Spanner.NHibernate.Tests\Google.Cloud.Spanner.NHibernate.Tests.csproj", "{6B37A43A-9121-42D8-A274-CA7B47098BCE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.NHibernate.IntegrationTests", "Google.Cloud.Spanner.NHibernate.IntegrationTests\Google.Cloud.Spanner.NHibernate.IntegrationTests.csproj", "{D04E1769-6C05-42B4-846D-2C3C90687D55}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +38,9 @@ Global
 		{6B37A43A-9121-42D8-A274-CA7B47098BCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6B37A43A-9121-42D8-A274-CA7B47098BCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6B37A43A-9121-42D8-A274-CA7B47098BCE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D04E1769-6C05-42B4-846D-2C3C90687D55}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D04E1769-6C05-42B4-846D-2C3C90687D55}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D04E1769-6C05-42B4-846D-2C3C90687D55}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D04E1769-6C05-42B4-846D-2C3C90687D55}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

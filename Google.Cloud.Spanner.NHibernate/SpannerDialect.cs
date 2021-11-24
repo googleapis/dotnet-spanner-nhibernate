@@ -1,3 +1,18 @@
+// Copyright 2021 Google LLC
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     https://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+using Google.Cloud.Spanner.NHibernate.Functions;
 using NHibernate;
 using NHibernate.Dialect;
 using NHibernate.Dialect.Function;
@@ -41,7 +56,19 @@ namespace Google.Cloud.Spanner.NHibernate
 			// Override standard HQL function
 			RegisterFunction("current_timestamp", new NoArgSQLFunction("CURRENT_TIMESTAMP", NHibernateUtil.LocalDateTime, true));
 			RegisterFunction("str", new SQLFunctionTemplate(NHibernateUtil.String, "cast(?1 as STRING)"));
-
+			RegisterFunction("locate", new SQLFunctionTemplate(NHibernateUtil.String, "STRPOS(?2, ?1)"));
+			RegisterFunction("substring", new StandardSQLFunction("SUBSTR", NHibernateUtil.String));
+			RegisterFunction("trim", new AnsiTrimEmulationFunction());
+			RegisterFunction("extract", new SpannerExtractFunction());
+			RegisterFunction("second", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(second from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("minute", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(minute from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("hour", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(hour from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("day", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(day from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("dayofyear", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(dayofyear from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("dayofweek", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(dayofweek from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("month", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(month from ?1 AT TIME ZONE 'UTC')"));
+			RegisterFunction("year", new SQLFunctionTemplate(NHibernateUtil.Int32, "extract(year from ?1 AT TIME ZONE 'UTC')"));
+			
 			RegisterKeywords();
 		}
 
@@ -49,6 +76,7 @@ namespace Google.Cloud.Spanner.NHibernate
 
 		private static readonly string[] DialectKeywords =
 		{
+			"ASC"
 		};
 
 		#endregion
@@ -62,8 +90,13 @@ namespace Google.Cloud.Spanner.NHibernate
 
 		protected virtual void RegisterKeywords()
 		{
+			base.RegisterKeywords();
 			RegisterKeywords(DialectKeywords);
 		}
+
+		public override char OpenQuote => '`';
+
+		public override char CloseQuote => '`';
 
 		public override string AddColumnString => "ADD COLUMN";
 
@@ -77,6 +110,14 @@ namespace Google.Cloud.Spanner.NHibernate
 		{
 			SqlStringBuilder pagingBuilder = new SqlStringBuilder();
 			pagingBuilder.Add(queryString);
+			if (offset != null && limit == null)
+			{
+				// Cloud Spanner requires limit if offset is specified.
+				// This creates a LIMIT clause contains a very large number
+				// rows. The sum of LIMIT and OFFSET may not exceed the max
+				// value for INT64.
+				pagingBuilder.Add($" LIMIT {long.MaxValue / 2}");
+			}
 
 			if (limit != null)
 			{
@@ -86,7 +127,6 @@ namespace Google.Cloud.Spanner.NHibernate
 
 			if (offset != null)
 			{
-				// TODO: OFFSET is only supported in combination with LIMIT
 				pagingBuilder.Add(" OFFSET ");
 				pagingBuilder.Add(offset);
 			}
