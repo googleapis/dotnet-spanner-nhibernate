@@ -28,22 +28,22 @@ CREATE TABLE Albums (
   Id          STRING(36) NOT NULL,
   Title       STRING(100) NOT NULL,
   ReleaseDate DATE,
-  Singer_Id   STRING(36) NOT NULL,
-  CONSTRAINT FK_Albums_Singers FOREIGN KEY (Singer_Id) REFERENCES Singers (Id),
+  Singer      STRING(36) NOT NULL,
+  CONSTRAINT  FK_Albums_Singers FOREIGN KEY (Singer) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
 
 CREATE TABLE Tracks (
   Id              STRING(36) NOT NULL,
-  Album_Id        STRING(36) NOT NULL,
+  Album           STRING(36) NOT NULL,
   Title           STRING(200) NOT NULL,
   Duration        NUMERIC,
   LyricsLanguages ARRAY<STRING(2)>,
   Lyrics          ARRAY<STRING(MAX)>,
   CONSTRAINT      Chk_Languages_Lyrics_Length_Equal CHECK (ARRAY_LENGTH(LyricsLanguages) = ARRAY_LENGTH(Lyrics)),
-  CONSTRAINT      FK_Tracks_Albums FOREIGN KEY (Album_Id) REFERENCES Albums (Id),
+  CONSTRAINT      FK_Tracks_Albums FOREIGN KEY (Album) REFERENCES Albums (Id),
 ) PRIMARY KEY (Id);
 
-CREATE UNIQUE INDEX Idx_Tracks_Album_Id_Title ON Tracks (Album_Id, Title);
+CREATE UNIQUE INDEX Idx_Tracks_Album_Title ON Tracks (Album, Title);
 
 CREATE TABLE Venues (
   Code      STRING(10) NOT NULL,
@@ -55,22 +55,22 @@ CREATE TABLE Venues (
 
 CREATE TABLE Concerts (
   Id         STRING(36) NOT NULL,
-  Venue_Code STRING(10) NOT NULL,
+  Venue      STRING(10) NOT NULL,
   StartTime  TIMESTAMP NOT NULL,
-  Singer_Id  STRING(36) NOT NULL,
+  Singer     STRING(36) NOT NULL,
   Title      STRING(200),
-  CONSTRAINT FK_Concerts_Venues FOREIGN KEY (Venue_Code) REFERENCES Venues (Code),
-  CONSTRAINT FK_Concerts_Singers FOREIGN KEY (Singer_Id) REFERENCES Singers (Id),
+  CONSTRAINT FK_Concerts_Venues FOREIGN KEY (Venue) REFERENCES Venues (Code),
+  CONSTRAINT FK_Concerts_Singers FOREIGN KEY (Singer) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
 
 CREATE TABLE Performances (
   Id               STRING(36) NOT NULL,
-  Concert_Id       STRING(36) NOT NULL,
-  Track_Id         STRING(36) NOT NULL,
+  Concert          STRING(36) NOT NULL,
+  Track            STRING(36) NOT NULL,
   StartTime        TIMESTAMP,
   Rating           FLOAT64,
-  CONSTRAINT FK_Performances_Concerts FOREIGN KEY (Concert_Id) REFERENCES Concerts (Id),
-  CONSTRAINT FK_Performances_Tracks FOREIGN KEY (Track_Id) REFERENCES Tracks (Id),
+  CONSTRAINT FK_Performances_Concerts FOREIGN KEY (Concert) REFERENCES Concerts (Id),
+  CONSTRAINT FK_Performances_Tracks FOREIGN KEY (Track) REFERENCES Tracks (Id),
 ) PRIMARY KEY (Id);
 
 CREATE TABLE TableWithAllColumnTypes (
@@ -82,7 +82,7 @@ CREATE TABLE TableWithAllColumnTypes (
 	ColStringMax STRING(MAX),
 	ColBytes BYTES(100),
 	ColBytesMax BYTES(MAX),
-	ColJson JSON(MAX),
+	ColJson JSON,
 	ColDate DATE,
 	ColTimestamp TIMESTAMP,
 	ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true),
