@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Cloud.Spanner.Connection;
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
-using NHibernate;
-using NHibernate.Event.Default;
+using NHibernate.Criterion;
 using NHibernate.Exceptions;
 using NHibernate.Linq;
 using System;
-using System.Data;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -69,7 +67,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         {
             var venueCode = _fixture.RandomString(4);
             using var session = _fixture.SessionFactory.OpenSession();
-            using (var transaction = session.BeginTransaction())
+            using (var unused = session.BeginTransaction())
             {
                 await session.SaveAsync(new Venue
                 {
@@ -249,7 +247,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 Code = venueCode,
                 Name = venueName,
             });
-            var dbTransaction = (SpannerRetriableTransaction)transaction.GetDbTransaction();
+            var dbTransaction = transaction.GetDbTransaction();
             await transaction.CommitAsync();
             var commitTimestamp = dbTransaction.CommitTimestamp;
 
@@ -281,7 +279,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 // The read timestamp is chosen by the backend and could be before or after the venue was created.
                 if (result != null)
                 {
-                    Assert.Equal(venueName, (string)result.Name);
+                    Assert.Equal(venueName, result.Name);
                 }
             }
             catch (Exception e)
@@ -289,22 +287,21 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 Assert.Contains("Table not found", e.Message);
             }
         }
-/*
-        [SkippableFact]
+
+        [Fact]
         public async Task CanUseComputedColumnAndCommitTimestamp()
         {
-            Skip.If(SpannerFixtureBase.IsEmulator, "Emulator does not support inserting multiple rows in one table with a commit timestamp column in one transaction");
             var id1 = _fixture.RandomLong();
             var id2 = _fixture.RandomLong();
 
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            db.TableWithAllColumnTypes.AddRange(
-                new TableWithAllColumnTypes { ColInt64 = id1, ColStringArray = new List<string> { "1", "2", "3" } },
-                new TableWithAllColumnTypes { ColInt64 = id2, ColStringArray = new List<string> { "4", "5", "6" } }
-            );
-            await db.SaveChangesAsync();
+            using var session = _fixture.SessionFactory.OpenSession();
+            await session.SaveAsync(new TableWithAllColumnTypes
+                { ColInt64 = id1, ColStringArray = new SpannerStringArray(new List<string> { "1", "2", "3" }) });
+            await session.SaveAsync(new TableWithAllColumnTypes
+                { ColInt64 = id2, ColStringArray = new SpannerStringArray(new List<string> { "4", "5", "6" }) });
+            await session.FlushAsync();
 
-            var rows = await db.TableWithAllColumnTypes
+            var rows = await session.Query<TableWithAllColumnTypes>()
                 .Where(row => new[] { id1, id2 }.Contains(row.ColInt64))
                 .OrderBy(row => row.ColInt64 == id1 ? 1 : 2) // This ensures that the row with id1 is returned as the first result.
                 .ToListAsync();
@@ -317,14 +314,13 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         }
 
         [SkippableTheory]
-        [InlineData(false)]
-        [InlineData(true)]
+        [CombinatorialData]
         public void TransactionRetry(bool disableInternalRetries)
         {
-            Skip.If(SpannerFixtureBase.IsEmulator, "Emulator does not support multiple simultanous transactions");
+            Skip.If(SpannerFixtureBase.IsEmulator, "Emulator does not support multiple simultaneous transactions");
             const int transactions = 8;
             var aborted = new List<Exception>();
-            var res = Parallel.For(0, transactions, (i, state) =>
+            Parallel.For(0L, transactions, (i, state) =>
             {
                 try
                 {
@@ -353,60 +349,26 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public async Task ComputedColumnIsPropagatedInManualTransaction()
         {
-            using var db = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            using var transaction = await db.Database.BeginTransactionAsync();
-            var id = _fixture.RandomLong();
-            db.Singers.Add(new Singers
+            using var session = _fixture.SessionFactory.OpenSession();
+            using var transaction = session.BeginTransaction();
+            var id  = await session.SaveAsync(new Singer
             {
-                SingerId = id,
                 FirstName = "Alice",
                 LastName = "Ferguson",
             });
-            await db.SaveChangesAsync();
+            await session.FlushAsync();
 
-            var row = await db.Singers.FindAsync(id);
+            var row = await session.LoadAsync<Singer>(id);
             Assert.Equal("Alice Ferguson", row.FullName);
 
             await transaction.CommitAsync();
         }
-
-        [Fact]
-        public async Task ManualTransactionCannotReadMutations()
-        {
-            var options = new DbContextOptionsBuilder<SpannerSampleDbContext>()
-                .UseSpanner(_fixture.ConnectionString)
-                .UseMutations(Infrastructure.MutationUsage.Always)
-                .Options;
-            using var db = new SpannerSampleDbContext((DbContextOptions<SpannerSampleDbContext>)options);
-            using var transaction = await db.Database.BeginTransactionAsync();
-            var id = _fixture.RandomLong();
-            db.TableWithAllColumnTypes.Add(new TableWithAllColumnTypes
-            {
-                ColInt64 = id,
-                ColString = "Test row",
-            });
-            await db.SaveChangesAsync();
-
-            // Getting the row from the context using its id should work, as the row is attached to the context.
-            var row = await db.TableWithAllColumnTypes.FindAsync(id);
-            Assert.NotNull(row);
-
-            // Getting the row by querying will not work, as the context is using mutations for all transactions,
-            // and mutations are not readable during the same transaction.
-            row = await db.TableWithAllColumnTypes.Where(record => record.ColInt64 == id).FirstOrDefaultAsync();
-            Assert.Null(row);
-
-            // Commit the transaction. The row should now be readable through a query.
-            await transaction.CommitAsync();
-            row = await db.TableWithAllColumnTypes.Where(record => record.ColInt64 == id).FirstOrDefaultAsync();
-            Assert.NotNull(row);
-        }
-
+        
         private async Task InsertRandomSinger(bool disableInternalRetries)
         {
             var rnd = new Random(Guid.NewGuid().GetHashCode());
-            using var context = new TestSpannerSampleDbContext(_fixture.DatabaseName);
-            using var transaction = await context.Database.BeginTransactionAsync();
+            using var session = _fixture.SessionFactory.OpenSession();
+            using var transaction = session.BeginTransaction();
             if (disableInternalRetries)
             {
                 transaction.DisableInternalRetries();
@@ -428,17 +390,16 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 
                 // Yes, this is highly inefficient, but that is intentional. This
                 // will cause a large number of the transactions to be aborted.
-                var existing = await context
-                    .Singers
-                    .Where(v => EF.Functions.Like(v.LastName, prefix + "%"))
+                var existing = await session
+                    .Query<Singer>()
+                    .Where(v => v.LastName.IsLike(prefix, MatchMode.Start))
                     .OrderBy(v => v.LastName)
                     .FirstOrDefaultAsync();
 
                 if (existing == null)
                 {
-                    context.Singers.Add(new Singers
+                    await session.SaveAsync(new Singer
                     {
-                        SingerId = id,
                         FirstName = firstName,
                         LastName = lastName,
                     });
@@ -446,11 +407,11 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 else
                 {
                     existing.FirstName = firstName;
+                    await session.UpdateAsync(existing);
                 }
-                await context.SaveChangesAsync();
+                await session.FlushAsync();
             }
             await transaction.CommitAsync();
         }
-        */
     }
 }
