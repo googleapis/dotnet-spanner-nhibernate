@@ -84,11 +84,11 @@ namespace Google.Cloud.Spanner.NHibernate
             }
         }
         
-        protected virtual SqlCommandInfo GenerateUpdateString(bool[] includeProperty, int j, bool useRowId) =>
+        protected override SqlCommandInfo GenerateUpdateString(bool[] includeProperty, int j, bool useRowId) =>
             GenerateUpdateString(includeProperty, j, null, useRowId);
         
 		/// <summary> Generate the SQL that updates a row by id (and version)</summary>
-		protected internal SqlCommandInfo GenerateUpdateString(bool[] includeProperty, int j, object[] oldFields, bool useRowId) =>
+		private SqlCommandInfo GenerateUpdateString(bool[] includeProperty, int j, object[] oldFields, bool useRowId) =>
             AppendUpdateString(base.GenerateUpdateString(includeProperty, j, oldFields, useRowId));
 
         private SqlCommandInfo AppendUpdateString(SqlCommandInfo info)
