@@ -18,8 +18,10 @@ using Grpc.Core;
 using NHibernate;
 using NHibernate.Cfg;
 using NHibernate.Mapping.ByCode;
+using NHibernate.SqlCommand;
 using NHibernate.Util;
 using System;
+using Environment = NHibernate.Cfg.Environment;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests
 {
@@ -49,9 +51,16 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             nhConfig.AddMapping(mapping);
             
             SessionFactory = nhConfig.BuildSessionFactory();
+                        
+            // This is needed for support for query hints.
+            nhConfig.SetInterceptor(new SpannerQueryHintInterceptor());
+            nhConfig.Properties[Environment.UseSqlComments] = "true";
+            SessionFactoryWithComments = nhConfig.BuildSessionFactory();
         }
 
         public ISessionFactory SessionFactory { get; }
+        
+        public ISessionFactory SessionFactoryWithComments { get; }
         
         public string ConnectionString => $"Data Source=projects/p1/instances/i1/databases/d1;Host={Host};Port={Port}";
     }
