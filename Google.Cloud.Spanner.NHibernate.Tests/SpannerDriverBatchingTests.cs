@@ -14,7 +14,9 @@
 
 using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
+using Google.Cloud.Spanner.V1;
 using Google.Protobuf.WellKnownTypes;
+using NHibernate.Linq;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -169,6 +171,79 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 session.Flush();
             }
             AssertAlbumBatchDmlRequests(insertSql);
+        }
+
+        [Fact]
+        public async Task HqlUpdate()
+        {
+            var sql = "update Album set Title=@p0 where Title=@p1";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateUpdateCount(100));
+            using var session = _fixture.SessionFactory.OpenSession();
+            var hql = "update Album a set a.Title = :newTitle where a.Title = :oldTitle";
+            var updateCount = await session
+                .CreateQuery(hql)
+                .SetParameter("newTitle", "My new title")
+                .SetParameter("oldTitle", "My old title")
+                .ExecuteUpdateAsync();
+            Assert.Equal(100, updateCount);
+            var request = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>().FirstOrDefault(r => r.Sql.Equals(sql));
+            Assert.NotNull(request);
+            Assert.Collection(request.Params.Fields,
+                param => Assert.Equal("My new title", param.Value.StringValue),
+                param => Assert.Equal("My old title", param.Value.StringValue));
+        }
+
+        [Fact]
+        public async Task LinqUpdate()
+        {
+            var sql = "update Album set Title=@p0 where Title=@p1";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateUpdateCount(100));
+            using var session = _fixture.SessionFactory.OpenSession();
+            var updateCount = await session
+                .Query<Album>()
+                .Where(a => a.Title.Equals("My old title"))
+                .UpdateAsync(a => new Album { Title = "My new title" });
+            Assert.Equal(100, updateCount);
+            var request = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>().FirstOrDefault(r => r.Sql.Equals(sql));
+            Assert.NotNull(request);
+            Assert.Collection(request.Params.Fields,
+                param => Assert.Equal("My new title", param.Value.StringValue),
+                param => Assert.Equal("My old title", param.Value.StringValue));
+        }
+
+        [Fact]
+        public async Task HqlInsert()
+        {
+            var sql =
+                "insert into Album ( AlbumId, Title, SingerId ) "
+                      + "select singer0_.SingerId as col_0_0_, singer0_.FullName as col_1_0_, singer0_.SingerId as col_2_0_ "
+                      + "from Singer singer0_";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateUpdateCount(100));
+            using var session = _fixture.SessionFactory.OpenSession();
+            var updateCount = await session
+                .CreateQuery("insert into Album (AlbumId, Title, Singer) select s.SingerId, s.FullName, s from Singer s")
+                .ExecuteUpdateAsync();
+            Assert.Equal(100, updateCount);
+        }
+
+        [Fact]
+        public async Task LinqInsert()
+        {
+            var sql =
+                "insert into Album ( AlbumId, Title, SingerId ) "
+                + "select singer0_.SingerId as col_0_0_, singer0_.FullName as col_1_0_, singer0_.SingerId as col_2_0_ "
+                + "from Singer singer0_";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateUpdateCount(100));
+            using var session = _fixture.SessionFactory.OpenSession();
+            var updateCount = await session
+                .Query<Singer>()
+                .InsertBuilder()
+                .Into<Album>()
+                .Value(a => a.AlbumId, s => s.SingerId)
+                .Value(a => a.Title, s => s.FullName)
+                .Value(a => a.Singer, s => s)
+                .InsertAsync();
+            Assert.Equal(100, updateCount);
         }
     }
 }
