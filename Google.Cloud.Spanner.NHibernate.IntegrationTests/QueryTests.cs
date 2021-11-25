@@ -870,7 +870,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             );
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task CanUseStatementHint()
         {
             using var session = _fixture.SessionFactory.OpenSession();
