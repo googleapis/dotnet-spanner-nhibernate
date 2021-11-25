@@ -13,7 +13,10 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
+using Google.Cloud.Spanner.V1;
+using NHibernate.Criterion;
 using NHibernate.Linq;
+using NHibernate.SqlCommand;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -865,6 +868,256 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             Assert.Collection(rows,
                 row => Assert.NotNull(row.ColDateArray)
             );
+        }
+
+        [Fact]
+        public async Task CanUseStatementHint()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = (string) await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .Query<Singer>()
+                .SetStatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}")
+                .Where(s => s.LastName.Equals("Peterson") && s.Id.Equals(id))
+                .ToListAsync();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseTableHint()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = (string) await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .Query<Singer>()
+                .SetTableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                .Where(s => s.LastName.Equals("Peterson") && s.Id.Equals(id))
+                .ToListAsync();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseTableHintOnJoin()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singer = new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            };
+            var id = (string) await session.SaveAsync(singer);
+            await session.SaveAsync(new Album
+            {
+                Singer = singer, Title = "My first album"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                .SetTableHints(new Dictionary<string, string>
+                {
+                    {"Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"},
+                    {"Albums", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .Where(s => s.LastName.Equals("Peterson") && s.Id.Equals(id))
+                .ToListAsync();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndTableHints()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singer = new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            };
+            var id = (string) await session.SaveAsync(singer);
+            await session.SaveAsync(new Album
+            {
+                Singer = singer, Title = "My first album"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                .SetStatementAndTableHints("@{USE_ADDITIONAL_PARALLELISM=TRUE}", new Dictionary<string, string>
+                {
+                    {"Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"},
+                    {"Album", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .Where(s => s.LastName.Equals("Peterson") && s.Id.Equals(id))
+                .ToListAsync();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseStatementHintWithHql()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = (string) await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateQuery("from Singer where LastName = :lastName and Id = :id")
+                .SetStatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}")
+                .SetParameter("lastName", "Peterson")
+                .SetParameter("id", id)
+                .ListAsync<Singer>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseTableHintWithHql()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = (string) await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateQuery("from Singer where LastName = :lastName and Id = :id")
+                .SetTableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                .SetParameter("lastName", "Peterson")
+                .SetParameter("id", id)
+                .ListAsync<Singer>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseTableHintOnJoinWithHql()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = (string) await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateQuery("from Singer as singer left outer join singer.Albums as album where singer.LastName = :lastName and singer.Id = :id")
+                .SetTableHints(new Dictionary<string, string>
+                {
+                    {"Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"},
+                    {"Albums", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .SetParameter("lastName", "Peterson")
+                .SetParameter("id", id)
+                .ListAsync<object[]>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", (singer[0] as Singer)!.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndTableHintsWithHql()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = (string) await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateQuery("from Singer as singer left outer join singer.Albums as album where singer.LastName = :lastName and singer.Id = :id")
+                .SetStatementAndTableHints("@{USE_ADDITIONAL_PARALLELISM=TRUE}", new Dictionary<string, string>
+                {
+                    {"Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"},
+                    {"Albums", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .SetParameter("lastName", "Peterson")
+                .SetParameter("id", id)
+                .ListAsync<object[]>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", (singer[0] as Singer)!.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseStatementHintWithCriteria()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateCriteria(typeof(Singer))
+                .Add(Restrictions.Eq("LastName", "Peterson"))
+                .Add(Restrictions.Eq("Id", id))
+                .SetStatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}")
+                .ListAsync<Singer>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseTableHintWithCriteria()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateCriteria(typeof(Singer))
+                .Add(Restrictions.Eq("LastName", "Peterson"))
+                .Add(Restrictions.Eq("Id", id))
+                .SetTableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                .ListAsync<Singer>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseTableHintOnJoinWithCriteria()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateCriteria(typeof(Singer), "singer")
+                .CreateAlias("Albums", "album", JoinType.LeftOuterJoin)
+                .Add(Restrictions.Eq("singer.LastName", "Peterson"))
+                .Add(Restrictions.Eq("singer.Id", id))
+                .SetTableHints(new Dictionary<string, string>
+                {
+                    {"Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"},
+                    {"Albums", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .ListAsync<Singer>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndTableHintsWithCriteria()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateCriteria(typeof(Singer), "singer")
+                .CreateAlias("Albums", "album", JoinType.LeftOuterJoin)
+                .Add(Restrictions.Eq("singer.LastName", "Peterson"))
+                .Add(Restrictions.Eq("singer.Id", id))
+                .SetStatementAndTableHints("@{USE_ADDITIONAL_PARALLELISM=TRUE}", new Dictionary<string, string>
+                {
+                    {"Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"},
+                    {"Albums", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .ListAsync<Singer>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
         }
     }
 }

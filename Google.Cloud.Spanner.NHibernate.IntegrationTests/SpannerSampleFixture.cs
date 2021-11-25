@@ -22,6 +22,7 @@ using NHibernate.Util;
 using System;
 using System.IO;
 using System.Reflection;
+using Environment = NHibernate.Cfg.Environment;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 {
@@ -67,6 +68,10 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             mapper.AddMapping<TableWithAllColumnTypesMapping>();
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             nhConfig.AddMapping(mapping);
+            
+            // This is needed for support for query hints.
+            nhConfig.SetInterceptor(new SpannerQueryHintInterceptor());
+            nhConfig.Properties[Environment.UseSqlComments] = "true";
             
             SessionFactory = nhConfig.BuildSessionFactory();
         }

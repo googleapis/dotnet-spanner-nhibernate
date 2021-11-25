@@ -32,6 +32,8 @@ CREATE TABLE Albums (
   CONSTRAINT  FK_Albums_Singers FOREIGN KEY (Singer) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
 
+CREATE UNIQUE INDEX Idx_Albums_Title ON Albums (Singer, Title);
+
 CREATE TABLE Tracks (
   Id              STRING(36) NOT NULL,
   Album           STRING(36) NOT NULL,
