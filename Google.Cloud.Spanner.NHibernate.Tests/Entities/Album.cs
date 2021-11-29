@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using NHibernate.Mapping.ByCode.Conformist;
+using System.Collections.Generic;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
 {
@@ -26,6 +27,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
         public virtual string Title { get; set; }
         public virtual SpannerDate ReleaseDate { get; set; }
         public virtual Singer Singer { get; set; }
+        public virtual IList<Track> Tracks { get; set; } 
     }
 
     public class AlbumMapping : ClassMapping<Album>
@@ -35,10 +37,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Id(x => x.AlbumId);
             Property(x => x.Title);
             Property(x => x.ReleaseDate);
-            ManyToOne(x => x.Singer, m =>
-            {
-                m.Column("SingerId");
-            });
+            ManyToOne(x => x.Singer, m => m.Column("SingerId"));
+            Bag(x => x.Tracks, c => { }, r => r.OneToMany());
         }
     }
 }

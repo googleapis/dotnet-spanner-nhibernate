@@ -47,6 +47,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             mapper.AddMapping<SingerMapping>();
             mapper.AddMapping<AlbumMapping>();
             mapper.AddMapping<TableWithAllColumnTypesMapping>();
+            mapper.AddMapping<TrackMapping>();
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             nhConfig.AddMapping(mapping);
             
@@ -56,11 +57,20 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             nhConfig.SetInterceptor(new SpannerQueryHintInterceptor());
             nhConfig.Properties[Environment.UseSqlComments] = "true";
             SessionFactoryWithComments = nhConfig.BuildSessionFactory();
+
+            // Configure some entities to use mutations instead of DML in a separate SessionFactory.
+            nhConfig.GetClassMapping(typeof(Album)).EntityPersisterClass = typeof(SpannerMutationsEntityPersister);
+            nhConfig.GetClassMapping(typeof(Album)).DynamicUpdate = true;
+            nhConfig.GetClassMapping(typeof(Track)).EntityPersisterClass = typeof(SpannerMutationsEntityPersister);
+            nhConfig.GetClassMapping(typeof(Track)).DynamicUpdate = true;
+            SessionFactoryUsingMutations = nhConfig.BuildSessionFactory();
         }
 
         public ISessionFactory SessionFactory { get; }
         
         public ISessionFactory SessionFactoryWithComments { get; }
+        
+        public ISessionFactory SessionFactoryUsingMutations { get; }
         
         public string ConnectionString => $"Data Source=projects/p1/instances/i1/databases/d1;Host={Host};Port={Port}";
     }

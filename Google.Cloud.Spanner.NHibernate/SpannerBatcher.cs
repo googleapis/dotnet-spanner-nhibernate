@@ -16,6 +16,8 @@ using Google.Cloud.Spanner.Connection;
 using NHibernate;
 using NHibernate.AdoNet;
 using NHibernate.Exceptions;
+using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading;
@@ -23,17 +25,21 @@ using System.Threading.Tasks;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
+    /// <summary>
+    /// NHibernate batcher implementation that will use BatchDml or Mutations to batch
+    /// multiple insert/update/delete operations together for a Spanner database.
+    /// </summary>
     public class SpannerBatcher : AbstractBatcher
     {
         private int _batchSize;
         private int _totalExpectedRowsAffected;
-        private SpannerRetriableBatchCommand _currentBatch;
+        private LinkedList<SpannerRetriableCommand> _currentBatch;
         private int _currentBatchStatementCount;
         
         public SpannerBatcher(ConnectionManager connectionManager, IInterceptor interceptor) : base(connectionManager, interceptor)
         {
             _batchSize = Factory.Settings.AdoBatchSize;
-            _currentBatch = new SpannerRetriableBatchCommand();
+            _currentBatch = new LinkedList<SpannerRetriableCommand>();
         }
 
         public override int BatchSize
@@ -55,8 +61,7 @@ namespace Google.Cloud.Spanner.NHibernate
             _totalExpectedRowsAffected += expectation.ExpectedRowCount;
             var batchUpdate = CurrentCommand as SpannerRetriableCommand;
             Prepare(batchUpdate);
-            Driver.AdjustCommand(batchUpdate);
-            _currentBatch.Add(batchUpdate!.Clone() as SpannerRetriableCommand);
+            AddToBatch(batchUpdate);
 
             if (_currentBatchStatementCount >= _batchSize)
             {
@@ -64,27 +69,81 @@ namespace Google.Cloud.Spanner.NHibernate
             }
         }
 
+        private void AddToBatch(SpannerRetriableCommand batchUpdate)
+        {
+            Driver.AdjustCommand(batchUpdate);
+            var clone = (SpannerRetriableCommand) batchUpdate!.Clone();
+            _currentBatch.AddLast(clone);
+            _currentBatchStatementCount++;
+        }
+
+        private Tuple<List<SpannerRetriableCommand>, List<SpannerRetriableCommand>> GetDmlAndMutationCommands(DbCommand ps)
+        {
+            var dmlCommands = new List<SpannerRetriableCommand>(_currentBatch.Count);
+            var mutationCommands = new List<SpannerRetriableCommand>(_currentBatch.Count);
+            foreach (var cmd in _currentBatch)
+            {
+                cmd.Connection = ps.Connection;
+                cmd.Transaction = ps.Transaction;
+                if (cmd is SpannerDmlOrMutationCommand dmlOrMutationCommand)
+                {
+                    if (ps.Transaction == null
+                        || (ps.Transaction is SpannerRetriableTransaction spannerRetriableTransaction
+                        && spannerRetriableTransaction.GetMutationUsage() == MutationUsage.Always))
+                    {
+                        var mutationCommand = dmlOrMutationCommand.MutationCommand;
+                        // Copy the parameter values to the mutation command.
+                        for (var i = 0; i < mutationCommand.Parameters.Count; i++)
+                        {
+                            mutationCommand.Parameters[i].Value = cmd.Parameters[i].Value;
+                        }
+                        mutationCommands.Add(dmlOrMutationCommand.MutationCommand);
+                    }
+                    else
+                    {
+                        // A SpannerDmlOrMutationCommand will default to DML.
+                        dmlCommands.Add(dmlOrMutationCommand);
+                    }
+                }
+                else
+                {
+                    dmlCommands.Add(cmd);
+                }
+            }
+            return new Tuple<List<SpannerRetriableCommand>, List<SpannerRetriableCommand>>(dmlCommands, mutationCommands);
+        }
+
         protected override void DoExecuteBatch(DbCommand ps)
         {
             try
             {
                 CheckReaders();
-                int rowsAffected;
-                
+                var rowsAffected = 0;
+
+                var dmlAndMutationCommands = GetDmlAndMutationCommands(ps);
+                var dmlCommands = dmlAndMutationCommands.Item1;
+                var mutationCommands = dmlAndMutationCommands.Item2;
                 try
                 {
-                    if (_currentBatchStatementCount == 1)
+                    if (dmlCommands.Count == 1)
                     {
-                        rowsAffected = ps.ExecuteNonQuery();
+                        rowsAffected = dmlCommands[0].ExecuteNonQuery();
                     }
-                    else
+                    else if (dmlCommands.Count > 1)
                     {
-                        _currentBatch.Connection = ps.Connection as SpannerRetriableConnection;
-                        _currentBatch.Transaction = ps.Transaction as SpannerRetriableTransaction;
+                        var batch = new SpannerRetriableBatchCommand();
+                        dmlCommands.ForEach(cmd => batch.Add(cmd));
+                        batch.Connection = (SpannerRetriableConnection) ps.Connection;
+                        batch.Transaction = (SpannerRetriableTransaction) ps.Transaction;
                         // The maximum mutation count for a Spanner transaction is 20,000, so we don't
                         // have to worry that the total update count of a single batch will ever overflow
                         // an int.
-                        rowsAffected = (int)_currentBatch.ExecuteNonQuery().Sum();
+                        rowsAffected = (int)batch.ExecuteNonQuery().Sum();
+                    }
+                    if (mutationCommands.Count > 0)
+                    {
+                        rowsAffected += DoExecuteMutations(mutationCommands, (SpannerRetriableConnection)ps.Connection,
+                            ps.Transaction);
                     }
                 }
                 catch (DbException e)
@@ -99,11 +158,34 @@ namespace Google.Cloud.Spanner.NHibernate
             }
         }
 
+        private int DoExecuteMutations(List<SpannerRetriableCommand> mutations, SpannerRetriableConnection connection, DbTransaction transaction)
+        {
+            var rowsAffected = 0;
+            var ownTransaction = transaction == null;
+            if (ownTransaction)
+            {
+                transaction = connection.BeginTransaction();
+            }
+            foreach (var mutation in mutations)
+            {
+                mutation.Connection = connection;
+                mutation.Transaction = transaction;
+                mutation.ExecuteNonQuery();
+                // Each mutation always affects one row.
+                rowsAffected++;
+            }
+            if (ownTransaction)
+            {
+                transaction.Commit();
+            }
+            return rowsAffected;
+        }
+
         private void ClearCurrentBatch()
         {
             _totalExpectedRowsAffected = 0;
             _currentBatchStatementCount = 0;
-            _currentBatch = new SpannerRetriableBatchCommand();
+            _currentBatch = new LinkedList<SpannerRetriableCommand>();
         }
 
         protected override async Task DoExecuteBatchAsync(DbCommand ps, CancellationToken cancellationToken)
@@ -111,24 +193,33 @@ namespace Google.Cloud.Spanner.NHibernate
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await CheckReadersAsync(cancellationToken).ConfigureAwait(false);
-                int rowsAffected;
+                await CheckReadersAsync(cancellationToken);
+                var rowsAffected = 0;
+
+                var dmlAndMutationCommands = GetDmlAndMutationCommands(ps);
+                var dmlCommands = dmlAndMutationCommands.Item1;
+                var mutationCommands = dmlAndMutationCommands.Item2;
                 try
                 {
-                    if (_currentBatchStatementCount == 1)
+                    if (dmlCommands.Count == 1)
                     {
-                        rowsAffected = await ps.ExecuteNonQueryAsync(cancellationToken);
+                        rowsAffected = await dmlCommands[0].ExecuteNonQueryAsync(cancellationToken);
                     }
-                    else
+                    else if (dmlCommands.Count > 1)
                     {
-                        _currentBatch.Connection = ps.Connection as SpannerRetriableConnection;
-                        _currentBatch.Transaction = ps.Transaction as SpannerRetriableTransaction;
+                        var batch = new SpannerRetriableBatchCommand();
+                        dmlCommands.ForEach(cmd => batch.Add(cmd));
+                        batch.Connection = (SpannerRetriableConnection) ps.Connection;
+                        batch.Transaction = (SpannerRetriableTransaction) ps.Transaction;
                         // The maximum mutation count for a Spanner transaction is 20,000, so we don't
                         // have to worry that the total update count of a single batch will ever overflow
                         // an int.
-                        rowsAffected =
-                            (int)(await _currentBatch.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false))
-                            .Sum();
+                        rowsAffected = (int) (await batch.ExecuteNonQueryAsync(cancellationToken)).Sum();
+                    }
+                    if (mutationCommands.Count > 0)
+                    {
+                        rowsAffected += await DoExecuteMutationsAsync(mutationCommands, (SpannerRetriableConnection)ps.Connection,
+                            ps.Transaction, cancellationToken);
                     }
                 }
                 catch (DbException e)
@@ -141,6 +232,29 @@ namespace Google.Cloud.Spanner.NHibernate
             {
                 ClearCurrentBatch();
             }
+        }
+
+        private async Task<int> DoExecuteMutationsAsync(List<SpannerRetriableCommand> mutations, SpannerRetriableConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+        {
+            var rowsAffected = 0;
+            var ownTransaction = transaction == null;
+            if (ownTransaction)
+            {
+                transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            }
+            foreach (var mutation in mutations)
+            {
+                mutation.Connection = connection;
+                mutation.Transaction = transaction;
+                await mutation.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                // Each mutation always affects one row.
+                rowsAffected++;
+            }
+            if (ownTransaction)
+            {
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            return rowsAffected;
         }
 
         public override async Task AddToBatchAsync(IExpectation expectation, CancellationToken cancellationToken)
@@ -152,11 +266,9 @@ namespace Google.Cloud.Spanner.NHibernate
             }
 
             _totalExpectedRowsAffected += expectation.ExpectedRowCount;
-            var batchUpdate = CurrentCommand as SpannerRetriableCommand;
+            var batchUpdate = (SpannerRetriableCommand) CurrentCommand;
             await PrepareAsync(batchUpdate, cancellationToken).ConfigureAwait(false);
-            Driver.AdjustCommand(batchUpdate);
-            _currentBatch.Add(batchUpdate!.Clone() as SpannerRetriableCommand);
-            _currentBatchStatementCount++;
+            AddToBatch(batchUpdate);
 
             if (_currentBatchStatementCount >= _batchSize)
             {

@@ -46,6 +46,8 @@ namespace Google.Cloud.Spanner.Connection
 
         public void Add(SpannerRetriableCommand command) => _commands.Add(command.SpannerCommand);
 
+        public int CommandCount => _commands.Count;
+
         internal SpannerBatchCommand CreateSpannerBatchCommand()
         {
             var batch = Transaction == null

@@ -36,6 +36,7 @@ namespace Google.Cloud.Spanner.NHibernate
         public static ISession WithTimestampBound(this ISession session, TimestampBound timestampBound)
         {
             var connection = (SpannerRetriableConnection)session.Connection;
+            // TODO: Refactor this to also use a generic Attributes property on the transaction/connection.
             connection.ReadOnlyStaleness = timestampBound;
             return session;
         }
@@ -66,9 +67,25 @@ namespace Google.Cloud.Spanner.NHibernate
         public static ITransaction BeginReadOnlyTransaction(this ISession session, TimestampBound timestampBound)
         {
             var connection = (SpannerRetriableConnection)session.Connection;
+            // TODO: Refactor this to also use a generic Attributes property on the transaction/connection.
             connection.ReadOnlyStaleness = timestampBound;
             connection.CreateReadOnlyTransactionForSnapshot = true;
             return session.BeginTransaction(IsolationLevel.Snapshot);
+        }
+
+        /// <summary>
+        /// Begins a read/write transaction on the given session that will use mutations as specified in the
+        /// mutationUsage argument.
+        /// </summary>
+        /// <param name="session">The session to start the transaction on</param>
+        /// <param name="mutationUsage">The mutation usage for the transaction</param>
+        /// <returns>A new read/write transaction</returns>
+        public static ITransaction BeginTransaction(this ISession session, MutationUsage mutationUsage)
+        {
+            var transaction = session.BeginTransaction();
+            var dbTransaction = transaction.GetDbTransaction();
+            dbTransaction.SetMutationUsage(mutationUsage);
+            return transaction;
         }
     }
 }

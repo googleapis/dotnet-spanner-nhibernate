@@ -17,6 +17,8 @@ using Google.Cloud.Spanner.NHibernate.Tests.Entities;
 using Google.Cloud.Spanner.V1;
 using Google.Protobuf.WellKnownTypes;
 using NHibernate.Linq;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -64,7 +66,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 session.Save(album2);
                 transaction.Commit();
             }
-            AssertAlbumBatchDmlRequests(insertSql);
+            AssertAlbumBatchDmlRequests(insertSql, false);
         }
 
         [CombinatorialData]
@@ -73,40 +75,37 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         {
             var updateSql = "UPDATE Album SET Title = @p0, ReleaseDate = @p1, SingerId = @p2 WHERE AlbumId = @p3";
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(1L));
+            AddQueryAlbumsResults(QueryAllAlbumsSql(),
+                new Album { AlbumId = 1L, Title = "My first title" },
+                new Album { AlbumId = 2L, Title = "My second title" });
 
             using var session = _fixture.SessionFactory.OpenSession();
             using var transaction = session.BeginTransaction();
-            var album1 = new Album
-            {
-                AlbumId = 1L,
-                Title = "Title 1",
-            };
-            var album2 = new Album
-            {
-                AlbumId = 2L,
-                Title = "Title 2",
-            };
             if (async)
             {
-                await session.UpdateAsync(album1);
-                await session.UpdateAsync(album2);
+                var albums = await session.Query<Album>().ToListAsync();
+                albums.ForEach(a => a.Title = $"Title {a.AlbumId}");
+                foreach (var album in albums)
+                {
+                    await session.UpdateAsync(album);
+                }
                 await transaction.CommitAsync();
             }
             else
             {
-                session.Update(album1);
-                session.Update(album2);
+                var albums = session.Query<Album>().ToList();
+                albums.ForEach(a => a.Title = $"Title {a.AlbumId}");
+                albums.ForEach(a => session.Update(a));
                 transaction.Commit();
             }
-            AssertAlbumBatchDmlRequests(updateSql);
+            AssertAlbumBatchDmlRequests(updateSql, true);
         }
 
-        private void AssertAlbumBatchDmlRequests(string sql)
+        private void AssertAlbumBatchDmlRequests(string sql, bool withSelect)
         {
-
-            var transactionId = _fixture.SpannerMock.Requests.OfType<V1.CommitRequest>().First().TransactionId;
+            var transactionId = _fixture.SpannerMock.Requests.OfType<CommitRequest>().First().TransactionId;
             Assert.Collection(
-                _fixture.SpannerMock.Requests.OfType<V1.ExecuteBatchDmlRequest>(),
+                _fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>(),
                 request =>
                 {
                     Assert.Equal(transactionId, request.Transaction.Id);
@@ -130,8 +129,16 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                                 param => Assert.Equal("2", param.Value.StringValue));
                         });
                 });
-            Assert.Empty(_fixture.SpannerMock.Requests.OfType<V1.ExecuteSqlRequest>());
-            Assert.Single(_fixture.SpannerMock.Requests.Where(request => request is V1.CommitRequest));
+            if (withSelect)
+            {
+                Assert.Collection(_fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>(),
+                    request => Assert.StartsWith("SELECT", request.Sql.ToUpper()));
+            }
+            else
+            {
+                Assert.Empty(_fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>());
+            }
+            Assert.Single(_fixture.SpannerMock.Requests.OfType<CommitRequest>());
         }
 
         [CombinatorialData]
@@ -170,7 +177,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 session.Save(album2);
                 session.Flush();
             }
-            AssertAlbumBatchDmlRequests(insertSql);
+            AssertAlbumBatchDmlRequests(insertSql, false);
         }
 
         [Fact]
@@ -244,6 +251,110 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 .Value(a => a.Singer, s => s)
                 .InsertAsync();
             Assert.Equal(100, updateCount);
+        }
+
+        [CombinatorialData]
+        [Theory]
+        public async Task InsertUsingMutation(bool async)
+        {
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            var album = new Album
+            {
+                AlbumId = 1L,
+                Title = "My title"
+            };
+            if (async)
+            {
+                await session.SaveAsync(album);
+                await session.FlushAsync();
+            }
+            else
+            {
+                session.Save(album);
+                session.Flush();
+            }
+            var commit = _fixture.SpannerMock.Requests.OfType<CommitRequest>().FirstOrDefault();
+            Assert.NotNull(commit);
+            Assert.Collection(commit.Mutations, mutation =>
+            {
+                Assert.Equal(Mutation.OperationOneofCase.Insert, mutation.OperationCase);
+            });
+        }
+
+        [CombinatorialData]
+        [Theory]
+        public async Task InsertsUsingMutations(bool async)
+        {
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            var album1 = new Album
+            {
+                AlbumId = 1L,
+                Title = "My first title"
+            };
+            var album2 = new Album
+            {
+                AlbumId = 2L,
+                Title = "My second title"
+            };
+            if (async)
+            {
+                await session.SaveAsync(album1);
+                await session.SaveAsync(album2);
+                await session.FlushAsync();
+            }
+            else
+            {
+                session.Save(album1);
+                session.Save(album2);
+                session.Flush();
+            }
+            var commit = _fixture.SpannerMock.Requests.OfType<CommitRequest>().FirstOrDefault();
+            Assert.NotNull(commit);
+            Assert.Collection(commit.Mutations, mutation =>
+            {
+                Assert.Equal(Mutation.OperationOneofCase.Insert, mutation.OperationCase);
+            }, mutation =>
+            {
+                Assert.Equal(Mutation.OperationOneofCase.Insert, mutation.OperationCase);
+            });
+        }
+
+        private string GetAlbumSql() =>
+            "SELECT album0_.AlbumId as albumid1_1_0_, album0_.Title as title2_1_0_, album0_.ReleaseDate as releasedate3_1_0_, album0_.SingerId as singerid4_1_0_ FROM Album album0_ WHERE album0_.AlbumId=@p0";
+        
+        private string QueryAllAlbumsSql() =>
+            "select album0_.AlbumId as albumid1_1_, album0_.Title as title2_1_, album0_.ReleaseDate as releasedate3_1_, album0_.SingerId as singerid4_1_ from Album album0_";
+
+        private string AddGetAlbumResult(string sql, Album album) =>
+            AddGetAlbumResult(sql, new [] { new object[] { album.AlbumId, album.Title, album.ReleaseDate, album.Singer?.SingerId } });
+
+        private string AddGetAlbumResult(string sql, IEnumerable<object[]> rows)
+        {
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
+                new List<Tuple<V1.TypeCode, string>>
+                {
+                    Tuple.Create(V1.TypeCode.Int64, "albumid1_1_0_"),
+                    Tuple.Create(V1.TypeCode.String, "title2_1_0_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_0_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_0_"),
+                }, rows));
+            return sql;
+        }
+        
+        private string AddQueryAlbumsResults(string sql, params Album[] albums) =>
+            AddQueryAlbumsResult(sql, albums.Select(album => new object[] { album.AlbumId, album.Title, album.ReleaseDate, album.Singer?.SingerId }).ToArray());
+
+        private string AddQueryAlbumsResult(string sql, IEnumerable<object[]> rows)
+        {
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
+                new List<Tuple<V1.TypeCode, string>>
+                {
+                    Tuple.Create(V1.TypeCode.Int64, "albumid1_1_"),
+                    Tuple.Create(V1.TypeCode.String, "title2_1_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_"),
+                }, rows));
+            return sql;
         }
     }
 }
