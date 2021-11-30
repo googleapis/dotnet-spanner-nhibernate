@@ -42,7 +42,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task InsertUsingMutation(bool async, bool explicitTransaction)
         {
-            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
             var album = new Album
             {
                 AlbumId = 1L,
@@ -89,7 +89,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task InsertsUsingMutations(bool async, bool explicitTransaction)
         {
-            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
             var album1 = new Album
             {
                 AlbumId = 1L,
@@ -156,7 +156,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task InsertsUsingMutationsAndMultipleFlushes(bool async, bool explicitTransaction)
         {
-            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
             var album1 = new Album
             {
                 AlbumId = 1L,
@@ -269,7 +269,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task UpdateUsingMutation(bool async, bool explicitTransaction)
         {
             AddGetAlbumResult(GetAlbumSql(), new Album { AlbumId = 1L, Title = "My album" });
-            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
             var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
             if (async)
             {
@@ -313,7 +313,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             AddQueryAlbumsResults(QueryAllAlbumsSql(),
                 new Album { AlbumId = 1L, Title = "My album 1" },
                 new Album { AlbumId = 2L, Title = "My album 2" });
-            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
             var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
             if (async)
             {
@@ -374,7 +374,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             AddQueryAlbumsResults(QueryAllAlbumsSql(),
                 new Album { AlbumId = 1L, Title = "My album 1" },
                 new Album { AlbumId = 2L, Title = "My album 2" });
-            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
             var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
             if (async)
             {
@@ -464,6 +464,197 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                             });
                     });
             }
+        }
+
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Theory]
+        public async Task DeleteUsingMutation(bool async, bool explicitTransaction)
+        {
+            AddGetAlbumResult(GetAlbumSql(), new Album { AlbumId = 1L, Title = "My album" });
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
+            var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
+            if (async)
+            {
+                var album = await session.GetAsync<Album>(1L);
+                await session.DeleteAsync(album);
+                await session.FlushAsync();
+                await (transaction?.CommitAsync() ?? Task.CompletedTask);
+            }
+            else
+            {
+                var album = session.Get<Album>(1L);
+                session.Delete(album);
+                session.Flush();
+                transaction?.Commit();
+            }
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits,
+                commit =>
+                    Assert.Collection(commit.Mutations, mutation =>
+                    {
+                        Assert.Equal("Album", mutation.Delete.Table);
+                        Assert.Collection(mutation.Delete.KeySet.Keys, keyValues => Assert.Collection(keyValues.Values, key => Assert.Equal("1", key.StringValue)));
+                    }));
+        }
+
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Theory]
+        public async Task DeleteUsingMutations(bool async, bool explicitTransaction)
+        {
+            AddQueryAlbumsResults(QueryAllAlbumsSql(),
+                new Album { AlbumId = 1L, Title = "My album 1" },
+                new Album { AlbumId = 2L, Title = "My album 2" });
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
+            var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
+            if (async)
+            {
+                var albums = await session.Query<Album>().ToListAsync();
+                foreach (var a in albums)
+                {
+                    await session.DeleteAsync(a);
+                }
+                await session.FlushAsync();
+                await (transaction?.CommitAsync() ?? Task.CompletedTask);
+            }
+            else
+            {
+                var albums = session.Query<Album>().ToList();
+                albums.ForEach(a => session.Delete(a));
+                session.Flush();
+                transaction?.Commit();
+            }
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits,
+                commit =>
+                    Assert.Collection(commit.Mutations, mutation =>
+                    {
+                        Assert.Equal("Album", mutation.Delete.Table);
+                        Assert.Collection(mutation.Delete.KeySet.Keys, keyValues => Assert.Collection(keyValues.Values, key => Assert.Equal("1", key.StringValue)));
+                    }, mutation =>
+                    {
+                        Assert.Equal("Album", mutation.Delete.Table);
+                        Assert.Collection(mutation.Delete.KeySet.Keys, keyValues => Assert.Collection(keyValues.Values, key => Assert.Equal("2", key.StringValue)));
+                    }));
+        }
+
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Theory]
+        public async Task DeletesUsingMutationsAndMultipleFlushes(bool async, bool explicitTransaction)
+        {
+            AddQueryAlbumsResults(QueryAllAlbumsSql(),
+                new Album { AlbumId = 1L, Title = "My album 1" },
+                new Album { AlbumId = 2L, Title = "My album 2" });
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
+            var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
+            if (async)
+            {
+                var albums = await session.Query<Album>().ToListAsync();
+                await session.DeleteAsync(albums[0]);
+                await session.FlushAsync();
+                await session.DeleteAsync(albums[1]);
+                await session.FlushAsync();
+                await (transaction?.CommitAsync() ?? Task.CompletedTask);
+            }
+            else
+            {
+                var albums = session.Query<Album>().ToList();
+                session.Delete(albums[0]);
+                session.Flush();
+                session.Delete(albums[1]);
+                session.Flush();
+                transaction?.Commit();
+            }
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            if (explicitTransaction)
+            {
+                Assert.Collection(commits,
+                    commit =>
+                        Assert.Collection(commit.Mutations, mutation =>
+                        {
+                            Assert.Equal("Album", mutation.Delete.Table);
+                            Assert.Collection(mutation.Delete.KeySet.Keys, keyValues => Assert.Collection(keyValues.Values, key => Assert.Equal("1", key.StringValue)));
+                        }, mutation =>
+                        {
+                            Assert.Equal("Album", mutation.Delete.Table);
+                            Assert.Collection(mutation.Delete.KeySet.Keys, keyValues => Assert.Collection(keyValues.Values, key => Assert.Equal("2", key.StringValue)));
+                        }));
+            }
+            else
+            {
+                // There is no explicit transaction, so each flush will cause a Commit.
+                Assert.Collection(commits,
+                    commit =>
+                        Assert.Collection(commit.Mutations, mutation =>
+                        {
+                            Assert.Equal("Album", mutation.Delete.Table);
+                            Assert.Collection(mutation.Delete.KeySet.Keys, keyValues => Assert.Collection(keyValues.Values, key => Assert.Equal("1", key.StringValue)));
+                        }),
+                    commit =>
+                        Assert.Collection(commit.Mutations, mutation =>
+                        {
+                            Assert.Equal("Album", mutation.Delete.Table);
+                            Assert.Collection(mutation.Delete.KeySet.Keys, keyValues => Assert.Collection(keyValues.Values, key => Assert.Equal("2", key.StringValue)));
+                        }));
+            }
+        }
+
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Theory]
+        public async Task InsertWithGeneratedValueUsingMutation(bool async, bool explicitTransaction)
+        {
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
+            var singer = new Singer
+            {
+                SingerId = 1L,
+                FirstName = "Alice",
+                LastName = "Peterson",
+            };
+            var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
+            if (async)
+            {
+                await session.SaveAsync(singer);
+                await session.FlushAsync();
+                await (transaction?.CommitAsync() ?? Task.CompletedTask);
+            }
+            else
+            {
+                session.Save(singer);
+                session.Flush();
+                transaction?.Commit();
+            }
+
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits,
+                commit =>
+                    Assert.Collection(commit.Mutations, mutation =>
+                    {
+                        Assert.Equal("Singer", mutation.Insert.Table);
+                        Assert.Collection(mutation.Insert.Columns,
+                            c => Assert.Equal("FirstName", c),
+                            c => Assert.Equal("LastName", c),
+                            c => Assert.Equal("BirthDate", c),
+                            c => Assert.Equal("Picture", c),
+                            c => Assert.Equal("SingerId", c));
+                        Assert.Collection(mutation.Insert.Values,
+                            row => Assert.Collection(row.Values,
+                                value => Assert.Equal("Alice", value.StringValue),
+                                value => Assert.Equal("Peterson", value.StringValue),
+                                value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                value => Assert.Equal("1", value.StringValue)));
+                    }));
         }
 
         private string GetAlbumSql() =>

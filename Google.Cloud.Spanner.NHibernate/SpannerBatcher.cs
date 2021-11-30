@@ -42,6 +42,12 @@ namespace Google.Cloud.Spanner.NHibernate
             _currentBatch = new LinkedList<SpannerRetriableCommand>();
         }
 
+        /// <summary>
+        /// Mutation usage for batches that use an implicit transaction. That is; when no transaction has been started
+        /// on the session. Defaults to Never.
+        /// </summary>
+        public MutationUsage MutationUsage { get; set; } = MutationUsage.Never;
+
         public override int BatchSize
         {
             get => _batchSize;
@@ -87,9 +93,11 @@ namespace Google.Cloud.Spanner.NHibernate
                 cmd.Transaction = ps.Transaction;
                 if (cmd is SpannerDmlOrMutationCommand dmlOrMutationCommand)
                 {
-                    if (ps.Transaction == null
-                        || (ps.Transaction is SpannerRetriableTransaction spannerRetriableTransaction
-                        && spannerRetriableTransaction.GetMutationUsage() == MutationUsage.Always))
+                    var transactionMutationUsage = (ps.Transaction as SpannerRetriableTransaction)?.GetMutationUsage()
+                                                   ?? MutationUsage.Unspecified;
+                    if (transactionMutationUsage == MutationUsage.Unspecified && MutationUsage == MutationUsage.Always
+                        || ps.Transaction == null && MutationUsage == MutationUsage.ImplicitTransactions
+                        || transactionMutationUsage == MutationUsage.Always)
                     {
                         var mutationCommand = dmlOrMutationCommand.MutationCommand;
                         // Copy the parameter values to the mutation command.

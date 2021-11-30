@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using NHibernate.Mapping.ByCode;
+using NHibernate.Mapping;
 using NHibernate.Mapping.ByCode.Conformist;
 using System;
 using System.Linq;
+using PropertyGeneration = NHibernate.Mapping.ByCode.PropertyGeneration;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
 {

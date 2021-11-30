@@ -1,3 +1,4 @@
+using NHibernate.Mapping.ByCode;
 using NHibernate.Mapping.ByCode.Conformist;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
@@ -19,7 +20,12 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
         {
             Id(x => x.TrackId);
             Property(x => x.Title);
-            ManyToOne(x => x.Album, m => m.Column("AlbumId"));
+            ManyToOne(x => x.Album, m =>
+            {
+                m.Column("AlbumId");
+                m.NotNullable(true);
+                m.Cascade(Cascade.None);
+            });
         }
     }
 }

@@ -1,3 +1,4 @@
+using Google.Api.Gax;
 using Google.Cloud.Spanner.Connection;
 
 namespace Google.Cloud.Spanner.NHibernate
@@ -15,7 +16,7 @@ namespace Google.Cloud.Spanner.NHibernate
             {
                 return mutationUsage;
             }
-            return MutationUsage.ImplicitTransactions;
+            return MutationUsage.Unspecified;
         }
 
         /// <summary>
@@ -26,6 +27,7 @@ namespace Google.Cloud.Spanner.NHibernate
         /// <returns>The transaction for chaining</returns>
         public static SpannerRetriableTransaction SetMutationUsage(this SpannerRetriableTransaction transaction, MutationUsage mutationUsage)
         {
+            GaxPreconditions.CheckArgument(mutationUsage != MutationUsage.ImplicitTransactions, nameof(mutationUsage), $"Mutation usage may not be {MutationUsage.ImplicitTransactions}");
             transaction.Attributes["MutationUsage"] = mutationUsage;
             return transaction;
         }

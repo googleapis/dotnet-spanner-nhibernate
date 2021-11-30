@@ -58,6 +58,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
     {
         public TrackMapping()
         {
+            Persister<SpannerMutationsEntityPersister>();
             Table("Tracks");
             ComponentAsId(x => x.TrackIdentifier, m =>
             {

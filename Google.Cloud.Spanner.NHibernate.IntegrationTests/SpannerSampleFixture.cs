@@ -23,6 +23,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using Environment = NHibernate.Cfg.Environment;
+using PropertyGeneration = NHibernate.Mapping.PropertyGeneration;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 {
@@ -74,9 +75,17 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             nhConfig.Properties[Environment.UseSqlComments] = "true";
             
             SessionFactory = nhConfig.BuildSessionFactory();
+
+            // Configure some entities to use mutations instead of DML in a separate SessionFactory.
+            // Disable property generation when we are using mutations, as the value cannot be read before everything
+            // has been committed.
+            nhConfig.GetClassMapping(typeof(Singer)).GetProperty("FullName").Generation = PropertyGeneration.Never;
+            SessionFactoryForMutations = nhConfig.BuildSessionFactory();
         }
         
         public ISessionFactory SessionFactory { get; }
+        
+        public ISessionFactory SessionFactoryForMutations { get; }
 
         private void ClearTables()
         {

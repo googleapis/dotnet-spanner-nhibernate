@@ -40,6 +40,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
     {
         public SingerMapping()
         {
+            Persister<SpannerMutationsEntityPersister>();
+            DynamicUpdate(true);
             Table("Singers");
             Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
             Property(x => x.FirstName);

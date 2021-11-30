@@ -37,6 +37,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
     {
         public TrackMapping()
         {
+            Persister<SpannerMutationsEntityPersister>();
+            DynamicUpdate(true);
             Table("Tracks");
             Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
             ManyToOne(x => x.Album);

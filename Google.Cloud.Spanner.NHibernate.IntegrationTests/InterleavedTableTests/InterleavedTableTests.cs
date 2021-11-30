@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests.Entities;
-using System;
 using Xunit;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
@@ -25,11 +23,13 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
 
         public InterleavedTableTests(SpannerInterleavedTableFixture fixture) => _fixture = fixture;
 
-        [Fact]
-        public void CanCreateRows()
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public void CanCreateRows(MutationUsage mutationUsage)
         {
             using var session = _fixture.SessionFactory.OpenSession();
-            using var transaction = session.BeginTransaction();
+            using var transaction = session.BeginTransaction(mutationUsage);
             var singer = new Singer
             {
                 FirstName = "Pete",
@@ -48,7 +48,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
                 Title = "My first track",
             };
             var trackId = session.Save(track);
-            session.Flush();
+            transaction.Commit();
             session.Clear();
 
             singer = session.Load<Singer>(singerId);
@@ -78,17 +78,17 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
             Assert.Collection(singer.Albums, album => Assert.Equal("My first album", album.Title));
             Assert.Collection(album.Tracks, track => Assert.Equal("My first track", track.Title));
             Assert.Collection(singer.Tracks, track => Assert.Equal("My first track", track.Title));
-            
-            transaction.Commit();
         }
 
-        [Fact]
-        public void CanUpdateRows()
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public void CanUpdateRows(MutationUsage mutationUsage)
         {
             object singerId, albumId, trackId;
             using (var session = _fixture.SessionFactory.OpenSession())
             {
-                using var transaction = session.BeginTransaction();
+                using var transaction = session.BeginTransaction(mutationUsage);
                 var singer = new Singer
                 {
                     FirstName = "Pete",
@@ -111,7 +111,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
 
             using (var session = _fixture.SessionFactory.OpenSession())
             {
-                using var transaction = session.BeginTransaction();
+                using var transaction = session.BeginTransaction(mutationUsage);
                 var singer = session.Load<Singer>(singerId);
                 var album = session.Load<Album>(albumId);
                 var track = session.Load<Track>(trackId);
@@ -134,13 +134,15 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
             }
         }
 
-        [Fact]
-        public void CanDeleteRows()
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public void CanDeleteRows(MutationUsage mutationUsage)
         {
             object singerId, albumId, trackId;
             using (var session = _fixture.SessionFactory.OpenSession())
             {
-                using var transaction = session.BeginTransaction();
+                using var transaction = session.BeginTransaction(mutationUsage);
                 var singer = new Singer
                 {
                     FirstName = "Pete",
@@ -163,7 +165,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
 
             using (var session = _fixture.SessionFactory.OpenSession())
             {
-                using var transaction = session.BeginTransaction();
+                using var transaction = session.BeginTransaction(mutationUsage);
                 var singer = session.Load<Singer>(singerId);
                 var album = session.Load<Album>(albumId);
                 var track = session.Load<Track>(trackId);

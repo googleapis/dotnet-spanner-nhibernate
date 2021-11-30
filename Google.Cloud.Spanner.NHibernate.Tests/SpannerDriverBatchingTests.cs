@@ -257,7 +257,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task InsertUsingMutation(bool async)
         {
-            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
             var album = new Album
             {
                 AlbumId = 1L,
@@ -285,7 +285,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task InsertsUsingMutations(bool async)
         {
-            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
             var album1 = new Album
             {
                 AlbumId = 1L,

@@ -14,6 +14,7 @@
 
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
+using NHibernate;
 using NHibernate.Criterion;
 using NHibernate.Exceptions;
 using NHibernate.Linq;
@@ -31,14 +32,19 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 
         public TransactionTests(SpannerSampleFixture fixture) => _fixture = fixture;
 
-        [Fact]
-        public async Task SaveChangesIsAtomic()
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public async Task SaveChangesIsAtomic(MutationUsage mutationUsage)
         {
             var invalidSingerId = Guid.NewGuid().ToString();
+            var sessionFactory = mutationUsage == MutationUsage.Always
+                ? _fixture.SessionFactoryForMutations
+                : _fixture.SessionFactory;
             string singerId;
-            using (var session = _fixture.SessionFactory.OpenSession())
+            using (var session = sessionFactory.OpenSession())
             {
-                var tx = session.BeginTransaction();
+                var tx = session.BeginTransaction(mutationUsage);
                 // Try to add a singer and an album in one transaction.
                 // The album is invalid. Both the singer and the album
                 // should not be inserted.
@@ -52,7 +58,12 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                     Singer = new Singer{ Id = invalidSingerId }, // Invalid, does not reference an actual Singer
                     Title = "Some title",
                 });
-                await Assert.ThrowsAsync<SpannerException>(() => tx.CommitAsync());
+                // DML will fail during the update, which causes a SpannerException.
+                // Mutations will fail during the commit, which will cause an NHibernate.TransactionException.
+                var expectedException = mutationUsage == MutationUsage.Always
+                    ? typeof(TransactionException)
+                    : typeof(SpannerException);
+                await Assert.ThrowsAsync(expectedException, () => tx.CommitAsync());
             }
 
             using (var session = _fixture.SessionFactory.OpenSession())
@@ -62,12 +73,14 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             }
         }
 
-        [Fact]
-        public async Task EndOfTransactionScopeCausesRollback()
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public async Task EndOfTransactionScopeCausesRollback(MutationUsage mutationUsage)
         {
             var venueCode = _fixture.RandomString(4);
             using var session = _fixture.SessionFactory.OpenSession();
-            using (var unused = session.BeginTransaction())
+            using (var unused = session.BeginTransaction(mutationUsage))
             {
                 await session.SaveAsync(new Venue
                 {
@@ -84,14 +97,16 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             Assert.Empty(venuesAfterRollback);
         }
 
-        [Fact]
-        public async Task TransactionCanReadYourWrites()
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public async Task TransactionCanReadYourWrites(MutationUsage mutationUsage)
         {
             var venueCode1 = _fixture.RandomString(4);
             var venueCode2 = _fixture.RandomString(4);
             using var session = _fixture.SessionFactory.OpenSession();
 
-            using var transaction = session.BeginTransaction();
+            using var transaction = session.BeginTransaction(mutationUsage);
             // Add two venues in the transaction.
             await session.SaveAsync(new Venue
             {
@@ -105,14 +120,25 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             });
             await session.FlushAsync();
 
-            // Verify that we can read the venue while inside the transaction.
-            var venues = session.Query<Venue>()
-                .Where(v => v.Code == venueCode1 || v.Code == venueCode2)
-                .OrderBy(v => v.Name)
-                .ToList();
-            Assert.Equal(2, venues.Count);
-            Assert.Equal("Venue 1", venues[0].Name);
-            Assert.Equal("Venue 2", venues[1].Name);
+            // Verify that we can read the venue while inside the transaction if we are using DML.
+            if (mutationUsage != MutationUsage.Always)
+            {
+                var venues = session.Query<Venue>()
+                    .Where(v => v.Code == venueCode1 || v.Code == venueCode2)
+                    .OrderBy(v => v.Name)
+                    .ToList();
+                Assert.Equal(2, venues.Count);
+                Assert.Equal("Venue 1", venues[0].Name);
+                Assert.Equal("Venue 2", venues[1].Name);
+            }
+            else
+            {
+                // Read-your-writes is not supported if we are using mutations.
+                var venues = session.Query<Venue>()
+                    .Where(v => v.Code == venueCode1 || v.Name == venueCode2)
+                    .ToList();
+                Assert.Empty(venues);
+            }
             // Rollback and then verify that we should not be able to see the venues.
             await transaction.RollbackAsync();
 
@@ -124,13 +150,15 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             Assert.Empty(venuesAfterRollback);
         }
 
-        [Fact]
-        public async Task TransactionCanReadCommitTimestamp()
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public async Task TransactionCanReadCommitTimestamp(MutationUsage mutationUsage)
         {
             var id = _fixture.RandomLong();
             using var session = _fixture.SessionFactory.OpenSession();
 
-            using var transaction = session.BeginTransaction();
+            using var transaction = session.BeginTransaction(mutationUsage);
             // Add a row that will generate a commit timestamp.
             var row = new TableWithAllColumnTypes { ColInt64 = id };
             await session.SaveAsync(row);
@@ -144,13 +172,17 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             // This also means that we cannot mark the commit timestamp column
             // as a column that has a generated value, as that would trigger a
             // result propagation during the same transaction.
-            var exception = await Assert.ThrowsAsync<GenericADOException>(() =>
-                session
-                    .Query<TableWithAllColumnTypes>()
-                    .Where(r => r.ColInt64 == id)
-                    .Select(r => new { r.ColInt64, r.ColCommitTs })
-                    .FirstOrDefaultAsync());
-            Assert.Contains("has a pending CommitTimestamp", exception.InnerException?.InnerException?.Message ?? "");
+            if (mutationUsage != MutationUsage.Always)
+            {
+                var exception = await Assert.ThrowsAsync<GenericADOException>(() =>
+                    session
+                        .Query<TableWithAllColumnTypes>()
+                        .Where(r => r.ColInt64 == id)
+                        .Select(r => new { r.ColInt64, r.ColCommitTs })
+                        .FirstOrDefaultAsync());
+                Assert.Contains("has a pending CommitTimestamp",
+                    exception.InnerException?.InnerException?.Message ?? "");
+            }
             // Commit the transaction. This will generate a commit timestamp.
             await transaction.CommitAsync();
             // TODO: Use an interceptor to propagate the commit timestamp to the entity.
@@ -294,6 +326,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             var id1 = _fixture.RandomLong();
             var id2 = _fixture.RandomLong();
 
+            // TODO: Modify this test case to also use an explicit transactions.
+            // TODO: Modify this test case to also use mutations.
             using var session = _fixture.SessionFactory.OpenSession();
             await session.SaveAsync(new TableWithAllColumnTypes
                 { ColInt64 = id1, ColStringArray = new SpannerStringArray(new List<string> { "1", "2", "3" }) });
@@ -346,22 +380,40 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             );
         }
 
-        [Fact]
-        public async Task ComputedColumnIsPropagatedInManualTransaction()
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public async Task ComputedColumnIsPropagatedInManualTransaction(MutationUsage mutationUsage)
         {
-            using var session = _fixture.SessionFactory.OpenSession();
-            using var transaction = session.BeginTransaction();
-            var id  = await session.SaveAsync(new Singer
+            var sessionFactory = mutationUsage == MutationUsage.Always
+                ? _fixture.SessionFactoryForMutations
+                : _fixture.SessionFactory;
+            using var session = sessionFactory.OpenSession();
+            using var transaction = session.BeginTransaction(mutationUsage);
+            var singer = new Singer
             {
                 FirstName = "Alice",
                 LastName = "Ferguson",
-            });
+            };
+            var id  = await session.SaveAsync(singer);
+            
+            // A flush has no effect for a transaction that uses mutations.
             await session.FlushAsync();
 
-            var row = await session.LoadAsync<Singer>(id);
-            Assert.Equal("Alice Ferguson", row.FullName);
+            if (mutationUsage == MutationUsage.Always)
+            {
+                Assert.Null(singer.FullName);
+            }
+            else
+            {
+                Assert.Equal("Alice Ferguson", singer.FullName);
+            }
 
             await transaction.CommitAsync();
+            // The value is readable after a commit for both types of transactions, but only if a reload is forced.
+            await session.EvictAsync(singer);
+            var row = await session.LoadAsync<Singer>(id);
+            Assert.Equal("Alice Ferguson", row.FullName);
         }
         
         private async Task InsertRandomSinger(bool disableInternalRetries)

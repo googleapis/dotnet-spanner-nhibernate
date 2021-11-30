@@ -36,6 +36,8 @@ namespace Google.Cloud.Spanner.NHibernate
     /// </summary>
     public enum MutationUsage
     {
+        // Unspecified, use the default for the transaction or session.
+        Unspecified,
         // Never use mutations, always use DML. This configuration is not recommended for most applications.
         Never,
         // Use mutations for implicit transactions and DML for manual transactions.

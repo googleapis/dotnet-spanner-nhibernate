@@ -17,6 +17,7 @@ using NHibernate.Engine;
 using NHibernate.Mapping;
 using NHibernate.Persister.Entity;
 using NHibernate.SqlCommand;
+using NHibernate.SqlTypes;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -90,15 +91,10 @@ namespace Google.Cloud.Spanner.NHibernate
 		        session, cancellationToken);
         }
 
-        private void AddInsertColumns(List<string> columns, string[] columnNames, bool[] insertable)
+        protected override SqlCommandInfo GenerateDeleteString(int j)
         {
-	        for (int i = 0; i < columnNames.Length; i++)
-	        {
-		        if (insertable == null || insertable[i])
-		        {
-			        columns.Add(columnNames[i]);
-		        }
-	        }
+	        var sql = base.GenerateDeleteString(j);
+	        return AddDeleteColumnInformation(sql, j);
         }
         
         private SqlCommandInfo AddInsertColumnInformation(SqlCommandInfo sql, bool[] includeProperty, int j)
@@ -150,7 +146,7 @@ namespace Google.Cloud.Spanner.NHibernate
 		        {
 			        if (content.EndsWith('='))
 			        {
-				        var column = ExtractColumnName(content, table);
+				        var column = ExtractColumnNameFromUpdateStatementPart(content, table);
 				        columns.Add(column);
 				        whereColumns.Add(column);
 			        }
@@ -160,12 +156,48 @@ namespace Google.Cloud.Spanner.NHibernate
 		        {
 			        if (content.EndsWith('='))
 			        {
-				        columns.Add(ExtractColumnName(content, table));
+				        columns.Add(ExtractColumnNameFromUpdateStatementPart(content, table));
 			        }
 		        }
 	        }
 	        var sqlString = new SpannerMutationSqlString(sql.Text, "UPDATE", table, columns.ToArray(), whereColumns.ToArray(), 0);
 	        return new SqlCommandInfo(sqlString, sql.ParameterTypes);
+        }
+        
+        private SqlCommandInfo AddDeleteColumnInformation(SqlCommandInfo sql, int j)
+        {
+	        var columns = new List<string>();
+	        var whereColumns = new List<string>();
+	        // add the primary key
+	        foreach (var col in GetKeyColumns(j))
+	        {
+		        columns.Add(col);
+		        whereColumns.Add(col);
+	        }
+	        if (j == 0 && IsVersioned && EntityMetamodel.OptimisticLockMode == Versioning.OptimisticLock.Version)
+	        {
+		        whereColumns.Add(VersionColumnName);
+	        }
+	        
+	        var sqlString = new SpannerMutationSqlString(sql.Text, "DELETE", GetTableName(j), columns.ToArray(), whereColumns.ToArray(), columns.Count);
+	        return new SqlCommandInfo(sqlString, sql.ParameterTypes);
+        }
+
+        /// <summary>
+        /// Adds the array of column names to the list of columns for each column that is insertable.
+        /// </summary>
+        /// <param name="columns">The list of columns to add the column names</param>
+        /// <param name="columnNames">The column names to add</param>
+        /// <param name="insertable">An array indicating which columns are insertable</param>
+        private static void AddInsertColumns(List<string> columns, string[] columnNames, bool[] insertable)
+        {
+	        for (int i = 0; i < columnNames.Length; i++)
+	        {
+		        if (insertable == null || insertable[i])
+		        {
+			        columns.Add(columnNames[i]);
+		        }
+	        }
         }
 
         /// <summary>
@@ -174,12 +206,13 @@ namespace Google.Cloud.Spanner.NHibernate
         /// <param name="part">The sql part to trim</param>
         /// <param name="table">The table that is being updated</param>
         /// <returns>The trimmed sql part</returns>
-        private static string ExtractColumnName(string part, string table)
+        private static string ExtractColumnNameFromUpdateStatementPart(string part, string table)
         {
 	        var column = part;
 	        int index;
 	        var updatePrefix = $"UPDATE {table} SET ";
 	        var wherePrefix = "WHERE ";
+	        var andPrefix = "AND ";
 	        if (part.StartsWith(',') && part.EndsWith('='))
 	        {
 		        column = part.Substring(1, part.Length-2);
@@ -187,6 +220,10 @@ namespace Google.Cloud.Spanner.NHibernate
 	        else if (part.StartsWith(wherePrefix) && part.EndsWith('='))
 	        {
 		        column = part.Substring(wherePrefix.Length, part.Length - wherePrefix.Length - 1);
+	        }
+	        else if (part.StartsWith(andPrefix) && part.EndsWith('='))
+	        {
+		        column = part.Substring(andPrefix.Length, part.Length - andPrefix.Length - 1);
 	        }
 	        else if (part.EndsWith('=') && (index = part.LastIndexOf(updatePrefix, StringComparison.InvariantCultureIgnoreCase)) > -1)
 	        {
