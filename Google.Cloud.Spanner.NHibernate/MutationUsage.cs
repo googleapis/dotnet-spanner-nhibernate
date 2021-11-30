@@ -22,30 +22,27 @@ namespace Google.Cloud.Spanner.NHibernate
     /// read-your-writes semantics, as mutations are buffered in the client until Commit is called,
     /// but mutations execute significantly faster on the backend.
     /// 
-    /// The Cloud Spanner NHibernate driver therefore defaults to using mutations for
-    /// implicit transactions, that is: when the application does not manually start a transaction
-    /// on the session. With implicit transactions the NHibernate provider automatically starts
-    /// a transaction when the session is flushed and commits this transaction if all operations succeeded.
+    /// The Cloud Spanner NHibernate driver defaults to using DML for all sessions and transactions.
     ///
     /// When the application manually starts a transaction, all inserts, updates and deletes will be
     /// executed as DML statements on the transaction. This allows the application to read the writes
-    /// that have already been executed on the transaction.
+    /// that have already been executed on the transaction. An application can start a transaction that
+    /// will use mutations by calling <see cref="ISessionExtensions.BeginTransaction"/>.
     /// 
     /// An application can configure a session to use either DML or Mutations for all updates by
-    /// calling ISession.UseMutations(MutationUsage).
+    /// calling <see cref="ISessionExtensions.SetBatchMutationUsage"/>.
     /// </summary>
     public enum MutationUsage
     {
         // Unspecified, use the default for the transaction or session.
         Unspecified,
-        // Never use mutations, always use DML. This configuration is not recommended for most applications.
+        // Never use mutations, always use DML. This is the default.
         Never,
         // Use mutations for implicit transactions and DML for manual transactions.
-        // This is the default and is the appropriate configuration for most applications.
         ImplicitTransactions,
         // Always use mutations, never use DML. This will disable read-your-writes for manual transactions.
-        // Use this for sessions that execute a large number of updates in manual transactions, if these
-        // transactions do not need to read their own writes.
+        // Use this for transactions that execute a large number of updates and that do not need
+        // read-your-writes semantics.
         Always
     }
 }

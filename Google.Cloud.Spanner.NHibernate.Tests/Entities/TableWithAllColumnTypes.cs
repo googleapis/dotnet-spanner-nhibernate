@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using NHibernate.Mapping;
 using NHibernate.Mapping.ByCode.Conformist;
 using System;
 using System.Linq;

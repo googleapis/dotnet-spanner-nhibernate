@@ -38,7 +38,6 @@ namespace Google.Cloud.Spanner.NHibernate
         public static ISession WithTimestampBound(this ISession session, TimestampBound timestampBound)
         {
             var connection = (SpannerRetriableConnection)session.Connection;
-            // TODO: Refactor this to also use a generic Attributes property on the transaction/connection.
             connection.ReadOnlyStaleness = timestampBound;
             return session;
         }
@@ -69,7 +68,6 @@ namespace Google.Cloud.Spanner.NHibernate
         public static ITransaction BeginReadOnlyTransaction(this ISession session, TimestampBound timestampBound)
         {
             var connection = (SpannerRetriableConnection)session.Connection;
-            // TODO: Refactor this to also use a generic Attributes property on the transaction/connection.
             connection.ReadOnlyStaleness = timestampBound;
             connection.CreateReadOnlyTransactionForSnapshot = true;
             return session.BeginTransaction(IsolationLevel.Snapshot);
