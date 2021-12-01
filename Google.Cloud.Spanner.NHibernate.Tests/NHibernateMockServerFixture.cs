@@ -41,6 +41,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             mapper.AddMapping<AlbumMapping>();
             mapper.AddMapping<TableWithAllColumnTypesMapping>();
             mapper.AddMapping<TrackMapping>();
+            mapper.AddMapping<SingerWithVersionMapping>();
+            mapper.AddMapping<AlbumWithVersionMapping>();
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             nhConfig.AddMapping(mapping);
             
