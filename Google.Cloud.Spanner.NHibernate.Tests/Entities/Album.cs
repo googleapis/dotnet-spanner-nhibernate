@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using NHibernate.Mapping.ByCode;
 using NHibernate.Mapping.ByCode.Conformist;
+using System.Collections.Generic;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
 {
@@ -26,19 +28,23 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
         public virtual string Title { get; set; }
         public virtual SpannerDate ReleaseDate { get; set; }
         public virtual Singer Singer { get; set; }
+        public virtual IList<Track> Tracks { get; set; } 
     }
 
     public class AlbumMapping : ClassMapping<Album>
     {
         public AlbumMapping()
         {
-            Id(x => x.AlbumId);
+            Id(x => x.AlbumId, m => m.Column(c => c.NotNullable(true)));
             Property(x => x.Title);
             Property(x => x.ReleaseDate);
-            ManyToOne(x => x.Singer, m =>
+            ManyToOne(x => x.Singer, m => m.Column("SingerId"));
+            Bag(x => x.Tracks, c =>
             {
-                m.Column("SingerId");
-            });
+                // This prevents NHibernate from generating an `UPDATE Tracks SET AlbumId=null WHERE AlbumId=@p0` when
+                // an Album is deleted.
+                c.Key(k => k.NotNullable(true));
+            }, r => r.OneToMany());
         }
     }
 }

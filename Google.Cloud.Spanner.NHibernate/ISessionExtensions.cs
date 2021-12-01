@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Google.Api.Gax;
 using Google.Cloud.Spanner.Connection;
 using Google.Cloud.Spanner.Data;
 using NHibernate;
+using NHibernate.Impl;
 using System.Data;
 
 namespace Google.Cloud.Spanner.NHibernate
@@ -69,6 +71,50 @@ namespace Google.Cloud.Spanner.NHibernate
             connection.ReadOnlyStaleness = timestampBound;
             connection.CreateReadOnlyTransactionForSnapshot = true;
             return session.BeginTransaction(IsolationLevel.Snapshot);
+        }
+
+        /// <summary>
+        /// Begins a read/write transaction on the given session that will use mutations as specified in the
+        /// mutationUsage argument.
+        /// </summary>
+        /// <param name="session">The session to start the transaction on</param>
+        /// <param name="mutationUsage">The mutation usage for the transaction. Must be either Always or Never.</param>
+        /// <returns>A new read/write transaction</returns>
+        public static ITransaction BeginTransaction(this ISession session, MutationUsage mutationUsage)
+        {
+            GaxPreconditions.CheckArgument(mutationUsage == MutationUsage.Always || mutationUsage == MutationUsage.Never, nameof(mutationUsage), $"value must be one of {MutationUsage.Always} and {MutationUsage.Never}");
+            var transaction = session.BeginTransaction();
+            var dbTransaction = transaction.GetDbTransaction();
+            dbTransaction.SetMutationUsage(mutationUsage);
+            return transaction;
+        }
+
+        /// <summary>
+        /// Gets the current mutation usage for batches on this session.
+        /// </summary>
+        /// <param name="session">The session to get the mutation usage for</param>
+        /// <returns>The current mutation usage for batches</returns>
+        public static MutationUsage GetBatchMutationUsage(this ISession session)
+        {
+            GaxPreconditions.CheckArgument(session is SessionImpl, nameof(session), "The session must be an instance of SessionImpl");
+            GaxPreconditions.CheckArgument(((SessionImpl) session).Batcher is SpannerBatcher, nameof(session), "The session must use a SpannerBatcher");
+            var batcher = (SpannerBatcher) ((SessionImpl) session).Batcher;
+            return batcher.MutationUsage;
+        }
+        
+        /// <summary>
+        /// Sets the mutation usage for batches on the given session.
+        /// </summary>
+        /// <param name="session">The session to set the mutation usage for</param>
+        /// <param name="mutationUsage">The mutation usage to set</param>
+        public static ISession SetBatchMutationUsage(this ISession session, MutationUsage mutationUsage)
+        {
+            GaxPreconditions.CheckArgument(mutationUsage != MutationUsage.Unspecified, nameof(mutationUsage), $"Mutation usage may not be {MutationUsage.Unspecified}");
+            GaxPreconditions.CheckArgument(session is SessionImpl, nameof(session), "The session must be an instance of SessionImpl");
+            GaxPreconditions.CheckArgument(((SessionImpl) session).Batcher is SpannerBatcher, nameof(session), "The session must use a SpannerBatcher");
+            var batcher = (SpannerBatcher) ((SessionImpl) session).Batcher;
+            batcher.MutationUsage = mutationUsage;
+            return session;
         }
     }
 }

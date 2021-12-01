@@ -18,6 +18,7 @@ using Google.Cloud.Spanner.V1;
 using NHibernate;
 using NHibernate.AdoNet;
 using NHibernate.Driver;
+using NHibernate.SqlCommand;
 using NHibernate.SqlTypes;
 using System;
 using System.Data;
@@ -56,6 +57,36 @@ namespace Google.Cloud.Spanner.NHibernate
         public override bool UseNamedPrefixInParameter => true;
         public override string NamedPrefix => "@";
         public System.Type BatcherFactoryClass => typeof(SpannerBatcherFactory);
+        
+        public override DbCommand GenerateCommand(CommandType type, SqlString sqlString, SqlType[] parameterTypes)
+        {
+            var sqlCommand = base.GenerateCommand(type, sqlString, parameterTypes);
+            if (sqlString is SpannerMutationSqlString mutationSqlString)
+            {
+                return GenerateMutationOrDmlCommand((SpannerRetriableCommand)sqlCommand, mutationSqlString, parameterTypes);
+            }
+            return sqlCommand;
+        }
+
+        private DbCommand GenerateMutationOrDmlCommand(SpannerRetriableCommand dmlCommand, SpannerMutationSqlString sqlString, SqlType[] parameterTypes)
+        {
+            var cmd = new SpannerCommand();
+            cmd.CommandText = sqlString.MutationCommandText;
+            cmd.CommandType = dmlCommand.CommandType;
+            SetCommandParameters(cmd, sqlString.Columns, parameterTypes);
+            return new SpannerDmlOrMutationCommand(dmlCommand.SpannerCommand, new SpannerRetriableCommand(cmd));
+        }
+
+        private void SetCommandParameters(DbCommand cmd, string[] paramNames, SqlType[] sqlTypes)
+        {
+            for (int i = 0; i < sqlTypes.Length; i++)
+            {
+                var dbParam = GenerateParameter(cmd, paramNames[i], sqlTypes[i]);
+                // Override the name that is generated.
+                dbParam.ParameterName = paramNames[i];
+                cmd.Parameters.Add(dbParam);
+            }
+        }
         
         protected override void InitializeParameter(DbParameter dbParam, string name, SqlType sqlType)
         {

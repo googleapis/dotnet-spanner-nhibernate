@@ -84,6 +84,7 @@ namespace Google.Cloud.Spanner.Connection
         private readonly RetriableTransactionOptions _options;
         private readonly List<IRetriableStatement> _retriableStatements = new List<IRetriableStatement>();
         public int RetryCount { get; private set; }
+        public Dictionary<string, object> Attributes { get; } = new Dictionary<string, object>();
 
         internal SpannerRetriableTransaction(
             SpannerRetriableConnection connection,

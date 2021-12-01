@@ -88,7 +88,7 @@ namespace Google.Cloud.Spanner.NHibernate
             GenerateUpdateString(includeProperty, j, null, useRowId);
         
 		/// <summary> Generate the SQL that updates a row by id (and version)</summary>
-		private SqlCommandInfo GenerateUpdateString(bool[] includeProperty, int j, object[] oldFields, bool useRowId) =>
+		private new SqlCommandInfo GenerateUpdateString(bool[] includeProperty, int j, object[] oldFields, bool useRowId) =>
             AppendUpdateString(base.GenerateUpdateString(includeProperty, j, oldFields, useRowId));
 
         private SqlCommandInfo AppendUpdateString(SqlCommandInfo info)

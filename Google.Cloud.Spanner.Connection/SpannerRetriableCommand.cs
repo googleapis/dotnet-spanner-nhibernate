@@ -42,7 +42,7 @@ namespace Google.Cloud.Spanner.Connection
             _spannerCommand = (SpannerCommand)GaxPreconditions.CheckNotNull(spannerCommand, nameof(spannerCommand)).Clone();
         }
 
-        public object Clone() => new SpannerRetriableCommand(_connection, _spannerCommand.Clone() as SpannerCommand)
+        public virtual object Clone() => new SpannerRetriableCommand(_connection, _spannerCommand.Clone() as SpannerCommand)
         {
             Transaction = _transaction,
         };
@@ -74,7 +74,7 @@ namespace Google.Cloud.Spanner.Connection
         
         public TimestampBound TimestampBound { get; set; }
         
-        internal SpannerCommand SpannerCommand => _spannerCommand;
+        public SpannerCommand SpannerCommand => _spannerCommand;
 
         protected override DbParameterCollection DbParameterCollection => _spannerCommand.Parameters;
 

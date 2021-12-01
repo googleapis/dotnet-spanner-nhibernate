@@ -37,6 +37,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
     {
         public ConcertMapping()
         {
+            Persister<SpannerMutationsEntityPersister>();
+            DynamicUpdate(true);
             Table("Concerts");
             Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
             ManyToOne(x => x.Venue);
