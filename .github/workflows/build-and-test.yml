@@ -19,9 +19,9 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
-    - name: Unit Tests NHibernate
-      working-directory: ./Google.Cloud.Spanner.Hibernate.Tests
-      run: dotnet test --no-build --verbosity normal
     - name: Unit Tests Connection
       working-directory: ./Google.Cloud.Spanner.Connection.Tests
+      run: dotnet test --no-build --verbosity normal
+    - name: Unit Tests NHibernate
+      working-directory: ./Google.Cloud.Spanner.NHibernate.Tests
       run: dotnet test --no-build --verbosity normal
