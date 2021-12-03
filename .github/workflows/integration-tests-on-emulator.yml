@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       emulator:
-        image: gcr.io/cloud-spanner-emulator/emulator:1.3.0
+        image: gcr.io/cloud-spanner-emulator/emulator:latest
         ports:
           - 9010:9010
           - 9020:9020
@@ -33,4 +33,4 @@ jobs:
           JOB_TYPE: test
           SPANNER_EMULATOR_HOST: localhost:9010
           TEST_PROJECT: emulator-test-project
-          TEST_SPANNER_INSTANCE: test-instance
+          TEST_INSTANCE: test-instance
