@@ -8,4 +8,8 @@
       <ProjectReference Include="..\..\google-cloud-dotnet\apis\Google.Cloud.Spanner.Data\Google.Cloud.Spanner.Data\Google.Cloud.Spanner.Data.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Google.Cloud.Spanner.Data" Version="3.13.0" />
+    </ItemGroup>
+
 </Project>
