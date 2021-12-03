@@ -29,12 +29,9 @@ jobs:
         run: dotnet restore
       - name: Build
         run: dotnet build --no-restore
-      - name: Unit Tests NHibernate
-        working-directory: ./Google.Cloud.Spanner.NHibernate.Tests
-        run: dotnet test --no-build --verbosity normal
       - name: Integration Tests on Emulator
         working-directory: ./Google.Cloud.Spanner.NHibernate.IntegrationTests
-        run: dotnet test --no-build --verbosity normal
+        run: dotnet test --no-build --verbosity normal --filter "FullyQualifiedName=Google.Cloud.Spanner.NHibernate.IntegrationTests.BasicsTests.CanInsertOrUpdateData"
         env:
           JOB_TYPE: test
           SPANNER_EMULATOR_HOST: localhost:9010
