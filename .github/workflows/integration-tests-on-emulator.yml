@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       emulator:
-        image: gcr.io/cloud-spanner-emulator/emulator:1.2.0
+        image: gcr.io/cloud-spanner-emulator/emulator:latest
         ports:
           - 9010:9010
           - 9020:9020
@@ -31,6 +31,6 @@ jobs:
         run: dotnet test --verbosity normal
         env:
           JOB_TYPE: test
-          SPANNER_EMULATOR_HOST: localhost:9010
+          SPANNER_EMULATOR_HOST: 127.0.0.1:9010
           TEST_PROJECT: emulator-test-project
           TEST_INSTANCE: test-instance
