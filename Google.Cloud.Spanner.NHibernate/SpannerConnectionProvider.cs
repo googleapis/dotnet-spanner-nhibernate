@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Google.Api.Gax;
 using Google.Cloud.Spanner.Connection;
 using Google.Cloud.Spanner.Data;
 using Grpc.Core;
@@ -31,6 +32,7 @@ namespace Google.Cloud.Spanner.NHibernate
             var connectionStringBuilder = new SpannerConnectionStringBuilder(connectionString, ChannelCredentials)
             {
                 SessionPoolManager = SpannerDriver.SessionPoolManager,
+                EmulatorDetection = EmulatorDetection.EmulatorOrProduction,
             };
             var spannerConnection = new SpannerConnection(connectionStringBuilder);
             return new SpannerRetriableConnection(spannerConnection);
