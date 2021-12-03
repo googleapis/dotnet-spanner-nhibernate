@@ -9,7 +9,7 @@ on:
 jobs:
   integration-tests-on-emulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     services:
       emulator:
         image: gcr.io/cloud-spanner-emulator/emulator:latest
@@ -31,7 +31,7 @@ jobs:
         run: dotnet build --no-restore
       - name: Integration Tests on Emulator
         working-directory: ./Google.Cloud.Spanner.NHibernate.IntegrationTests
-        run: dotnet test --no-build --verbosity normal --filter "FullyQualifiedName~Google.Cloud.Spanner.NHibernate.IntegrationTests.BasicsTests|FullyQualifiedName~Google.Cloud.Spanner.NHibernate.IntegrationTests.QueryTests"
+        run: dotnet test --no-build --verbosity normal --filter "FullyQualifiedName~Google.Cloud.Spanner.NHibernate.IntegrationTests.QueryTests"
         env:
           JOB_TYPE: test
           SPANNER_EMULATOR_HOST: localhost:9010
