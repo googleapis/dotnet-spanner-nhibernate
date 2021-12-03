@@ -16,14 +16,10 @@ using Google.Cloud.Spanner.Data;
 using NHibernate.Cache;
 using NHibernate.Engine;
 using NHibernate.Mapping;
-using NHibernate.Persister.Entity;
 using NHibernate.SqlCommand;
 using NHibernate.Util;
 using System;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Array = System.Array;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
@@ -41,7 +37,7 @@ namespace Google.Cloud.Spanner.NHibernate
     /// PENDING_COMMIT_TIMESTAMP() for both insert and update statements:
     ///
     /// <code>
-    /// Persister<SpannerSingleTableWithFixedValuesEntityPersister>();
+    /// Persister&lt;SpannerSingleTableWithFixedValuesEntityPersister&gt;();
     /// Property(x => x.ColCommitTs, mapper =>
     ///     {
     ///         mapper.Insert(false);
@@ -102,13 +98,6 @@ namespace Google.Cloud.Spanner.NHibernate
             }
             return withInsertInfo;
         }
-        
-  //       protected override SqlCommandInfo GenerateUpdateString(bool[] includeProperty, int j, bool useRowId) =>
-  //           GenerateUpdateString(includeProperty, j, null, useRowId);
-  //       
-		// /// <summary> Generate the SQL that updates a row by id (and version)</summary>
-		// private new SqlCommandInfo GenerateUpdateString(bool[] includeProperty, int j, object[] oldFields, bool useRowId) =>
-  //           AppendUpdateString(base.GenerateUpdateString(includeProperty, j, oldFields, useRowId));
         
         protected override SqlCommandInfo AddUpdateColumnInformation(SqlCommandInfo sql, string table)
         {

@@ -73,16 +73,16 @@ namespace Google.Cloud.Spanner.NHibernate
             var cmd = new SpannerCommand();
             cmd.CommandText = sqlString.MutationCommandText;
             cmd.CommandType = dmlCommand.CommandType;
-            SetCommandParameters(cmd, sqlString, parameterTypes);
+            SetMutationCommandParameters(cmd, sqlString, parameterTypes);
             return new SpannerDmlOrMutationCommand(dmlCommand.SpannerCommand, new SpannerRetriableCommand(cmd));
         }
 
-        private void SetCommandParameters(DbCommand cmd, SpannerMutationSqlString spannerMutationSqlString, SqlType[] sqlTypes)
+        private void SetMutationCommandParameters(DbCommand cmd, SpannerMutationSqlString spannerMutationSqlString, SqlType[] sqlTypes)
         {
             for (int i = 0; i < sqlTypes.Length; i++)
             {
                 var dbParam = GenerateParameter(cmd, spannerMutationSqlString.Columns[i], sqlTypes[i]);
-                // Override the name that is generated.
+                // Override the name that is generated to make it match with the column name.
                 dbParam.ParameterName = spannerMutationSqlString.Columns[i];
                 cmd.Parameters.Add(dbParam);
             }
