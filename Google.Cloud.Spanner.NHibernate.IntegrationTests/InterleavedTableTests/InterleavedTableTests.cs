@@ -17,6 +17,7 @@ using Xunit;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
 {
+    [Collection(nameof(NonParallelTestCollection))]
     public class InterleavedTableTests : IClassFixture<SpannerInterleavedTableFixture>
     {
         private readonly SpannerInterleavedTableFixture _fixture;
