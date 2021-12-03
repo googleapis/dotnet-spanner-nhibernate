@@ -31,7 +31,7 @@ jobs:
         run: dotnet test --no-build --verbosity normal
       - name: Integration Tests on Emulator
         working-directory: ./Google.Cloud.Spanner.NHibernate.IntegrationTests
-        run: dotnet test --verbosity normal
+        run: dotnet test --no-build --verbosity normal
         env:
           JOB_TYPE: test
           SPANNER_EMULATOR_HOST: localhost:9010
