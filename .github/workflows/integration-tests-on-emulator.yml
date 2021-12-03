@@ -9,12 +9,15 @@ on:
 jobs:
   integration-tests-on-emulator:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       emulator:
         image: gcr.io/cloud-spanner-emulator/emulator:latest
         ports:
           - 9010:9010
+          - 9010:9010/udp
           - 9020:9020
+          - 9020:9020/udp
 
     steps:
       - uses: actions/checkout@v2
