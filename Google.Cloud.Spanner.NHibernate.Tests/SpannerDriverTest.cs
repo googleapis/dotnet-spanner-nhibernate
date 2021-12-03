@@ -654,7 +654,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUpdateRecordWithAllTypes()
         {
             var updateSql =
-                "UPDATE TableWithAllColumnTypes SET ColFloat64 = @p0, ColNumeric = @p1, ColBool = @p2, ColString = @p3, ColStringMax = @p4, ColBytes = @p5, ColBytesMax = @p6, ColDate = @p7, ColTimestamp = @p8, ColJson = @p9, ColInt64Array = @p10, ColFloat64Array = @p11, ColNumericArray = @p12, ColBoolArray = @p13, ColStringArray = @p14, ColStringMaxArray = @p15, ColBytesArray = @p16, ColBytesMaxArray = @p17, ColDateArray = @p18, ColTimestampArray = @p19, ColJsonArray = @p20, ASC = @p21 WHERE ColInt64 = @p22";
+                "UPDATE TableWithAllColumnTypes SET ColFloat64 = @p0, ColNumeric = @p1, ColBool = @p2, ColString = @p3, ColStringMax = @p4, ColBytes = @p5, ColBytesMax = @p6, ColDate = @p7, ColTimestamp = @p8, ColJson = @p9, ColInt64Array = @p10, ColFloat64Array = @p11, ColNumericArray = @p12, ColBoolArray = @p13, ColStringArray = @p14, ColStringMaxArray = @p15, ColBytesArray = @p16, ColBytesMaxArray = @p17, ColDateArray = @p18, ColTimestampArray = @p19, ColJsonArray = @p20, ASC = @p21, ColCommitTs = PENDING_COMMIT_TIMESTAMP() WHERE ColInt64 = @p22";
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(1L));
             var selectSql =
                 "SELECT tablewitha_.ColComputed as colcomputed24_2_ FROM TableWithAllColumnTypes tablewitha_ WHERE tablewitha_.ColInt64=@p0";
@@ -669,7 +669,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             VerifyTableWithAllColumnTypesParameters(row, updateSql);
         }
         
-        private TableWithAllColumnTypes CreateRowWithAllColumnTypes() => 
+        internal static TableWithAllColumnTypes CreateRowWithAllColumnTypes() => 
             new TableWithAllColumnTypes
             {
                 ColBool = true,
@@ -1390,7 +1390,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             return sql;
         }
 
-        private StatementResult CreateTableWithAllColumnTypesResultSet(TableWithAllColumnTypes row)
+        internal static StatementResult CreateTableWithAllColumnTypesResultSet(TableWithAllColumnTypes row)
         {
             return StatementResult.CreateResultSet(new List<Tuple<V1.Type, string>>
             {

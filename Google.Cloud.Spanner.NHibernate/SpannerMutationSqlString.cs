@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Google.Cloud.Spanner.Data;
 using NHibernate.SqlCommand;
+using System.Collections.Generic;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
@@ -26,6 +28,7 @@ namespace Google.Cloud.Spanner.NHibernate
         public string Operation { get; }
         public string Table { get; }
         public string[] Columns { get; }
+        public List<SpannerParameter> AdditionalParameters { get; } = new List<SpannerParameter>();
         public int DiscriminatorColumnIndex { get; }
         public string[] WhereColumns { get; }
         public int WhereParamsStartIndex { get; }

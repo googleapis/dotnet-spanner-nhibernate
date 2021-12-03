@@ -31,7 +31,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
     {
         public PerformanceMapping()
         {
-            Persister<SpannerMutationsEntityPersister>();
+            Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
             Table("Performances");
             Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));

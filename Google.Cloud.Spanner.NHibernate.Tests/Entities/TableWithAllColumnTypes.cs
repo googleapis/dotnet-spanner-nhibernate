@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Google.Cloud.Spanner.Data;
 using NHibernate.Mapping.ByCode.Conformist;
 using System;
 using System.Linq;
@@ -85,7 +86,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
     {
         public TableWithAllColumnTypesMapping()
         {
-            Persister<SpannerDefaultValueSingleTableEntityPersister>();
+            Persister<SpannerSingleTableWithFixedValuesEntityPersister>();
             Id(x => x.ColInt64);
             Property(x => x.ColFloat64);
             Property(x => x.ColNumeric);

@@ -35,7 +35,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
     {
         public AlbumMapping()
         {
-            Persister<SpannerMutationsEntityPersister>();
+            Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
             Table("Albums");
             Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));

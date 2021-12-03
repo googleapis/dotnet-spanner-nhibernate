@@ -276,7 +276,12 @@ namespace Google.Cloud.Spanner.Connection
         {
             return _spannerDataReader.GetString(ordinal);
         }
-
+        
+        public override T GetFieldValue<T>(int ordinal)
+        {
+            return _spannerDataReader.GetFieldValue<T>(ordinal);
+        }
+        
         public override object GetValue(int ordinal)
         {
             return _spannerDataReader.GetValue(ordinal);

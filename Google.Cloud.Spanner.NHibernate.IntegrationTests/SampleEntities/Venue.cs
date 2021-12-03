@@ -36,7 +36,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
     {
         public VenueMapping()
         {
-            Persister<SpannerMutationsEntityPersister>();
+            Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
             Table("Venues");
             Id(x => x.Code);
