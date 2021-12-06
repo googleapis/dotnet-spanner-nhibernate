@@ -27,12 +27,14 @@ namespace Google.Cloud.Spanner.NHibernate
     {
         public virtual ChannelCredentials ChannelCredentials { get; set; }
 
+        protected virtual EmulatorDetection EmulatorDetection => EmulatorDetection.EmulatorOrProduction;
+
         public override DbConnection GetConnection(string connectionString)
         {
             var connectionStringBuilder = new SpannerConnectionStringBuilder(connectionString, ChannelCredentials)
             {
                 SessionPoolManager = SpannerDriver.SessionPoolManager,
-                EmulatorDetection = EmulatorDetection.EmulatorOrProduction,
+                EmulatorDetection = EmulatorDetection,
             };
             var spannerConnection = new SpannerConnection(connectionStringBuilder);
             return new SpannerRetriableConnection(spannerConnection);
