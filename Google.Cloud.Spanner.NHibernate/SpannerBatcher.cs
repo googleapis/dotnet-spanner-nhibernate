@@ -101,7 +101,7 @@ namespace Google.Cloud.Spanner.NHibernate
                     {
                         var mutationCommand = dmlOrMutationCommand.MutationCommand;
                         // Copy the parameter values to the mutation command.
-                        for (var i = 0; i < mutationCommand.Parameters.Count; i++)
+                        for (var i = 0; i < Math.Min(cmd.Parameters.Count, mutationCommand.Parameters.Count); i++)
                         {
                             mutationCommand.Parameters[i].Value = cmd.Parameters[i].Value;
                         }

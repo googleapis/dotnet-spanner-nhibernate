@@ -56,7 +56,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
     {
         public AlbumMapping()
         {
-            Persister<SpannerMutationsEntityPersister>();
+            Persister<SpannerSingleTableEntityPersister>();
             Table("Albums");
             ComponentAsId(x => x.AlbumIdentifier, m =>
             {

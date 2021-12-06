@@ -157,7 +157,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         public async Task TransactionCanReadCommitTimestamp(MutationUsage mutationUsage)
         {
             var id = _fixture.RandomLong();
-            using var session = _fixture.SessionFactory.OpenSession();
+            using var session = _fixture.SessionFactoryForMutations.OpenSession();
 
             using var transaction = session.BeginTransaction(mutationUsage);
             // Add a row that will generate a commit timestamp.

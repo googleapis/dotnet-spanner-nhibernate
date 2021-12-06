@@ -35,7 +35,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
     {
         public SingerMapping()
         {
-            Persister<SpannerMutationsEntityPersister>();
+            Persister<SpannerSingleTableEntityPersister>();
             Table("Singers");
             Id(x => x.SingerId, m => m.Generator(new UUIDHexGeneratorDef()));
             Property(x => x.FirstName);

@@ -79,7 +79,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             // Configure some entities to use mutations instead of DML in a separate SessionFactory.
             // Disable property generation when we are using mutations, as the value cannot be read before everything
             // has been committed.
-            nhConfig.GetClassMapping(typeof(Singer)).GetProperty("FullName").Generation = PropertyGeneration.Never;
+            nhConfig.GetClassMapping(typeof(Singer)).GetProperty(nameof(Singer.FullName)).Generation = PropertyGeneration.Never;
+            nhConfig.GetClassMapping(typeof(TableWithAllColumnTypes)).GetProperty(nameof(TableWithAllColumnTypes.ColComputed)).Generation = PropertyGeneration.Never;
             SessionFactoryForMutations = nhConfig.BuildSessionFactory();
         }
         

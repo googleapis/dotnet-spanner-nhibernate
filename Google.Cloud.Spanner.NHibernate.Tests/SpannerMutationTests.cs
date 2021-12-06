@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection.MockServer;
+using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
 using Google.Cloud.Spanner.V1;
 using Google.Protobuf.WellKnownTypes;
@@ -654,6 +655,139 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                 value => Assert.Equal("1", value.StringValue)));
+                    }));
+        }
+
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Theory]
+        public async Task InsertWithCommitTimestampUsingMutation(bool async, bool explicitTransaction)
+        {
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
+            var entity = new TableWithAllColumnTypes
+            {
+                ColInt64 = 1L,
+            };
+            var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
+            if (async)
+            {
+                await session.SaveAsync(entity);
+                await session.FlushAsync();
+                await (transaction?.CommitAsync() ?? Task.CompletedTask);
+            }
+            else
+            {
+                session.Save(entity);
+                session.Flush();
+                transaction?.Commit();
+            }
+
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits,
+                commit =>
+                    Assert.Collection(commit.Mutations, mutation =>
+                    {
+                        Assert.Equal("TableWithAllColumnTypes", mutation.Insert.Table);
+                        Assert.Collection(mutation.Insert.Columns,
+                            c => Assert.Equal("ColFloat64", c),
+                            c => Assert.Equal("ColNumeric", c),
+                            c => Assert.Equal("ColBool", c),
+                            c => Assert.Equal("ColString", c),
+                            c => Assert.Equal("ColStringMax", c),
+                            c => Assert.Equal("ColBytes", c),
+                            c => Assert.Equal("ColBytesMax", c),
+                            c => Assert.Equal("ColDate", c),
+                            c => Assert.Equal("ColTimestamp", c),
+                            c => Assert.Equal("ColJson", c),
+                            c => Assert.Equal("ColInt64Array", c),
+                            c => Assert.Equal("ColFloat64Array", c),
+                            c => Assert.Equal("ColNumericArray", c),
+                            c => Assert.Equal("ColBoolArray", c),
+                            c => Assert.Equal("ColStringArray", c),
+                            c => Assert.Equal("ColStringMaxArray", c),
+                            c => Assert.Equal("ColBytesArray", c),
+                            c => Assert.Equal("ColBytesMaxArray", c),
+                            c => Assert.Equal("ColDateArray", c),
+                            c => Assert.Equal("ColTimestampArray", c),
+                            c => Assert.Equal("ColJsonArray", c),
+                            c => Assert.Equal("ASC", c),
+                            c => Assert.Equal("ColInt64", c),
+                            c => Assert.Equal("ColCommitTs", c));
+                        Assert.Collection(mutation.Insert.Values,
+                            row => Assert.Collection(row.Values,
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal(Value.KindOneofCase.NullValue, column.KindCase),
+                                column => Assert.Equal("1", column.StringValue),
+                                column => Assert.Equal("spanner.commit_timestamp()", column.StringValue)));
+                    }));
+        }
+
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Theory]
+        public async Task UpdateWithCommitTimestampUsingMutation(bool async, bool explicitTransaction)
+        {
+            var sql = "/* load Google.Cloud.Spanner.NHibernate.Tests.Entities.TableWithAllColumnTypes */ SELECT tablewitha0_.ColInt64 as colint1_2_0_, tablewitha0_.ColFloat64 as colfloat2_2_0_, tablewitha0_.ColNumeric as colnumeric3_2_0_, tablewitha0_.ColBool as colbool4_2_0_, tablewitha0_.ColString as colstring5_2_0_, tablewitha0_.ColStringMax as colstringmax6_2_0_, tablewitha0_.ColBytes as colbytes7_2_0_, tablewitha0_.ColBytesMax as colbytesmax8_2_0_, tablewitha0_.ColDate as coldate9_2_0_, tablewitha0_.ColTimestamp as coltimestamp10_2_0_, tablewitha0_.ColJson as coljson11_2_0_, tablewitha0_.ColCommitTs as colcommitts12_2_0_, tablewitha0_.ColInt64Array as colint13_2_0_, tablewitha0_.ColFloat64Array as colfloat14_2_0_, tablewitha0_.ColNumericArray as colnumericarray15_2_0_, tablewitha0_.ColBoolArray as colboolarray16_2_0_, tablewitha0_.ColStringArray as colstringarray17_2_0_, tablewitha0_.ColStringMaxArray as colstringmaxarray18_2_0_, tablewitha0_.ColBytesArray as colbytesarray19_2_0_, tablewitha0_.ColBytesMaxArray as colbytesmaxarray20_2_0_, tablewitha0_.ColDateArray as coldatearray21_2_0_, tablewitha0_.ColTimestampArray as coltimestamparray22_2_0_, tablewitha0_.ColJsonArray as coljsonarray23_2_0_, tablewitha0_.ColComputed as colcomputed24_2_0_, tablewitha0_.ASC as asc25_2_0_ FROM TableWithAllColumnTypes tablewitha0_ WHERE tablewitha0_.ColInt64=@p0";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, SpannerDriverTest.CreateTableWithAllColumnTypesResultSet(SpannerDriverTest.CreateRowWithAllColumnTypes()));
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.ImplicitTransactions);
+            var transaction = explicitTransaction ? session.BeginTransaction(MutationUsage.Always) : null;
+            TableWithAllColumnTypes entity;
+            if (async)
+            {
+                entity = await session.LoadAsync<TableWithAllColumnTypes>(1L);
+                entity.ColBool = !entity.ColBool;
+                await session.UpdateAsync(entity);
+                await session.FlushAsync();
+                await (transaction?.CommitAsync() ?? Task.CompletedTask);
+            }
+            else
+            {
+                entity = session.Load<TableWithAllColumnTypes>(1L);
+                entity.ColBool = !entity.ColBool;
+                session.Update(entity);
+                session.Flush();
+                transaction?.Commit();
+            }
+
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits,
+                commit =>
+                    Assert.Collection(commit.Mutations, mutation =>
+                    {
+                        Assert.Equal("TableWithAllColumnTypes", mutation.Update.Table);
+                        Assert.Collection(mutation.Update.Columns,
+                            c => Assert.Equal("ColBool", c),
+                            c => Assert.Equal("ColInt64", c),
+                            c => Assert.Equal("ColCommitTs", c));
+                        Assert.Collection(mutation.Update.Values,
+                            row => Assert.Collection(row.Values,
+                                column => Assert.Equal(entity.ColBool, column.BoolValue),
+                                column => Assert.Equal("1", column.StringValue),
+                                column => Assert.Equal("spanner.commit_timestamp()", column.StringValue)));
                     }));
         }
 

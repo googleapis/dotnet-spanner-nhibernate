@@ -30,12 +30,12 @@ namespace Google.Cloud.Spanner.NHibernate
 	/// table. This persister can generate commands that use mutations instead of DML
 	/// when that is appropriate or requested by the client application.
 	/// </summary>
-    public class SpannerMutationsEntityPersister : SingleTableEntityPersister
+    public class SpannerSingleTableEntityPersister : SingleTableEntityPersister
     {
 	    private readonly bool[][] _propertyColumnInsertable;
 	    private readonly bool _discriminatorInsertable;
 	    
-        public SpannerMutationsEntityPersister(PersistentClass persistentClass, ICacheConcurrencyStrategy cache, ISessionFactoryImplementor factory, IMapping mapping) : base(persistentClass, cache, factory, mapping)
+        public SpannerSingleTableEntityPersister(PersistentClass persistentClass, ICacheConcurrencyStrategy cache, ISessionFactoryImplementor factory, IMapping mapping) : base(persistentClass, cache, factory, mapping)
         {
 	        var hydrateSpan = EntityMetamodel.PropertySpan;
 	        _propertyColumnInsertable = new bool[hydrateSpan][];
@@ -97,7 +97,7 @@ namespace Google.Cloud.Spanner.NHibernate
 	        return AddDeleteColumnInformation(sql, j);
         }
         
-        private SqlCommandInfo AddInsertColumnInformation(SqlCommandInfo sql, bool[] includeProperty, int j)
+        protected virtual SqlCommandInfo AddInsertColumnInformation(SqlCommandInfo sql, bool[] includeProperty, int j)
         {
 	        var discriminatorColumndIndex = -1;
 	        var columns = new List<string>();
@@ -125,7 +125,7 @@ namespace Google.Cloud.Spanner.NHibernate
 	        return new SqlCommandInfo(sqlString, sql.ParameterTypes);
         }
 
-        private SqlCommandInfo AddUpdateColumnInformation(SqlCommandInfo sql, string table)
+        protected virtual SqlCommandInfo AddUpdateColumnInformation(SqlCommandInfo sql, string table)
         {
 	        var columns = new List<string>();
 	        var whereClause = new SqlStringBuilder();
