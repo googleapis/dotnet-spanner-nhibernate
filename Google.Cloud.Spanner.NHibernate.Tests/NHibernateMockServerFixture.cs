@@ -14,25 +14,16 @@
 
 using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
-using Grpc.Core;
 using NHibernate;
 using NHibernate.Cfg;
-using NHibernate.Mapping;
 using NHibernate.Mapping.ByCode;
-using NHibernate.SqlCommand;
 using NHibernate.Util;
-using System;
 using Environment = NHibernate.Cfg.Environment;
 using PropertyGeneration = NHibernate.Mapping.PropertyGeneration;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests
 {
     // ReSharper disable once ClassNeverInstantiated.Global
-    internal class TestConnectionProvider : SpannerConnectionProvider
-    {
-        public override ChannelCredentials ChannelCredentials { get => ChannelCredentials.Insecure; set => throw new InvalidOperationException(); }
-    }
-    
     public class NHibernateMockServerFixture : SpannerMockServerFixture
     {
         public NHibernateMockServerFixture()

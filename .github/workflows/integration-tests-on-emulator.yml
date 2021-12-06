@@ -15,9 +15,7 @@ jobs:
         image: gcr.io/cloud-spanner-emulator/emulator:latest
         ports:
           - 9010:9010
-          - 9010:9010/udp
           - 9020:9020
-          - 9020:9020/udp
 
     steps:
       - uses: actions/checkout@v2
@@ -29,6 +27,13 @@ jobs:
         run: dotnet restore
       - name: Build
         run: dotnet build --no-restore
+      - name: Unit Tests NHibernate
+        # Also execute the unit tests with the SPANNER_EMULATOR_HOST env var enabled, to ensure that these tests do
+        # not try to execute against the emulator.
+        working-directory: ./Google.Cloud.Spanner.NHibernate.Tests
+        run: dotnet test --no-build --verbosity normal
+        env:
+          SPANNER_EMULATOR_HOST: localhost:9010
       - name: Integration Tests on Emulator
         working-directory: ./Google.Cloud.Spanner.NHibernate.IntegrationTests
         run: dotnet test --no-build --verbosity normal
