@@ -123,32 +123,6 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
 
         [Fact]
-        public async Task InsertAlbum()
-        {
-            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, Picture, SingerId) VALUES (@p0, @p1, @p2, @p3, @p4)";
-            _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
-            AddSelectSingerFullNameResult("Alice Morrison", 0);
-            using var session = _fixture.SessionFactory.OpenSession();
-            var transaction = session.BeginTransaction();
-
-            var singer = new Singer
-            {
-                SingerId = 1L,
-                FirstName = "Alice",
-                LastName = "Morrison",
-            };
-            var album = new Album
-            {
-                AlbumId = 1L,
-                Title = "Some title",
-                Singer = singer,
-            };
-            await session.SaveAsync(singer);
-            await session.SaveAsync(album);
-            await transaction.CommitAsync();
-        }
-
-        [Fact]
         public async Task InsertMultipleSingers_UsesSameTransaction()
         {
             var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, Picture, SingerId) VALUES (@p0, @p1, @p2, @p3, @p4)";
@@ -281,7 +255,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task DeleteSinger_DoesNotSelectFullName()
         {
             // Setup results.
-            var updateSql = "UPDATE Album SET Singer = null WHERE Singer = @p0";
+            var updateSql = "UPDATE Album SET SingerId = null WHERE SingerId = @p0";
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(0L));
             var deleteSql = $"DELETE FROM Singer WHERE SingerId = @p0";
             _fixture.SpannerMock.AddOrUpdateStatementResult(deleteSql, StatementResult.CreateUpdateCount(1L));
@@ -1396,17 +1370,16 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
         
         private static string GetSelectSingerAlbumsSql() =>
-            "SELECT albums0_.Singer as singer5_1_1_, albums0_.AlbumId as albumid1_1_1_, "
-            + "albums0_.AlbumId as albumid1_1_0_, albums0_.Title as title2_1_0_, "
-            + "albums0_.ReleaseDate as releasedate3_1_0_, albums0_.SingerId as singerid4_1_0_ "
-            + "FROM Album albums0_ WHERE albums0_.Singer=@p0";
+            "SELECT albums0_.SingerId as singerid4_1_1_, albums0_.AlbumId as albumid1_1_1_, albums0_.AlbumId as albumid1_1_0_, "
+            + "albums0_.Title as title2_1_0_, albums0_.ReleaseDate as releasedate3_1_0_, albums0_.SingerId as singerid4_1_0_ "
+            + "FROM Album albums0_ WHERE albums0_.SingerId=@p0";
         
         private string AddSingerAlbumsResults(string sql, IEnumerable<object[]> rows)
         {
             _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
                 new List<Tuple<V1.TypeCode, string>>
                 {
-                    Tuple.Create(V1.TypeCode.Int64, "singer5_1_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_1_"),
                     Tuple.Create(V1.TypeCode.Int64, "albumid1_1_1_"),
                     Tuple.Create(V1.TypeCode.Int64, "albumid1_1_0_"),
                     Tuple.Create(V1.TypeCode.String, "title2_1_0_"),
