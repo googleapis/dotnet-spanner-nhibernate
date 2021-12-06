@@ -31,7 +31,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.FullName, mapper => mapper.Generated(PropertyGeneration.Always));
             Property(x => x.BirthDate);
             Property(x => x.Picture);
-            Bag(x => x.Albums, c => { }, r => r.OneToMany());
+            Bag(x => x.Albums,
+                c => c.Key(k => k.Column("SingerId")),
+            r => r.OneToMany());
         }
     }
 }

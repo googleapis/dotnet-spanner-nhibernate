@@ -41,9 +41,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             ManyToOne(x => x.Singer, m => m.Column("SingerId"));
             Bag(x => x.Tracks, c =>
             {
-                // This prevents NHibernate from generating an `UPDATE Tracks SET AlbumId=null WHERE AlbumId=@p0` when
-                // an Album is deleted.
-                c.Key(k => k.NotNullable(true));
+                c.Inverse(true);
+                c.Key(k =>
+                {
+                    k.Column("AlbumId");
+                    // This prevents NHibernate from generating an `UPDATE Tracks SET AlbumId=null WHERE AlbumId=@p0` when
+                    // an Album is deleted.
+                    k.NotNullable(true);
+                });
             }, r => r.OneToMany());
         }
     }

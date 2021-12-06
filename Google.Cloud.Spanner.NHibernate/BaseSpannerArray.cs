@@ -40,7 +40,7 @@ namespace Google.Cloud.Spanner.NHibernate
             Array = array;
         }
 
-        public SqlType[] SqlTypes => new[] { new SpannerSqlType(GetSpannerDbType()) };
+        public SqlType[] SqlTypes => new[] { new SpannerSqlType(GetSpannerDbType(), GetArrayElementType()) };
         public abstract System.Type ReturnedType { get; }
         public bool IsMutable => false;
 
@@ -103,7 +103,7 @@ namespace Google.Cloud.Spanner.NHibernate
         
         public abstract object NullSafeGet(DbDataReader rs, string[] names, ISessionImplementor session, object owner);
 
-        protected abstract SpannerDbType GetArrayElementType();
+        public abstract SpannerDbType GetArrayElementType();
 
         public SpannerDbType GetSpannerDbType() => SpannerDbType.ArrayOf(GetArrayElementType());
 

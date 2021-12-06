@@ -123,6 +123,32 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
 
         [Fact]
+        public async Task InsertAlbum()
+        {
+            var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, Picture, SingerId) VALUES (@p0, @p1, @p2, @p3, @p4)";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
+            AddSelectSingerFullNameResult("Alice Morrison", 0);
+            using var session = _fixture.SessionFactory.OpenSession();
+            var transaction = session.BeginTransaction();
+
+            var singer = new Singer
+            {
+                SingerId = 1L,
+                FirstName = "Alice",
+                LastName = "Morrison",
+            };
+            var album = new Album
+            {
+                AlbumId = 1L,
+                Title = "Some title",
+                Singer = singer,
+            };
+            await session.SaveAsync(singer);
+            await session.SaveAsync(album);
+            await transaction.CommitAsync();
+        }
+
+        [Fact]
         public async Task InsertMultipleSingers_UsesSameTransaction()
         {
             var insertSql = "INSERT INTO Singer (FirstName, LastName, BirthDate, Picture, SingerId) VALUES (@p0, @p1, @p2, @p3, @p4)";

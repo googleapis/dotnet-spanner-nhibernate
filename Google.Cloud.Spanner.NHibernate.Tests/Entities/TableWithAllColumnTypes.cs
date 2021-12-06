@@ -91,9 +91,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.ColFloat64);
             Property(x => x.ColNumeric);
             Property(x => x.ColBool);
-            Property(x => x.ColString);
+            Property(x => x.ColString, c => c.Length(100));
             Property(x => x.ColStringMax);
-            Property(x => x.ColBytes);
+            Property(x => x.ColBytes, c => c.Length(100));
             Property(x => x.ColBytesMax);
             Property(x => x.ColDate);
             Property(x => x.ColTimestamp);
@@ -111,9 +111,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.ColFloat64Array);
             Property(x => x.ColNumericArray);
             Property(x => x.ColBoolArray);
-            Property(x => x.ColStringArray);
+            Property(x => x.ColStringArray, c => c.Length(100));
             Property(x => x.ColStringMaxArray);
-            Property(x => x.ColBytesArray);
+            Property(x => x.ColBytesArray, c => c.Length(100));
             Property(x => x.ColBytesMaxArray);
             Property(x => x.ColDateArray);
             Property(x => x.ColTimestampArray);

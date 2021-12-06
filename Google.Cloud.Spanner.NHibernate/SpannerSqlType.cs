@@ -22,9 +22,17 @@ namespace Google.Cloud.Spanner.NHibernate
     {
         public SpannerDbType SpannerDbType { get; }
         
+        public SpannerDbType ArrayElementType { get; }
+        
         public SpannerSqlType(SpannerDbType spannerDbType) : base(spannerDbType.DbType)
         {
             SpannerDbType = GaxPreconditions.CheckNotNull(spannerDbType, nameof(spannerDbType));
+        }
+        
+        public SpannerSqlType(SpannerDbType spannerDbType, SpannerDbType arrayElementType) : base(spannerDbType.DbType)
+        {
+            SpannerDbType = GaxPreconditions.CheckNotNull(spannerDbType, nameof(spannerDbType));
+            ArrayElementType = GaxPreconditions.CheckNotNull(arrayElementType, nameof(arrayElementType));
         }
     }
 }
