@@ -42,6 +42,11 @@ namespace Google.Cloud.Spanner.Connection
             SpannerConnection = connection;
         }
 
+        protected SpannerRetriableConnection(SpannerRetriableConnection connection)
+        {
+            SpannerConnection = connection.SpannerConnection;
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (_disposed)
