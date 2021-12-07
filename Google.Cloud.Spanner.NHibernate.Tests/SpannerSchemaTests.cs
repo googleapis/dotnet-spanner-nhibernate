@@ -13,6 +13,8 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Admin.Database.V1;
+using Google.Cloud.Spanner.Connection.MockServer;
+using Google.Cloud.Spanner.V1;
 using NHibernate.Tool.hbm2ddl;
 using System;
 using System.Collections.Generic;
@@ -140,6 +142,157 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public void SpannerExporterExecuteWithActionAndTextWriterExecutesBatch(bool onlyDrop) =>
             SpannerExporterExecutesBatch(exporter => exporter.Execute(s => { }, true, onlyDrop, null), onlyDrop);
+
+        [Fact]
+        public void CanGenerateUpdateScript()
+        {
+            AddTablesResult(new []
+            {
+                new Table {Name = "Singer", TableType = "BASE_TABLE"},
+            });
+            AddColumnsResult(new []
+            {
+                new Column {TableName = "Singer", Name = "SingerId", OrdinalPosition = 1, IsNullable = "NO", SpannerType = "INT64", IsGenerated = "NEVER"},
+                new Column {TableName = "Singer", Name = "FirstName", OrdinalPosition = 2, IsNullable = "YES", SpannerType = "STRING(MAX)", IsGenerated = "NEVER"},
+                new Column {TableName = "Singer", Name = "LastName", OrdinalPosition = 3, IsNullable = "YES", SpannerType = "STRING(MAX)", IsGenerated = "NEVER"},
+                new Column {TableName = "Singer", Name = "FullName", OrdinalPosition = 4, IsNullable = "YES", SpannerType = "STRING(MAX)", IsGenerated = "ALWAYS", GenerationExpression = "FirstName + LastName", IsStored = "YES"},
+                new Column {TableName = "Singer", Name = "BirthDate", OrdinalPosition = 5, IsNullable = "YES", SpannerType = "DATE", IsGenerated = "NEVER"},
+                new Column {TableName = "Singer", Name = "Picture", OrdinalPosition = 6, IsNullable = "YES", SpannerType = "BYTES(MAX)", IsGenerated = "NEVER"},
+            });
+            AddReferentialConstraintsResult(new ReferentialConstraint[]{});
+            AddIndexesResult(new Index[]{});
+            var updater = new SchemaUpdate(_fixture.Configuration);
+            var statements = new List<string>();
+            updater.Execute(s => statements.Add(s), false);
+            Assert.Empty(updater.Exceptions);
+            Assert.Collection(statements,
+                s => Assert.StartsWith("create table Album", s.Trim()),
+                s => Assert.StartsWith("create table TableWithAllColumnTypes", s.Trim()),
+                s => Assert.StartsWith("create table Track", s.Trim()),
+                s => Assert.StartsWith("alter table Album", s.Trim()),
+                s => Assert.StartsWith("alter table Track", s.Trim())
+            );
+        }
+
+        struct Table
+        {
+            public string Name;
+            public string ParentTable;
+            public string OnDeleteAction;
+            public string TableType;
+        }
+
+        private void AddTablesResult(IEnumerable<Table> rows)
+        {
+            var sql =
+                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, PARENT_TABLE_NAME, ON_DELETE_ACTION, TABLE_TYPE, SPANNER_STATE\nFROM INFORMATION_SCHEMA.TABLES";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
+                new List<Tuple<V1.TypeCode, string>>
+                {
+                    Tuple.Create(V1.TypeCode.String, "TABLE_CATALOG"),
+                    Tuple.Create(V1.TypeCode.String, "TABLE_SCHEMA"),
+                    Tuple.Create(V1.TypeCode.String, "TABLE_NAME"),
+                    Tuple.Create(V1.TypeCode.String, "PARENT_TABLE_NAME"),
+                    Tuple.Create(V1.TypeCode.String, "ON_DELETE_ACTION"),
+                    Tuple.Create(V1.TypeCode.String, "TABLE_TYPE"),
+                    Tuple.Create(V1.TypeCode.String, "SPANNER_STATE"),
+                }, rows.Select(row => new object[]{"", "", row.Name, row.ParentTable, row.OnDeleteAction, row.TableType, "COMMITTED"})));
+        }
+
+        struct Column
+        {
+            public string TableName;
+            public string Name;
+            public long OrdinalPosition;
+            public string IsNullable;
+            public string SpannerType;
+            public string IsGenerated;
+            public string GenerationExpression;
+            public string IsStored;
+        }
+
+        private void AddColumnsResult(IEnumerable<Column> rows)
+        {
+            var sql =
+                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE\nFROM INFORMATION_SCHEMA.COLUMNS";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
+                new List<Tuple<V1.TypeCode, string>>
+                {
+                    Tuple.Create(V1.TypeCode.String, "TABLE_CATALOG"),
+                    Tuple.Create(V1.TypeCode.String, "TABLE_SCHEMA"),
+                    Tuple.Create(V1.TypeCode.String, "TABLE_NAME"),
+                    Tuple.Create(V1.TypeCode.String, "COLUMN_NAME"),
+                    Tuple.Create(V1.TypeCode.Int64, "ORDINAL_POSITION"),
+                    Tuple.Create(V1.TypeCode.String, "COLUMN_DEFAULT"),
+                    Tuple.Create(V1.TypeCode.String, "DATA_TYPE"),
+                    Tuple.Create(V1.TypeCode.String, "IS_NULLABLE"),
+                    Tuple.Create(V1.TypeCode.String, "SPANNER_TYPE"),
+                    Tuple.Create(V1.TypeCode.String, "IS_GENERATED"),
+                    Tuple.Create(V1.TypeCode.String, "GENERATION_EXPRESSION"),
+                    Tuple.Create(V1.TypeCode.String, "IS_STORED"),
+                    Tuple.Create(V1.TypeCode.String, "SPANNER_STATE"),
+                }, rows.Select(row => new object[]{"", "", row.TableName, row.Name, row.OrdinalPosition, null, null, row.IsNullable, row.SpannerType, row.IsGenerated, row.GenerationExpression, row.IsStored, "COMMITTED"})));
+        }
+
+        struct ReferentialConstraint
+        {
+            public string Name;
+            public string PkName;
+        }
+
+        private void AddReferentialConstraintsResult(IEnumerable<ReferentialConstraint> rows)
+        {
+            var sql =
+                "SELECT CONSTRAINT_CATALOG, CONSTRAINT_SCHEMA, CONSTRAINT_NAME, UNIQUE_CONSTRAINT_CATALOG, UNIQUE_CONSTRAINT_SCHEMA, UNIQUE_CONSTRAINT_NAME, "
+                + "MATCH_OPTION, UPDATE_RULE, DELETE_RULE, SPANNER_STATE\nFROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
+                new List<Tuple<V1.TypeCode, string>>
+                {
+                    Tuple.Create(V1.TypeCode.String, "CONSTRAINT_CATALOG"),
+                    Tuple.Create(V1.TypeCode.String, "CONSTRAINT_SCHEMA"),
+                    Tuple.Create(V1.TypeCode.String, "CONSTRAINT_NAME"),
+                    Tuple.Create(V1.TypeCode.String, "UNIQUE_CONSTRAINT_CATALOG"),
+                    Tuple.Create(V1.TypeCode.String, "UNIQUE_CONSTRAINT_SCHEMA"),
+                    Tuple.Create(V1.TypeCode.String, "UNIQUE_CONSTRAINT_NAME"),
+                    Tuple.Create(V1.TypeCode.String, "MATCH_OPTION"),
+                    Tuple.Create(V1.TypeCode.String, "UPDATE_RULE"),
+                    Tuple.Create(V1.TypeCode.String, "DELETE_RULE"),
+                    Tuple.Create(V1.TypeCode.String, "SPANNER_STATE"),
+                }, rows.Select(row => new object[]{"", "", row.Name, "", "", row.PkName, "SIMPLE", "NO ACTION", "NO ACTION", "COMMITTED"})));
+        }
+
+        struct Index
+        {
+            public string TableName;
+            public string Name;
+            public string IndexType;
+            public string ParentTableName;
+            public bool IsUnique;
+            public bool IsNullFiltered;
+            public string IndexState;
+            public bool SpannerIsManaged;
+        }
+        
+
+        private void AddIndexesResult(IEnumerable<Index> rows)
+        {
+            var sql =
+                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, PARENT_TABLE_NAME, IS_UNIQUE, IS_NULL_FILTERED, INDEX_STATE, SPANNER_IS_MANAGED\nFROM INFORMATION_SCHEMA.INDEXES";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
+                new List<Tuple<V1.TypeCode, string>>
+                {
+                    Tuple.Create(V1.TypeCode.String, "TABLE_CATALOG"),
+                    Tuple.Create(V1.TypeCode.String, "TABLE_SCHEMA"),
+                    Tuple.Create(V1.TypeCode.String, "TABLE_NAME"),
+                    Tuple.Create(V1.TypeCode.String, "INDEX_NAME"),
+                    Tuple.Create(V1.TypeCode.String, "INDEX_TYPE"),
+                    Tuple.Create(V1.TypeCode.String, "PARENT_TABLE_NAME"),
+                    Tuple.Create(V1.TypeCode.Bool, "IS_UNIQUE"),
+                    Tuple.Create(V1.TypeCode.Bool, "IS_NULL_FILTERED"),
+                    Tuple.Create(V1.TypeCode.String, "INDEX_STATE"),
+                    Tuple.Create(V1.TypeCode.Bool, "SPANNER_IS_MANAGED"),
+                }, rows.Select(row => new object[]{"", "", row.TableName, row.Name, row.IndexType, row.ParentTableName, row.IsUnique, row.IsNullFiltered, row.IndexState, row.SpannerIsManaged})));
+        }
 
         private void SpannerExporterExecutesBatch(Action<SpannerSchemaExport> action, bool onlyDrop = false)
         {

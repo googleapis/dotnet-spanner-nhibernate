@@ -254,5 +254,10 @@ namespace Google.Cloud.Spanner.Connection
 
         /// <inheritdoc/>
         public override void Open() => SpannerConnection.Open();
+
+        public override DataTable GetSchema() => new SchemaProvider(this).GetSchema();
+
+        public override DataTable GetSchema(string collectionName, string[] restrictionValues) =>
+            new SchemaProvider(this).GetSchema(collectionName);
     }
 }

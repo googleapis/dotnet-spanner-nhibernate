@@ -190,11 +190,7 @@ namespace Google.Cloud.Spanner.NHibernate
 		public override string ToBooleanValueString(bool value)
 			=> value ? "TRUE" : "FALSE";
 		
-		public override IDataBaseSchema GetDataBaseSchema(DbConnection connection)
-		{
-			// TODO: Replace with Spanner specific metadata.
-			return new PostgreSQLDataBaseMetadata(connection);
-		}
+		public override IDataBaseSchema GetDataBaseSchema(DbConnection connection) => new SpannerDataBaseMetadata(connection);
 
 		public override bool SupportsCurrentTimestampSelection => true;
 
