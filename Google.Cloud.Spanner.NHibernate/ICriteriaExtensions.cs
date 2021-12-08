@@ -97,7 +97,7 @@ namespace Google.Cloud.Spanner.NHibernate
             GaxPreconditions.CheckNotNull(query, nameof(query));
             GaxPreconditions.CheckNotNullOrEmpty(statementHint, nameof(statementHint));
             GaxPreconditions.CheckNotNull(tableHints, nameof(tableHints));
-            var builder = new StringBuilder(CreateStatementHintString(statementHint)).AppendLine();
+            var builder = new StringBuilder(CreateStatementHintString(statementHint)).Append('\n');
             return query.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, tableHints));
         }
     }
