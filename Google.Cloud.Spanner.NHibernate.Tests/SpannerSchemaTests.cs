@@ -166,7 +166,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             updater.Execute(s => statements.Add(s), false);
             Assert.Empty(updater.Exceptions);
             Assert.Collection(statements,
-                s => Assert.StartsWith("create table Album", s.Trim()),
+                s => Assert.Equal(@"create table Album (
+        AlbumId INT64 NOT NULL,
+       Title STRING(MAX),
+       ReleaseDate DATE,
+       SingerId INT64
+    ) primary key (
+        AlbumId
+    )", s.Trim()),
                 s => Assert.StartsWith("create table TableWithAllColumnTypes", s.Trim()),
                 s => Assert.StartsWith("create table Track", s.Trim()),
                 s => Assert.StartsWith("alter table Album", s.Trim()),
