@@ -1,4 +1,4 @@
-name: .NET
+name: .NET Unit tests on Windows
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  unit-tests:
+  unit-tests-windows:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
