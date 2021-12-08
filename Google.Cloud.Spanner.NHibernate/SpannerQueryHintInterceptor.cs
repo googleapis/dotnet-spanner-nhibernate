@@ -15,6 +15,8 @@
 using NHibernate;
 using NHibernate.SqlCommand;
 using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
@@ -94,6 +96,15 @@ namespace Google.Cloud.Spanner.NHibernate
                 sql = sql.Insert(joinIndex + joinClause.Length - 1, hint);
             }
             return sql;
+        }
+
+        internal static string AppendTableHintsString(StringBuilder builder, Dictionary<string, string> hints)
+        {
+            foreach (var hint in hints)
+            {
+                builder.Append($"{SpannerTableHintPrefix}`{hint.Key}`{hint.Value}\n");
+            }
+            return builder.ToString();
         }
     }
 }

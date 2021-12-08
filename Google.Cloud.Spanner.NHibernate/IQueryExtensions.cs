@@ -78,7 +78,7 @@ namespace Google.Cloud.Spanner.NHibernate
             GaxPreconditions.CheckNotNull(query, nameof(query));
             GaxPreconditions.CheckNotNull(hints, nameof(hints));
             var builder = new StringBuilder($"{SpannerQueryHintInterceptor.SpannerQueryHintsPrefix}");
-            return query.SetComment(AppendTableHintsString(builder, hints));
+            return query.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, hints));
         }
 
         /// <summary>
@@ -97,18 +97,8 @@ namespace Google.Cloud.Spanner.NHibernate
             GaxPreconditions.CheckNotNull(query, nameof(query));
             GaxPreconditions.CheckNotNullOrEmpty(statementHint, nameof(statementHint));
             GaxPreconditions.CheckNotNull(tableHints, nameof(tableHints));
-            var builder = new StringBuilder(CreateStatementHintString(statementHint)).AppendLine();
-            return query.SetComment(AppendTableHintsString(builder, tableHints));
-        }
-
-        private static string AppendTableHintsString(StringBuilder builder, Dictionary<string, string> hints)
-        {
-            foreach (var hint in hints)
-            {
-                builder.AppendLine(
-                    $"{SpannerQueryHintInterceptor.SpannerTableHintPrefix}`{hint.Key}`{hint.Value}");
-            }
-            return builder.ToString();
+            var builder = new StringBuilder(CreateStatementHintString(statementHint)).Append('\n');
+            return query.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, tableHints));
         }
     }
 }
