@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Google.Api.Gax;
 using Google.Cloud.Spanner.Admin.Database.V1;
 using Google.Cloud.Spanner.Connection.MockServer;
-using Google.Cloud.Spanner.V1;
+using Google.Cloud.Spanner.NHibernate.Tests.Entities;
+using NHibernate.Cfg;
+using NHibernate.Mapping.ByCode;
 using NHibernate.Tool.hbm2ddl;
 using System;
 using System.Collections.Generic;
@@ -29,12 +32,28 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
     public class SpannerSchemaTests : IClassFixture<NHibernateMockServerFixture>
     {
         private readonly NHibernateMockServerFixture _fixture;
+        
+        private Configuration Configuration { get; }
 
         public SpannerSchemaTests(NHibernateMockServerFixture fixture)
         {
             _fixture = fixture;
             fixture.SpannerMock.Reset();
             fixture.DatabaseAdminMock.Reset();
+            
+            Configuration = new Configuration().DataBaseIntegration(db =>
+            {
+                db.Dialect<SpannerDialect>();
+                db.ConnectionString = _fixture.ConnectionString;
+                db.ConnectionProvider<TestConnectionProvider>();
+            });
+            var mapper = new ModelMapper();
+            mapper.AddMapping<SingerMapping>();
+            mapper.AddMapping<AlbumMapping>();
+            mapper.AddMapping<TableWithAllColumnTypesMapping>();
+            mapper.AddMapping<TrackMapping>();
+            var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
+            Configuration.AddMapping(mapping);
         }
 
         [Fact]
@@ -42,7 +61,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         {
             // The SpannerSchemaExport can create a valid Spanner DDL script. The default NHibernate SchemaExport will
             // generate a DDL script that contains primary key constraints that are not compatible with Spanner.
-            var exporter = new SpannerSchemaExport(_fixture.Configuration);
+            var exporter = new SpannerSchemaExport(Configuration);
             exporter.SetDelimiter(";");
             var writer = new StringWriter();
             exporter.Create(writer, false);
@@ -57,7 +76,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             // The default NHibernate SchemaExport generates a DDL script that is not 100% compatible with Spanner. It
             // should still be able to generate a script that is at least as close at it can get to a valid Spanner
             // script, and not cause any errors.
-            var exporter = new SchemaExport(_fixture.Configuration);
+            var exporter = new SchemaExport(Configuration);
             exporter.SetDelimiter(";");
             var writer = new StringWriter();
             exporter.Create(writer, false);
@@ -69,7 +88,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Fact]
         public void SpannerExporterCanGenerateDropModel()
         {
-            var exporter = new SpannerSchemaExport(_fixture.Configuration);
+            var exporter = new SpannerSchemaExport(Configuration);
             exporter.SetDelimiter(";");
             var writer = new StringWriter();
             exporter.Drop(writer, false);
@@ -83,40 +102,80 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             SpannerExporterExecutesBatch(exporter => exporter.Create(false, true));
 
         [Fact]
+        public void SpannerExporterCreateAsyncWithStdOutExecutesBatch() =>
+            SpannerExporterExecutesBatch(exporter => exporter.CreateAsync(false, true).WaitWithUnwrappedExceptions());
+
+        [Fact]
         public void SpannerExporterCreateWithStdOutAndConnExecutesBatch() =>
             SpannerExporterExecutesBatch((exporter, conn) => exporter.Create(false, true, conn));
+
+        [Fact]
+        public void SpannerExporterCreateAsyncWithStdOutAndConnExecutesBatch() =>
+            SpannerExporterExecutesBatch((exporter, conn) => exporter.CreateAsync(false, true, conn).WaitWithUnwrappedExceptions());
 
         [Fact]
         public void SpannerExporterCreateWithActionExecutesBatch() =>
             SpannerExporterExecutesBatch(exporter => exporter.Create(s => { }, true));
 
         [Fact]
+        public void SpannerExporterCreateAsyncWithActionExecutesBatch() =>
+            SpannerExporterExecutesBatch(exporter => exporter.CreateAsync(s => { }, true).WaitWithUnwrappedExceptions());
+
+        [Fact]
         public void SpannerExporterCreateWithActionAndConnExecutesBatch() =>
             SpannerExporterExecutesBatch((exporter, conn) => exporter.Create(s => { }, true, conn));
+
+        [Fact]
+        public void SpannerExporterCreateAsyncWithActionAndConnExecutesBatch() =>
+            SpannerExporterExecutesBatch((exporter, conn) => exporter.CreateAsync(s => { }, true, conn).WaitWithUnwrappedExceptions());
 
         [Fact]
         public void SpannerExporterCreateWithWriterExecutesBatch() =>
             SpannerExporterExecutesBatch(exporter => exporter.Create((TextWriter)null, true));
 
         [Fact]
+        public void SpannerExporterCreateAsyncWithWriterExecutesBatch() =>
+            SpannerExporterExecutesBatch(exporter => exporter.CreateAsync((TextWriter)null, true).WaitWithUnwrappedExceptions());
+
+        [Fact]
         public void SpannerExporterCreateWithWriterAndConnExecutesBatch() =>
             SpannerExporterExecutesBatch((exporter, conn) => exporter.Create((TextWriter)null, true, conn));
+
+        [Fact]
+        public void SpannerExporterCreateAsyncWithWriterAndConnExecutesBatch() =>
+            SpannerExporterExecutesBatch((exporter, conn) => exporter.CreateAsync((TextWriter)null, true, conn).WaitWithUnwrappedExceptions());
 
         [Fact]
         public void SpannerExporterDropWithStdOutExecutesBatch() =>
             SpannerExporterExecutesBatch(exporter => exporter.Drop(false, true), true);
 
         [Fact]
+        public void SpannerExporterDropAsyncWithStdOutExecutesBatch() =>
+            SpannerExporterExecutesBatch(exporter => exporter.DropAsync(false, true).WaitWithUnwrappedExceptions(), true);
+
+        [Fact]
         public void SpannerExporterDropWithStdOutAndConnExecutesBatch() =>
             SpannerExporterExecutesBatch((exporter, conn) => exporter.Drop(false, true, conn), true);
+
+        [Fact]
+        public void SpannerExporterDropAsyncWithStdOutAndConnExecutesBatch() =>
+            SpannerExporterExecutesBatch((exporter, conn) => exporter.DropAsync(false, true, conn).WaitWithUnwrappedExceptions(), true);
 
         [Fact]
         public void SpannerExporterDropWithWriterExecutesBatch() =>
             SpannerExporterExecutesBatch(exporter => exporter.Drop(null, true), true);
 
         [Fact]
+        public void SpannerExporterDropAsyncWithWriterExecutesBatch() =>
+            SpannerExporterExecutesBatch(exporter => exporter.DropAsync(null, true).WaitWithUnwrappedExceptions(), true);
+
+        [Fact]
         public void SpannerExporterDropWithWriterAndConnExecutesBatch() =>
             SpannerExporterExecutesBatch((exporter, conn) => exporter.Drop(null, true, conn), true);
+
+        [Fact]
+        public void SpannerExporterDropAsyncWithWriterAndConnExecutesBatch() =>
+            SpannerExporterExecutesBatch((exporter, conn) => exporter.DropAsync(null, true, conn).WaitWithUnwrappedExceptions(), true);
 
         [CombinatorialData]
         [Theory]
@@ -125,8 +184,18 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
 
         [CombinatorialData]
         [Theory]
+        public void SpannerExporterExecuteAsyncWithStdOutExecutesBatch(bool onlyDrop) =>
+            SpannerExporterExecutesBatch(exporter => exporter.ExecuteAsync(false, true, onlyDrop).WaitWithUnwrappedExceptions(), onlyDrop);
+
+        [CombinatorialData]
+        [Theory]
         public void SpannerExporterExecuteWithActionExecutesBatch(bool onlyDrop) =>
             SpannerExporterExecutesBatch(exporter => exporter.Execute(s => { }, true, onlyDrop), onlyDrop);
+
+        [CombinatorialData]
+        [Theory]
+        public void SpannerExporterExecuteAsyncWithActionExecutesBatch(bool onlyDrop) =>
+            SpannerExporterExecutesBatch(exporter => exporter.ExecuteAsync(s => { }, true, onlyDrop).WaitWithUnwrappedExceptions(), onlyDrop);
 
         [CombinatorialData]
         [Theory]
@@ -135,16 +204,31 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
 
         [CombinatorialData]
         [Theory]
+        public void SpannerExporterExecuteAsyncWithActionAndConnExecutesBatch(bool onlyDrop) =>
+            SpannerExporterExecutesBatch((exporter, conn) => exporter.ExecuteAsync(s => { }, true, onlyDrop, conn, null).WaitWithUnwrappedExceptions(), onlyDrop);
+
+        [CombinatorialData]
+        [Theory]
         public void SpannerExporterExecuteWithSdtOutAndConnAndTextWriterExecutesBatch(bool onlyDrop) =>
             SpannerExporterExecutesBatch((exporter, conn) => exporter.Execute(false, true, onlyDrop, conn, null), onlyDrop);
+
+        [CombinatorialData]
+        [Theory]
+        public void SpannerExporterExecuteAsyncWithSdtOutAndConnAndTextWriterExecutesBatch(bool onlyDrop) =>
+            SpannerExporterExecutesBatch((exporter, conn) => exporter.ExecuteAsync(false, true, onlyDrop, conn, null).WaitWithUnwrappedExceptions(), onlyDrop);
 
         [CombinatorialData]
         [Theory]
         public void SpannerExporterExecuteWithActionAndTextWriterExecutesBatch(bool onlyDrop) =>
             SpannerExporterExecutesBatch(exporter => exporter.Execute(s => { }, true, onlyDrop, null), onlyDrop);
 
+        [CombinatorialData]
+        [Theory]
+        public void SpannerExporterExecuteAsyncWithActionAndTextWriterExecutesBatch(bool onlyDrop) =>
+            SpannerExporterExecutesBatch(exporter => exporter.ExecuteAsync(s => { }, true, onlyDrop, null).WaitWithUnwrappedExceptions(), onlyDrop);
+
         [Fact]
-        public void CanGenerateUpdateScript()
+        public void SpannerUpdaterSkipsExistingTable()
         {
             AddTablesResult(new []
             {
@@ -161,24 +245,76 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             });
             AddReferentialConstraintsResult(new ReferentialConstraint[]{});
             AddIndexesResult(new Index[]{});
-            var updater = new SchemaUpdate(_fixture.Configuration);
+            var updater = new SpannerSchemaUpdate(Configuration, new Dictionary<string, string>(Configuration.Properties){{Environment.FormatSql, "false"}});
             var statements = new List<string>();
             updater.Execute(s => statements.Add(s), false);
             Assert.Empty(updater.Exceptions);
             Assert.Collection(statements,
-                s => Assert.Equal(@"create table Album (
-        AlbumId INT64 NOT NULL,
-       Title STRING(MAX),
-       ReleaseDate DATE,
-       SingerId INT64
-    ) primary key (
-        AlbumId
-    )", s.Trim()),
-                s => Assert.StartsWith("create table TableWithAllColumnTypes", s.Trim()),
-                s => Assert.StartsWith("create table Track", s.Trim()),
-                s => Assert.StartsWith("alter table Album", s.Trim()),
-                s => Assert.StartsWith("alter table Track", s.Trim())
+                s => Assert.Equal(@"create table Album (AlbumId INT64 NOT NULL, Title STRING(MAX), ReleaseDate DATE, SingerId INT64) primary key (AlbumId)", s),
+                s => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP default PENDING_COMMIT_TIMESTAMP() , ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX), ASC STRING(MAX)) primary key (ColInt64)", s),
+                s => Assert.Equal("create table Track (TrackId INT64 NOT NULL, Title STRING(MAX), AlbumId INT64 not null) primary key (TrackId)", s),
+                s => Assert.Equal("alter table Album add constraint FK_8373D1C5 foreign key (SingerId) references Singer (SingerId)", s),
+                s => Assert.Equal("alter table Track add constraint FK_1F357587 foreign key (AlbumId) references Album (AlbumId)", s)
             );
+        }
+
+        [Fact]
+        public void SpannerUpdaterCreatesNewColumns()
+        {
+            AddTablesResult(new []
+            {
+                new Table {Name = "Singer", TableType = "BASE_TABLE"},
+            });
+            AddColumnsResult(new []
+            {
+                new Column {TableName = "Singer", Name = "SingerId", OrdinalPosition = 1, IsNullable = "NO", SpannerType = "INT64", IsGenerated = "NEVER"},
+                new Column {TableName = "Singer", Name = "FirstName", OrdinalPosition = 2, IsNullable = "YES", SpannerType = "STRING(MAX)", IsGenerated = "NEVER"},
+                new Column {TableName = "Singer", Name = "LastName", OrdinalPosition = 3, IsNullable = "YES", SpannerType = "STRING(MAX)", IsGenerated = "NEVER"},
+                new Column {TableName = "Singer", Name = "FullName", OrdinalPosition = 4, IsNullable = "YES", SpannerType = "STRING(MAX)", IsGenerated = "ALWAYS", GenerationExpression = "FirstName + LastName", IsStored = "YES"},
+            });
+            AddReferentialConstraintsResult(new ReferentialConstraint[]{});
+            AddIndexesResult(new Index[]{});
+            var updater = new SpannerSchemaUpdate(Configuration, new Dictionary<string, string>(Configuration.Properties){{Environment.FormatSql, "false"}});
+            var statements = new List<string>();
+            updater.Execute(s => statements.Add(s), false);
+            Assert.Empty(updater.Exceptions);
+            Assert.Collection(statements,
+                s => Assert.Equal("alter table Singer ADD COLUMN BirthDate DATE", s),
+                s => Assert.Equal("alter table Singer ADD COLUMN Picture BYTES(MAX)", s),
+                s => Assert.Equal("create table Album (AlbumId INT64 NOT NULL, Title STRING(MAX), ReleaseDate DATE, SingerId INT64) primary key (AlbumId)", s),
+                s => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP default PENDING_COMMIT_TIMESTAMP() , ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX), ASC STRING(MAX)) primary key (ColInt64)", s),
+                s => Assert.Equal("create table Track (TrackId INT64 NOT NULL, Title STRING(MAX), AlbumId INT64 not null) primary key (TrackId)", s),
+                s => Assert.Equal("alter table Album add constraint FK_8373D1C5 foreign key (SingerId) references Singer (SingerId)", s),
+                s => Assert.Equal("alter table Track add constraint FK_1F357587 foreign key (AlbumId) references Album (AlbumId)", s)
+            );
+        }
+
+        [Fact]
+        public void SpannerUpdaterExecuteWithStdOut() =>
+            SpannerUpdaterExecute(updater => updater.Execute(false, true));
+
+        [Fact]
+        public void SpannerUpdaterExecuteWithAction() =>
+            SpannerUpdaterExecute(updater => updater.Execute(s => {}, true));
+
+        [Fact]
+        public void SpannerUpdaterExecuteAsyncWithStdOut() =>
+            SpannerUpdaterExecute(updater => updater.ExecuteAsync(false, true).WaitWithUnwrappedExceptions());
+
+        [Fact]
+        public void SpannerUpdaterExecuteAsyncWithAction() =>
+            SpannerUpdaterExecute(updater => updater.ExecuteAsync(s => {}, true).WaitWithUnwrappedExceptions());
+
+        private void SpannerUpdaterExecute(Action<SpannerSchemaUpdate> action)
+        {
+            AddTablesResult(new Table[]{});
+            AddColumnsResult(new Column[] {});
+            AddReferentialConstraintsResult(new ReferentialConstraint[]{});
+            AddIndexesResult(new Index[]{});
+            var updater = new SpannerSchemaUpdate(Configuration, new Dictionary<string, string>(Configuration.Properties){{Environment.FormatSql, "false"}});
+            action.Invoke(updater);
+            Assert.Empty(updater.Exceptions);
+            AssertCreateBatch();
         }
 
         struct Table
@@ -308,14 +444,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 {Environment.ConnectionProvider, typeof(TestConnectionProvider).AssemblyQualifiedName},
                 {Environment.ConnectionString, _fixture.ConnectionString},
             };
-            var exporter = new SpannerSchemaExport(_fixture.Configuration, settings);
+            var exporter = new SpannerSchemaExport(Configuration, settings);
             action.Invoke(exporter);
             AssertDropAndCreateBatch(onlyDrop);
         }
 
         private void SpannerExporterExecutesBatch(Action<SpannerSchemaExport, DbConnection> action, bool onlyDrop = false)
         {
-            var exporter = new SpannerSchemaExport(_fixture.Configuration);
+            var exporter = new SpannerSchemaExport(Configuration);
             using var session = _fixture.SessionFactory.OpenSession();
             action.Invoke(exporter, session.Connection);
             AssertDropAndCreateBatch(onlyDrop);
@@ -345,6 +481,22 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     statement => Assert.Equal("drop table Album", statement),
                     statement => Assert.Equal("drop table TableWithAllColumnTypes", statement),
                     statement => Assert.Equal("drop table Track", statement),
+                    statement => Assert.Equal("create table Singer (SingerId INT64 NOT NULL, FirstName STRING(MAX), LastName STRING(MAX), FullName STRING(MAX), BirthDate DATE, Picture BYTES(MAX)) primary key (SingerId)", statement),
+                    statement => Assert.Equal("create table Album (AlbumId INT64 NOT NULL, Title STRING(MAX), ReleaseDate DATE, SingerId INT64) primary key (AlbumId)", statement),
+                    statement => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP default PENDING_COMMIT_TIMESTAMP() , ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX), ASC STRING(MAX)) primary key (ColInt64)", statement),
+                    statement => Assert.Equal("create table Track (TrackId INT64 NOT NULL, Title STRING(MAX), AlbumId INT64 not null) primary key (TrackId)", statement),
+                    statement => Assert.Equal("alter table Album add constraint FK_8373D1C5 foreign key (SingerId) references Singer (SingerId)", statement),
+                    statement => Assert.Equal("alter table Track add constraint FK_1F357587 foreign key (AlbumId) references Album (AlbumId)", statement)
+                );
+            });
+        }
+
+        private void AssertCreateBatch()
+        {
+            var requests = _fixture.DatabaseAdminMock.Requests.OfType<UpdateDatabaseDdlRequest>();
+            Assert.Collection(requests, request =>
+            {
+                Assert.Collection(request.Statements,
                     statement => Assert.Equal("create table Singer (SingerId INT64 NOT NULL, FirstName STRING(MAX), LastName STRING(MAX), FullName STRING(MAX), BirthDate DATE, Picture BYTES(MAX)) primary key (SingerId)", statement),
                     statement => Assert.Equal("create table Album (AlbumId INT64 NOT NULL, Title STRING(MAX), ReleaseDate DATE, SingerId INT64) primary key (AlbumId)", statement),
                     statement => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP default PENDING_COMMIT_TIMESTAMP() , ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX), ASC STRING(MAX)) primary key (ColInt64)", statement),

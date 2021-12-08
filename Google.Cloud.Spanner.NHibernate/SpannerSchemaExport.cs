@@ -14,11 +14,9 @@
 
 using Google.Api.Gax;
 using Google.Cloud.Spanner.Connection;
-using Google.Cloud.Spanner.Data;
+using Google.Cloud.Spanner.NHibernate.Internal;
 using NHibernate.Cfg;
-using NHibernate.Connection;
 using NHibernate.Dialect;
-using NHibernate.Driver;
 using NHibernate.Id;
 using NHibernate.Mapping;
 using NHibernate.Tool.hbm2ddl;
@@ -26,7 +24,6 @@ using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Environment = NHibernate.Cfg.Environment;
@@ -44,93 +41,148 @@ namespace Google.Cloud.Spanner.NHibernate
     /// </summary>
     public class SpannerSchemaExport : SchemaExport
     {
-        private readonly SimpleValue _disablePrimaryKeyGenerator = new SimpleValue { IdentifierGeneratorStrategy = typeof(IdentityGenerator).AssemblyQualifiedName };
+        private static readonly SimpleValue DisablePrimaryKeyGenerator = new SimpleValue { IdentifierGeneratorStrategy = typeof(IdentityGenerator).AssemblyQualifiedName };
+        private static readonly Dialect ExportDialect = new SpannerSchemaExportDialect();
         
         private readonly Dictionary<Table, IKeyValue> _primaryKeysGenerators = new Dictionary<Table, IKeyValue>();
         private readonly Dictionary<Table, string> _tableComments = new Dictionary<Table, string>();
 
         private readonly Configuration _configuration;
 
-        private readonly Dialect _dialect = new SpannerSchemaExportDialect();
 
-        public SpannerSchemaExport(Configuration cfg)
-            : this(cfg, new Dictionary<string, string> {{Environment.Dialect, typeof(SpannerSchemaExportDialect).AssemblyQualifiedName}})
+        public SpannerSchemaExport(Configuration cfg) : this(cfg, cfg.Properties)
         {
         }
 
         public SpannerSchemaExport(Configuration cfg, IDictionary<string, string> configProperties)
-            : base(cfg, GaxPreconditions.CheckNotNull(configProperties, nameof(configProperties)))
+            : base(cfg, ReplaceDialectAndConnectionProvider(configProperties))
         {
             _configuration = cfg;
-            configProperties[Environment.Dialect] = typeof(SpannerSchemaExportDialect).AssemblyQualifiedName;
-            if (configProperties.TryGetValue(Environment.ConnectionProvider, out var providerClass))
-            {
-                configProperties[$"wrapped.{Environment.ConnectionProvider}"] = providerClass;
-            }
-            configProperties[Environment.ConnectionProvider] = typeof(DdlBatchConnectionProvider).AssemblyQualifiedName;
         }
 
         /// <inheritdoc cref="SchemaExport.Create(bool,bool)"/>
         public new void Create(bool useStdOut, bool execute) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Create(useStdOut, execute));
 
+        /// <inheritdoc cref="SchemaExport.CreateAsync(bool,bool,CancellationToken)"/>
+        public new async Task CreateAsync(bool useStdOut, bool execute, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(useStdOut, execute, cancellationToken));
+
         /// <inheritdoc cref="SchemaExport.Create(bool,bool,DbConnection)"/>
         public new void Create(bool useStdOut, bool execute, DbConnection connection) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Create(useStdOut, execute, WrapInBatchConnection(connection)));
+
+        /// <inheritdoc cref="SchemaExport.CreateAsync(bool,bool,DbConnection,CancellationToken)"/>
+        public new async Task CreateAsync(bool useStdOut, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(useStdOut, execute, WrapInBatchConnection(connection), cancellationToken));
 
         /// <inheritdoc cref="SchemaExport.Create(Action&lt;string&gt;,bool)"/>
         public new void Create(Action<string> scriptAction, bool execute) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Create(scriptAction, execute));
 
+        /// <inheritdoc cref="SchemaExport.CreateAsync(Action&lt;string&gt;,bool,CancellationToken)"/>
+        public new async Task CreateAsync(Action<string> scriptAction, bool execute, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(scriptAction, execute, cancellationToken));
+
         /// <inheritdoc cref="SchemaExport.Create(Action&lt;string&gt;,bool,DbConnection)"/>
         public new void Create(Action<string> scriptAction, bool execute, DbConnection connection) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Create(scriptAction, execute, WrapInBatchConnection(connection)));
+
+        /// <inheritdoc cref="SchemaExport.CreateAsync(Action&lt;string&gt;,bool,DbConnection,CancellationToken)"/>
+        public new async Task CreateAsync(Action<string> scriptAction, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(scriptAction, execute, WrapInBatchConnection(connection), cancellationToken));
         
         /// <inheritdoc cref="SchemaExport.Create(TextWriter,bool)"/>
         public new void Create(TextWriter exportOutput, bool execute) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Create(exportOutput, execute));
+        
+        /// <inheritdoc cref="SchemaExport.CreateAsync(TextWriter,bool,CancellationToken)"/>
+        public new async Task CreateAsync(TextWriter exportOutput, bool execute, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(exportOutput, execute, cancellationToken));
 
         /// <inheritdoc cref="SchemaExport.Create(TextWriter,bool,DbConnection)"/>
         public new void Create(TextWriter exportOutput, bool execute, DbConnection connection) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Create(exportOutput, execute, WrapInBatchConnection(connection)));
 
+        /// <inheritdoc cref="SchemaExport.CreateAsync(TextWriter,bool,DbConnection,CancellationToken)"/>
+        public new async Task CreateAsync(TextWriter exportOutput, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(exportOutput, execute, WrapInBatchConnection(connection), cancellationToken));
+
         /// <inheritdoc cref="SchemaExport.Drop(bool,bool)"/>
         public new void Drop(bool useStdOut, bool execute) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Drop(useStdOut, execute));
+
+        /// <inheritdoc cref="SchemaExport.DropAsync(bool,bool,CancellationToken)"/>
+        public new async Task DropAsync(bool useStdOut, bool execute, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.DropAsync(useStdOut, execute, cancellationToken));
 
         /// <inheritdoc cref="SchemaExport.Drop(bool,bool,DbConnection)"/>
         public new void Drop(bool useStdOut, bool execute, DbConnection connection) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Drop(useStdOut, execute, WrapInBatchConnection(connection)));
 
+        /// <inheritdoc cref="SchemaExport.DropAsync(bool,bool,DbConnection,CancellationToken)"/>
+        public new async Task DropAsync(bool useStdOut, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.DropAsync(useStdOut, execute, WrapInBatchConnection(connection), cancellationToken));
+
         /// <inheritdoc cref="SchemaExport.Drop(TextWriter,bool)"/>
         public new void Drop(TextWriter exportOutput, bool execute) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Drop(exportOutput, execute));
+
+        /// <inheritdoc cref="SchemaExport.DropAsync(TextWriter,bool,CancellationToken)"/>
+        public new async Task DropAsync(TextWriter exportOutput, bool execute, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.DropAsync(exportOutput, execute, cancellationToken));
 
         /// <inheritdoc cref="SchemaExport.Drop(TextWriter,bool,DbConnection)"/>
         public new void Drop(TextWriter exportOutput, bool execute, DbConnection connection) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Drop(exportOutput, execute, WrapInBatchConnection(connection)));
 
+        /// <inheritdoc cref="SchemaExport.DropAsync(TextWriter,bool,DbConnection,CancellationToken)"/>
+        public new async Task DropAsync(TextWriter exportOutput, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.DropAsync(exportOutput, execute, WrapInBatchConnection(connection), cancellationToken));
+
         /// <inheritdoc cref="SchemaExport.Execute(bool,bool,bool,DbConnection,TextWriter)"/>
         public new void Execute(bool useStdOut, bool execute, bool justDrop, DbConnection connection,
             TextWriter exportOutput) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Execute(useStdOut, execute, justDrop, WrapInBatchConnection(connection), exportOutput));
+
+        /// <inheritdoc cref="SchemaExport.ExecuteAsync(bool,bool,bool,DbConnection,TextWriter,CancellationToken)"/>
+        public new async Task ExecuteAsync(bool useStdOut, bool execute, bool justDrop, DbConnection connection,
+            TextWriter exportOutput, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(useStdOut, execute, justDrop, WrapInBatchConnection(connection), exportOutput, cancellationToken));
         
         /// <inheritdoc cref="SchemaExport.Execute(Action&lt;string&gt;,bool,bool,DbConnection,TextWriter)"/>
         public new void Execute(Action<string> scriptAction, bool execute, bool justDrop, DbConnection connection,
             TextWriter exportOutput) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Execute(scriptAction, execute, justDrop, WrapInBatchConnection(connection), exportOutput));
+        
+        /// <inheritdoc cref="SchemaExport.ExecuteAsync(Action&lt;string&gt;,bool,bool,DbConnection,TextWriter,CancellationToken)"/>
+        public new async Task ExecuteAsync(Action<string> scriptAction, bool execute, bool justDrop, DbConnection connection,
+            TextWriter exportOutput, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(scriptAction, execute, justDrop, WrapInBatchConnection(connection), exportOutput, cancellationToken));
 
         /// <inheritdoc cref="SchemaExport.Execute(bool,bool,bool)"/>
         public new void Execute(bool useStdOut, bool execute, bool justDrop) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Execute(useStdOut, execute, justDrop));
 
+        /// <inheritdoc cref="SchemaExport.ExecuteAsync(bool,bool,bool,CancellationToken)"/>
+        public new async Task ExecuteAsync(bool useStdOut, bool execute, bool justDrop, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(useStdOut, execute, justDrop, cancellationToken));
+
         /// <inheritdoc cref="SchemaExport.Execute(Action&lt;string&gt;,bool,bool)"/>
         public new void Execute(Action<string> scriptAction, bool execute, bool justDrop) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Execute(scriptAction, execute, justDrop));
 
+        /// <inheritdoc cref="SchemaExport.ExecuteAsync(Action&lt;string&gt;,bool,bool,CancellationToken)"/>
+        public new async Task ExecuteAsync(Action<string> scriptAction, bool execute, bool justDrop, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(scriptAction, execute, justDrop, cancellationToken));
+
         /// <inheritdoc cref="SchemaExport.Execute(Action&lt;string&gt;,bool,bool,TextWriter)"/>
         public new void Execute(Action<string> scriptAction, bool execute, bool justDrop, TextWriter exportOutput) =>
             ExecuteWithPrimaryKeysAsComment(() => base.Execute(scriptAction, execute, justDrop, exportOutput));
+
+        /// <inheritdoc cref="SchemaExport.ExecuteAsync(Action&lt;string&gt;,bool,bool,TextWriter,CancellationToken)"/>
+        public new async Task ExecuteAsync(Action<string> scriptAction, bool execute, bool justDrop, TextWriter exportOutput, CancellationToken cancellationToken = default) =>
+            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(scriptAction, execute, justDrop, exportOutput, cancellationToken));
         
         private DbConnection WrapInBatchConnection(DbConnection connection) =>
             connection is SpannerRetriableConnection spannerRetriableConnection
@@ -141,140 +193,64 @@ namespace Google.Cloud.Spanner.NHibernate
         {
             try
             {
-                MovePrimaryKeysToComment();
+                MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators);
                 action.Invoke();
             }
             finally
             {
-                ResetPrimaryKeys();
+                ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators);
             }
         }
-
-        private void MovePrimaryKeysToComment()
-        {
-            foreach (var mapping in _configuration.ClassMappings)
-            {
-                if (mapping.Table.IdentifierValue != _disablePrimaryKeyGenerator)
-                {
-                    _tableComments[mapping.Table] = mapping.Table.Comment;
-                    _primaryKeysGenerators[mapping.Table] = mapping.Table.IdentifierValue;
-                    mapping.Table.Comment = mapping.Table.PrimaryKey?.SqlConstraintString(_dialect, "");
-                    mapping.Table.IdentifierValue = _disablePrimaryKeyGenerator;
-                }
-            }
-        }
-
-        private void ResetPrimaryKeys()
-        {
-            foreach (var mapping in _configuration.ClassMappings)
-            {
-                if (mapping.Table.IdentifierValue == _disablePrimaryKeyGenerator)
-                {
-                    mapping.Table.Comment = _tableComments[mapping.Table];
-                    mapping.Table.IdentifierValue = _primaryKeysGenerators[mapping.Table];
-                }
-            }
-        }
-    }
-    internal class SpannerSchemaExportDialect : SpannerDialect
-    {
-        // Cloud Spanner does not support any identity columns, but this allows us to skip the primary key generation
-        // during schema export.
-        public override bool GenerateTablePrimaryKeyConstraintForIdentityColumn => false;
         
-        public override string IdentityColumnString => "NOT NULL";
-
-        public override string GetTableComment(string comment) => $" {comment}";
-    }
-
-    internal sealed class DdlBatchConnection : SpannerRetriableConnection
-    {
-        public DdlBatchConnection(SpannerRetriableConnection connection) : base(connection)
+        private async Task ExecuteWithPrimaryKeysAsCommentAsync(Func<Task> action)
         {
-        }
-
-        protected override DbCommand CreateDbCommand() => new DdlBatchCommand(this, new SpannerCommand());
-    }
-
-    internal sealed class DdlBatchCommand : SpannerRetriableCommand
-    {
-        private readonly LinkedList<string> _statements = new LinkedList<string>();
-
-        public DdlBatchCommand(SpannerRetriableConnection connection, SpannerCommand spannerCommand) : base(spannerCommand)
-        {
-            DbConnection = GaxPreconditions.CheckNotNull(connection, nameof(connection));
-        }
-
-        public override int ExecuteNonQuery()
-        {
-            _statements.AddLast(CommandText);
-            return 0;
-        }
-
-        public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
-        {
-            _statements.AddLast(CommandText);
-            return Task.FromResult(0);
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (_statements.Count > 0)
+            try
             {
-                var spannerConnection = (SpannerRetriableConnection)DbConnection;
-                var cmd = spannerConnection.CreateDdlCommand(_statements.First!.Value, _statements.Skip(1).ToArray());
-                cmd.ExecuteNonQuery();
+                MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators);
+                await action.Invoke();
             }
-            base.Dispose(disposing);
+            finally
+            {
+                ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators);
+            }
         }
-    }
-    
-    /// <summary>
-    /// !!! ONLY INTENDED FOR INTERNAL USAGE !!!
-    /// 
-    /// Connection provider that will group all DDL statements together and execute these as one batch when the command
-    /// is disposed.  
-    /// </summary>
-    public sealed class DdlBatchConnectionProvider : IConnectionProvider
-    {
-        private IConnectionProvider _provider;
 
-        public void Dispose() => _provider?.Dispose();
-
-        public Task<DbConnection> GetConnectionAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(GetConnection());
-
-        public void Configure(IDictionary<string, string> settings)
+        internal static IDictionary<string, string> ReplaceDialectAndConnectionProvider(IDictionary<string, string> properties)
         {
-            var newSettings = new Dictionary<string, string>(settings);
-            if (settings.TryGetValue($"wrapped.{Environment.ConnectionProvider}", out var providerClass))
+            GaxPreconditions.CheckNotNull(properties, nameof(properties));
+            properties[Environment.Dialect] = typeof(SpannerSchemaExportDialect).AssemblyQualifiedName;
+            if (properties.TryGetValue(Environment.ConnectionProvider, out var providerClass))
             {
-                newSettings[Environment.ConnectionProvider] = providerClass;
+                properties[$"wrapped.{Environment.ConnectionProvider}"] = providerClass;
             }
-            else
-            {
-                newSettings.Remove(Environment.ConnectionProvider);
-            }
-            _provider = ConnectionProviderFactory.NewConnectionProvider(newSettings);
-            _provider.Configure(newSettings);
+            properties[Environment.ConnectionProvider] = typeof(DdlBatchConnectionProvider).AssemblyQualifiedName;
+            return properties;
         }
 
-        public void CloseConnection(DbConnection conn) => _provider?.CloseConnection(conn);
-
-        public DbConnection GetConnection()
+        internal static void MovePrimaryKeysToComment(Configuration configuration, Dictionary<Table, string> tableComments, Dictionary<Table, IKeyValue> primaryKeysGenerators)
         {
-            var connection = _provider?.GetConnection();
-            if (connection is DdlBatchConnection ddlBatchConnection)
+            foreach (var mapping in configuration.ClassMappings)
             {
-                return ddlBatchConnection;
+                if (mapping.Table.IdentifierValue != DisablePrimaryKeyGenerator)
+                {
+                    tableComments[mapping.Table] = mapping.Table.Comment;
+                    primaryKeysGenerators[mapping.Table] = mapping.Table.IdentifierValue;
+                    mapping.Table.Comment = mapping.Table.PrimaryKey?.SqlConstraintString(ExportDialect, "");
+                    mapping.Table.IdentifierValue = DisablePrimaryKeyGenerator;
+                }
             }
-            if (connection is SpannerRetriableConnection spannerRetriableConnection)
-            {
-                return new DdlBatchConnection(spannerRetriableConnection);
-            }
-            return connection;
         }
 
-        public IDriver Driver => _provider?.Driver;
+        internal static void ResetPrimaryKeys(Configuration configuration, Dictionary<Table, string> tableComments, Dictionary<Table, IKeyValue> primaryKeysGenerators)
+        {
+            foreach (var mapping in configuration.ClassMappings)
+            {
+                if (mapping.Table.IdentifierValue == DisablePrimaryKeyGenerator)
+                {
+                    mapping.Table.Comment = tableComments[mapping.Table];
+                    mapping.Table.IdentifierValue = primaryKeysGenerators[mapping.Table];
+                }
+            }
+        }
     }
 }
