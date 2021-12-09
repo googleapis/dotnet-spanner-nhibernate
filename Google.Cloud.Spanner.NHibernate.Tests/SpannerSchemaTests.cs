@@ -14,8 +14,12 @@
 
 using Google.Api.Gax;
 using Google.Cloud.Spanner.Admin.Database.V1;
+using Google.Cloud.Spanner.Connection;
 using Google.Cloud.Spanner.Connection.MockServer;
+using Google.Cloud.Spanner.Data;
+using Google.Cloud.Spanner.NHibernate.Internal;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
+using Grpc.Core;
 using NHibernate.Cfg;
 using NHibernate.Mapping.ByCode;
 using NHibernate.Tool.hbm2ddl;
@@ -55,6 +59,21 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             Configuration.AddMapping(mapping);
         }
+        
+        [Fact]
+        public void Basics()
+        {
+            var conn = new SpannerRetriableConnection(new SpannerConnection(new SpannerConnectionStringBuilder(_fixture.ConnectionString, ChannelCredentials.Insecure)
+            {
+                EmulatorDetection = EmulatorDetection.None,
+            }));
+            var cmd = conn.CreateDdlCommand("CREATE TABLE Foo");
+            cmd.ExecuteNonQuery();
+
+            var requests = _fixture.DatabaseAdminMock.Requests.OfType<UpdateDatabaseDdlRequest>();
+            Assert.Collection(requests, request => Assert.Collection(request.Statements, statement => Assert.Equal("CREATE TABLE Foo", statement)));
+        }
+        
 /*
         [Fact]
         public void SpannerExporterCanGenerateCreateModel()
@@ -96,11 +115,11 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             var expected = GetExpectedSpannerDropDdl();
             Assert.Equal(expected, ddl);
         }
-*/
+
         [Fact]
         public void SpannerExporterCreateWithStdOutExecutesBatch() =>
             SpannerExporterExecutesBatch(exporter => exporter.Create(false, true));
-/*
+
         [Fact]
         public void SpannerExporterCreateAsyncWithStdOutExecutesBatch() =>
             SpannerExporterExecutesBatch(exporter => exporter.CreateAsync(false, true).WaitWithUnwrappedExceptions());
