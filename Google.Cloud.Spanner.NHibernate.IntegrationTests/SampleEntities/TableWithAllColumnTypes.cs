@@ -91,11 +91,11 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Property(x => x.ColFloat64);
             Property(x => x.ColNumeric);
             Property(x => x.ColBool);
-            Property(x => x.ColString);
+            Property(x => x.ColString, m => m.Length(100));
             Property(x => x.ColStringMax);
-            Property(x => x.ColBytes);
+            Property(x => x.ColBytes, m => m.Length(100));
             Property(x => x.ColBytesMax);
-            Property(x => x.ColDate);
+            Property(x => x.ColDate, m => m.Index("IDX_TableWithAllColumnTypes_ColDate_ColCommitTs"));
             Property(x => x.ColTimestamp);
             //Property(x => x.ColJson);
             Property(x => x.ColCommitTs, m =>
@@ -105,14 +105,15 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
                 m.Insert(false); // This will prevent Hibernate from assigning a value to the column during inserts.
                 m.Update(false); // This will prevent Hibernate from assigning a value to the column during updates.
                 m.Column(c => c.Default("PENDING_COMMIT_TIMESTAMP()"));
+                m.Index("IDX_TableWithAllColumnTypes_ColDate_ColCommitTs");
             });
             Property(x => x.ColInt64Array);
             Property(x => x.ColFloat64Array);
             Property(x => x.ColNumericArray);
             Property(x => x.ColBoolArray);
-            Property(x => x.ColStringArray);
+            Property(x => x.ColStringArray, m => m.Length(100));
             Property(x => x.ColStringMaxArray);
-            Property(x => x.ColBytesArray);
+            Property(x => x.ColBytesArray, m => m.Length(100));
             Property(x => x.ColBytesMaxArray);
             Property(x => x.ColDateArray);
             Property(x => x.ColTimestampArray);

@@ -13,16 +13,25 @@
 // limitations under the License.
 
 using Google.Api.Gax;
+using Google.Cloud.Spanner.Data;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
+using TypeCode = Google.Cloud.Spanner.V1.TypeCode;
 
 namespace Google.Cloud.Spanner.Connection
 {
 
 	internal sealed class SchemaProvider
 	{
+		private static readonly List<string> ReservedWords = new List<string>
+		{
+			"SELECT",
+		};
+		private static readonly List<string> DataTypes =
+			Enum.GetValues(typeof(TypeCode)).Cast<TypeCode>().Select(t => t.ToString()).ToList();
 		private readonly SpannerRetriableConnection _connection;
 		private readonly Dictionary<string, Action<DataTable>> _schemaCollections;
 		
@@ -31,7 +40,9 @@ namespace Google.Cloud.Spanner.Connection
 			_connection = connection;
 			_schemaCollections = new Dictionary<string, Action<DataTable>>(StringComparer.OrdinalIgnoreCase)
 			{
-				{ "MetaDataCollections", FillMetadataCollections },
+				{ DbMetaDataCollectionNames.MetaDataCollections, FillMetadataCollections },
+				{ DbMetaDataCollectionNames.ReservedWords, FillReservedWords },
+				{ DbMetaDataCollectionNames.DataTypes, FillDataTypes },
 				{ "Columns", FillColumns },
 				{ "Indexes", FillIndexes },
 				{ "KeyColumnUsage", FillKeyColumnUsage },
@@ -42,7 +53,7 @@ namespace Google.Cloud.Spanner.Connection
 			};
 		}
 
-		public DataTable GetSchema() => GetSchema("MetaDataCollections");
+		public DataTable GetSchema() => GetSchema(DbMetaDataCollectionNames.MetaDataCollections);
 
 		public DataTable GetSchema(string collectionName)
 		{
@@ -57,11 +68,27 @@ namespace Google.Cloud.Spanner.Connection
 		private void FillMetadataCollections(DataTable dataTable)
 		{
 			dataTable.Columns.AddRange(new [] {
-				new DataColumn("CollectionName", typeof(string)),
-				new DataColumn("NumberOfRestrictions", typeof(int)),
-				new DataColumn("NumberOfIdentifierParts", typeof(int)),
+				new DataColumn(DbMetaDataColumnNames.CollectionName, typeof(string)),
+				new DataColumn(DbMetaDataColumnNames.NumberOfRestrictions, typeof(int)),
+				new DataColumn(DbMetaDataColumnNames.NumberOfIdentifierParts, typeof(int)),
 			});
 			_ = _schemaCollections.Select(entry => dataTable.Rows.Add(entry.Key, 0, 0));
+		}
+
+		private void FillReservedWords(DataTable dataTable)
+		{
+			dataTable.Columns.AddRange(new [] {
+				new DataColumn(DbMetaDataColumnNames.ReservedWord, typeof(string)),
+			});
+			_ = ReservedWords.Select(w => dataTable.Rows.Add(w));
+		}
+
+		private void FillDataTypes(DataTable dataTable)
+		{
+			dataTable.Columns.AddRange(new [] {
+				new DataColumn(DbMetaDataColumnNames.DataType, typeof(string)),
+			});
+			_ = DataTypes.Select(w => dataTable.Rows.Add(w));
 		}
 
 		private void FillColumns(DataTable dataTable)
@@ -152,7 +179,6 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("TABLE_NAME", typeof(string)),
 				new DataColumn("PARENT_TABLE_NAME", typeof(string)),
 				new DataColumn("ON_DELETE_ACTION", typeof(string)),
-				new DataColumn("TABLE_TYPE", typeof(string)),
 				new DataColumn("SPANNER_STATE", typeof(string)),
 			});
 
@@ -202,7 +228,8 @@ namespace Google.Cloud.Spanner.Connection
 			using (var command = _connection.CreateCommand())
 			{
 				command.CommandText = $"SELECT {string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(x => x!.ColumnName))}\n"
-				                      + $"FROM INFORMATION_SCHEMA.{tableName}";
+				                      + $"FROM INFORMATION_SCHEMA.{tableName}\n"
+				                      + $"ORDER BY {string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(x => x!.ColumnName))}";
 				using var reader = command.ExecuteReader();
 				while (reader.Read())
 				{

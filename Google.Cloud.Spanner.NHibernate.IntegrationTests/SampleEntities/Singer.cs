@@ -43,10 +43,24 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
             Table("Singers");
-            Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
-            Property(x => x.FirstName);
-            Property(x => x.LastName);
-            Property(x => x.FullName, mapper => mapper.Generated(PropertyGeneration.Always));
+            Id(x => x.Id, m =>
+            {
+                m.Generator(new UUIDHexGeneratorDef());
+                m.Length(36);
+            });
+            Property(x => x.FirstName, m => m.Length(200));
+            Property(x => x.LastName, m =>
+            {
+                m.NotNullable(true);
+                m.Length(200);
+            });
+            Property(x => x.FullName, m =>
+            {
+                m.NotNullable(true);
+                m.Length(400);
+                m.Generated(PropertyGeneration.Always);
+                m.Index("Idx_Singers_FullName");
+            });
             Property(x => x.BirthDate);
             Property(x => x.Picture);
             Bag(x => x.Albums, c => { }, r => r.OneToMany());

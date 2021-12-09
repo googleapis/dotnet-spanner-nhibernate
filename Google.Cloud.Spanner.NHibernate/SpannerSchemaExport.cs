@@ -24,8 +24,12 @@ using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
+using System.Linq;
+using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Serialization;
 using Environment = NHibernate.Cfg.Environment;
 
 namespace Google.Cloud.Spanner.NHibernate
@@ -46,6 +50,7 @@ namespace Google.Cloud.Spanner.NHibernate
         
         private readonly Dictionary<Table, IKeyValue> _primaryKeysGenerators = new Dictionary<Table, IKeyValue>();
         private readonly Dictionary<Table, string> _tableComments = new Dictionary<Table, string>();
+        private readonly Dictionary<Column, string> _columnDefaultValues = new Dictionary<Column, string>();
 
         private readonly Configuration _configuration;
 
@@ -70,11 +75,11 @@ namespace Google.Cloud.Spanner.NHibernate
 
         /// <inheritdoc cref="SchemaExport.Create(bool,bool,DbConnection)"/>
         public new void Create(bool useStdOut, bool execute, DbConnection connection) =>
-            ExecuteWithPrimaryKeysAsComment(() => base.Create(useStdOut, execute, WrapInBatchConnection(connection)));
+            ExecuteWithWrappedConnection(conn => ExecuteWithPrimaryKeysAsComment(() => base.Create(useStdOut, execute, conn)), connection);
 
         /// <inheritdoc cref="SchemaExport.CreateAsync(bool,bool,DbConnection,CancellationToken)"/>
         public new async Task CreateAsync(bool useStdOut, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
-            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(useStdOut, execute, WrapInBatchConnection(connection), cancellationToken));
+            await ExecuteWithWrappedConnectionAsync(conn => ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(useStdOut, execute, conn, cancellationToken)), connection);
 
         /// <inheritdoc cref="SchemaExport.Create(Action&lt;string&gt;,bool)"/>
         public new void Create(Action<string> scriptAction, bool execute) =>
@@ -86,11 +91,11 @@ namespace Google.Cloud.Spanner.NHibernate
 
         /// <inheritdoc cref="SchemaExport.Create(Action&lt;string&gt;,bool,DbConnection)"/>
         public new void Create(Action<string> scriptAction, bool execute, DbConnection connection) =>
-            ExecuteWithPrimaryKeysAsComment(() => base.Create(scriptAction, execute, WrapInBatchConnection(connection)));
+            ExecuteWithWrappedConnection(conn => ExecuteWithPrimaryKeysAsComment(() => base.Create(scriptAction, execute, conn)), connection);
 
         /// <inheritdoc cref="SchemaExport.CreateAsync(Action&lt;string&gt;,bool,DbConnection,CancellationToken)"/>
         public new async Task CreateAsync(Action<string> scriptAction, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
-            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(scriptAction, execute, WrapInBatchConnection(connection), cancellationToken));
+            await ExecuteWithWrappedConnectionAsync(conn => ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(scriptAction, execute, conn, cancellationToken)), connection);
         
         /// <inheritdoc cref="SchemaExport.Create(TextWriter,bool)"/>
         public new void Create(TextWriter exportOutput, bool execute) =>
@@ -102,11 +107,11 @@ namespace Google.Cloud.Spanner.NHibernate
 
         /// <inheritdoc cref="SchemaExport.Create(TextWriter,bool,DbConnection)"/>
         public new void Create(TextWriter exportOutput, bool execute, DbConnection connection) =>
-            ExecuteWithPrimaryKeysAsComment(() => base.Create(exportOutput, execute, WrapInBatchConnection(connection)));
+            ExecuteWithWrappedConnection(conn => ExecuteWithPrimaryKeysAsComment(() => base.Create(exportOutput, execute, conn)), connection);
 
         /// <inheritdoc cref="SchemaExport.CreateAsync(TextWriter,bool,DbConnection,CancellationToken)"/>
         public new async Task CreateAsync(TextWriter exportOutput, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
-            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(exportOutput, execute, WrapInBatchConnection(connection), cancellationToken));
+            await ExecuteWithWrappedConnectionAsync(conn => ExecuteWithPrimaryKeysAsCommentAsync(() => base.CreateAsync(exportOutput, execute, conn, cancellationToken)), connection);
 
         /// <inheritdoc cref="SchemaExport.Drop(bool,bool)"/>
         public new void Drop(bool useStdOut, bool execute) =>
@@ -118,11 +123,11 @@ namespace Google.Cloud.Spanner.NHibernate
 
         /// <inheritdoc cref="SchemaExport.Drop(bool,bool,DbConnection)"/>
         public new void Drop(bool useStdOut, bool execute, DbConnection connection) =>
-            ExecuteWithPrimaryKeysAsComment(() => base.Drop(useStdOut, execute, WrapInBatchConnection(connection)));
+            ExecuteWithWrappedConnection(conn => ExecuteWithPrimaryKeysAsComment(() => base.Drop(useStdOut, execute, conn)), connection);
 
         /// <inheritdoc cref="SchemaExport.DropAsync(bool,bool,DbConnection,CancellationToken)"/>
         public new async Task DropAsync(bool useStdOut, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
-            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.DropAsync(useStdOut, execute, WrapInBatchConnection(connection), cancellationToken));
+            await ExecuteWithWrappedConnectionAsync(conn => ExecuteWithPrimaryKeysAsCommentAsync(() => base.DropAsync(useStdOut, execute, conn, cancellationToken)), connection);
 
         /// <inheritdoc cref="SchemaExport.Drop(TextWriter,bool)"/>
         public new void Drop(TextWriter exportOutput, bool execute) =>
@@ -134,31 +139,32 @@ namespace Google.Cloud.Spanner.NHibernate
 
         /// <inheritdoc cref="SchemaExport.Drop(TextWriter,bool,DbConnection)"/>
         public new void Drop(TextWriter exportOutput, bool execute, DbConnection connection) =>
-            ExecuteWithPrimaryKeysAsComment(() => base.Drop(exportOutput, execute, WrapInBatchConnection(connection)));
+            ExecuteWithWrappedConnection(conn => ExecuteWithPrimaryKeysAsComment(() => base.Drop(exportOutput, execute, conn)), connection);
 
         /// <inheritdoc cref="SchemaExport.DropAsync(TextWriter,bool,DbConnection,CancellationToken)"/>
         public new async Task DropAsync(TextWriter exportOutput, bool execute, DbConnection connection, CancellationToken cancellationToken = default) =>
-            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.DropAsync(exportOutput, execute, WrapInBatchConnection(connection), cancellationToken));
+            await ExecuteWithWrappedConnectionAsync(conn => ExecuteWithPrimaryKeysAsCommentAsync(() => base.DropAsync(exportOutput, execute, conn, cancellationToken)), connection);
 
         /// <inheritdoc cref="SchemaExport.Execute(bool,bool,bool,DbConnection,TextWriter)"/>
         public new void Execute(bool useStdOut, bool execute, bool justDrop, DbConnection connection,
-            TextWriter exportOutput) =>
-            ExecuteWithPrimaryKeysAsComment(() => base.Execute(useStdOut, execute, justDrop, WrapInBatchConnection(connection), exportOutput));
+            TextWriter exportOutput) => ExecuteWithWrappedConnection(
+            conn => ExecuteWithPrimaryKeysAsComment(() => base.Execute(useStdOut, execute, justDrop, conn, exportOutput)), connection);
 
         /// <inheritdoc cref="SchemaExport.ExecuteAsync(bool,bool,bool,DbConnection,TextWriter,CancellationToken)"/>
         public new async Task ExecuteAsync(bool useStdOut, bool execute, bool justDrop, DbConnection connection,
             TextWriter exportOutput, CancellationToken cancellationToken = default) =>
-            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(useStdOut, execute, justDrop, WrapInBatchConnection(connection), exportOutput, cancellationToken));
+            await ExecuteWithWrappedConnectionAsync(conn => ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(useStdOut, execute, justDrop, conn, exportOutput, cancellationToken)), connection);
         
         /// <inheritdoc cref="SchemaExport.Execute(Action&lt;string&gt;,bool,bool,DbConnection,TextWriter)"/>
         public new void Execute(Action<string> scriptAction, bool execute, bool justDrop, DbConnection connection,
             TextWriter exportOutput) =>
-            ExecuteWithPrimaryKeysAsComment(() => base.Execute(scriptAction, execute, justDrop, WrapInBatchConnection(connection), exportOutput));
-        
+            ExecuteWithWrappedConnection(conn => ExecuteWithPrimaryKeysAsComment(() => base.Execute(scriptAction, execute, justDrop, conn, exportOutput)), connection);
+
         /// <inheritdoc cref="SchemaExport.ExecuteAsync(Action&lt;string&gt;,bool,bool,DbConnection,TextWriter,CancellationToken)"/>
-        public new async Task ExecuteAsync(Action<string> scriptAction, bool execute, bool justDrop, DbConnection connection,
+        public new async Task ExecuteAsync(Action<string> scriptAction, bool execute, bool justDrop,
+            DbConnection connection,
             TextWriter exportOutput, CancellationToken cancellationToken = default) =>
-            await ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(scriptAction, execute, justDrop, WrapInBatchConnection(connection), exportOutput, cancellationToken));
+            await ExecuteWithWrappedConnectionAsync(conn => ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(scriptAction, execute, justDrop, conn, exportOutput, cancellationToken)), connection);
 
         /// <inheritdoc cref="SchemaExport.Execute(bool,bool,bool)"/>
         public new void Execute(bool useStdOut, bool execute, bool justDrop) =>
@@ -183,22 +189,39 @@ namespace Google.Cloud.Spanner.NHibernate
         /// <inheritdoc cref="SchemaExport.ExecuteAsync(Action&lt;string&gt;,bool,bool,TextWriter,CancellationToken)"/>
         public new async Task ExecuteAsync(Action<string> scriptAction, bool execute, bool justDrop, TextWriter exportOutput, CancellationToken cancellationToken = default) =>
             await ExecuteWithPrimaryKeysAsCommentAsync(() => base.ExecuteAsync(scriptAction, execute, justDrop, exportOutput, cancellationToken));
-        
-        private DbConnection WrapInBatchConnection(DbConnection connection) =>
-            connection is SpannerRetriableConnection spannerRetriableConnection
-                ? new DdlBatchConnection(spannerRetriableConnection)
-                : connection;
+
+        private void ExecuteWithWrappedConnection(Action<DdlBatchConnection> action, DbConnection connection)
+        {
+            GaxPreconditions.CheckArgument(connection is SpannerRetriableConnection, nameof(connection),"This method can only be used with a SpannerRetriableConnection");
+            var conn = new DdlBatchConnection((SpannerRetriableConnection) connection);
+            action.Invoke(conn);
+            if (conn.ExecutionException != null)
+            {
+                throw conn.ExecutionException;
+            }
+        }
+
+        private async Task ExecuteWithWrappedConnectionAsync(Func<DdlBatchConnection, Task> action, DbConnection connection)
+        {
+            GaxPreconditions.CheckArgument(connection is SpannerRetriableConnection, nameof(connection),"This method can only be used with a SpannerRetriableConnection");
+            var conn = new DdlBatchConnection((SpannerRetriableConnection) connection);
+            await action.Invoke(conn);
+            if (conn.ExecutionException != null)
+            {
+                throw conn.ExecutionException;
+            }
+        }
 
         private void ExecuteWithPrimaryKeysAsComment(Action action)
         {
             try
             {
-                MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators);
+                MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
                 action.Invoke();
             }
             finally
             {
-                ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators);
+                ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
             }
         }
         
@@ -206,12 +229,12 @@ namespace Google.Cloud.Spanner.NHibernate
         {
             try
             {
-                MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators);
+                MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
                 await action.Invoke();
             }
             finally
             {
-                ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators);
+                ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
             }
         }
 
@@ -227,7 +250,7 @@ namespace Google.Cloud.Spanner.NHibernate
             return properties;
         }
 
-        internal static void MovePrimaryKeysToComment(Configuration configuration, Dictionary<Table, string> tableComments, Dictionary<Table, IKeyValue> primaryKeysGenerators)
+        internal static void MovePrimaryKeysToComment(Configuration configuration, Dictionary<Table, string> tableComments, Dictionary<Table, IKeyValue> primaryKeysGenerators, Dictionary<Column, string> columnDefaultValues)
         {
             foreach (var mapping in configuration.ClassMappings)
             {
@@ -238,10 +261,31 @@ namespace Google.Cloud.Spanner.NHibernate
                     mapping.Table.Comment = mapping.Table.PrimaryKey?.SqlConstraintString(ExportDialect, "");
                     mapping.Table.IdentifierValue = DisablePrimaryKeyGenerator;
                 }
+                foreach (var col in mapping.Table.ColumnIterator)
+                {
+                    if (!string.IsNullOrEmpty(col.DefaultValue))
+                    {
+                        columnDefaultValues[col] = col.DefaultValue;
+                        col.DefaultValue = null;
+                    }
+                }
+            }
+            // Also add all indexes as auxiliary objects to the configuration so these can be dropped before any tables.
+            // We cannot get the auxiliary objects that have already been added to the config, so we have to use a
+            // custom property to remember that.
+            if (configuration.Properties.TryAdd("spanner.auxiliary.indexes", "true"))
+            {
+                foreach (var mapping in configuration.ClassMappings)
+                {
+                    foreach (var index in mapping.Table.IndexIterator)
+                    {
+                        configuration.AddAuxiliaryDatabaseObject(new IndexAsAuxiliaryObject(index.Name));
+                    }
+                }
             }
         }
 
-        internal static void ResetPrimaryKeys(Configuration configuration, Dictionary<Table, string> tableComments, Dictionary<Table, IKeyValue> primaryKeysGenerators)
+        internal static void ResetPrimaryKeys(Configuration configuration, Dictionary<Table, string> tableComments, Dictionary<Table, IKeyValue> primaryKeysGenerators, Dictionary<Column, string> columnDefaultValues)
         {
             foreach (var mapping in configuration.ClassMappings)
             {
@@ -249,6 +293,13 @@ namespace Google.Cloud.Spanner.NHibernate
                 {
                     mapping.Table.Comment = tableComments[mapping.Table];
                     mapping.Table.IdentifierValue = primaryKeysGenerators[mapping.Table];
+                }
+                foreach (var col in mapping.Table.ColumnIterator)
+                {
+                    if (columnDefaultValues.ContainsKey(col))
+                    {
+                        col.DefaultValue = columnDefaultValues[col];
+                    }
                 }
             }
         }

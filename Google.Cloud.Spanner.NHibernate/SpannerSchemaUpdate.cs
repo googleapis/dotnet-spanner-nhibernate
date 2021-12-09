@@ -37,6 +37,7 @@ namespace Google.Cloud.Spanner.NHibernate
     {
         private readonly Dictionary<Table, IKeyValue> _primaryKeysGenerators = new Dictionary<Table, IKeyValue>();
         private readonly Dictionary<Table, string> _tableComments = new Dictionary<Table, string>();
+        private readonly Dictionary<Column, string> _columnDefaultValues = new Dictionary<Column, string>();
 
         private readonly Configuration _configuration;
         
@@ -81,12 +82,12 @@ namespace Google.Cloud.Spanner.NHibernate
         {
             try
             {
-                SpannerSchemaExport.MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators);
+                SpannerSchemaExport.MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
                 action.Invoke();
             }
             finally
             {
-                SpannerSchemaExport.ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators);
+                SpannerSchemaExport.ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
             }
         }
         
@@ -94,12 +95,12 @@ namespace Google.Cloud.Spanner.NHibernate
         {
             try
             {
-                SpannerSchemaExport.MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators);
+                SpannerSchemaExport.MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
                 await action.Invoke();
             }
             finally
             {
-                SpannerSchemaExport.ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators);
+                SpannerSchemaExport.ResetPrimaryKeys(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
             }
         }
     }

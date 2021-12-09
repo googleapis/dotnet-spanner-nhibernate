@@ -56,7 +56,14 @@ namespace Google.Cloud.Spanner.NHibernate.Internal
             _provider.Configure(newSettings);
         }
 
-        public void CloseConnection(DbConnection conn) => _provider?.CloseConnection(conn);
+        public void CloseConnection(DbConnection conn)
+        {
+            _provider?.CloseConnection(conn);
+            if (conn is DdlBatchConnection { ExecutionException: { } } ddlBatchConnection)
+            {
+                throw ddlBatchConnection.ExecutionException;
+            }
+        } 
 
         public DbConnection GetConnection()
         {
