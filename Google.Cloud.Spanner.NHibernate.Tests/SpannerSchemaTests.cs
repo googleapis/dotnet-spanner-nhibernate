@@ -96,11 +96,11 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             var expected = GetExpectedSpannerDropDdl();
             Assert.Equal(expected, ddl);
         }
-/*
+
         [Fact]
         public void SpannerExporterCreateWithStdOutExecutesBatch() =>
             SpannerExporterExecutesBatch(exporter => exporter.Create(false, true));
-
+/*
         [Fact]
         public void SpannerExporterCreateAsyncWithStdOutExecutesBatch() =>
             SpannerExporterExecutesBatch(exporter => exporter.CreateAsync(false, true).WaitWithUnwrappedExceptions());
