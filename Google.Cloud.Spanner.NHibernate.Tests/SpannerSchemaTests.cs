@@ -61,7 +61,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             // Configuration.AddMapping(mapping);
         }
         
-        // [Fact]
+        [Fact]
         public void Basics()
         {
             var conn = new SpannerRetriableConnection(new SpannerConnection(new SpannerConnectionStringBuilder(_fixture.ConnectionString, ChannelCredentials.Insecure)
