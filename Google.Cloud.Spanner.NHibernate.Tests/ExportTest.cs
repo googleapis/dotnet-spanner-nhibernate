@@ -34,7 +34,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
         
         [Fact]
-        public void Basics()
+        public async Task Basics()
         {
             var conn = new SpannerRetriableConnection(new SpannerConnection(new SpannerConnectionStringBuilder(_fixture.ConnectionString, ChannelCredentials.Insecure)
             {
@@ -43,7 +43,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             _fixture.SpannerMock.AddOrUpdateStatementResult("Update singers", StatementResult.CreateUpdateCount(1L));
             var cmd = conn.CreateDmlCommand("Update singers");
             // var cmd = conn.CreateDdlCommand("CREATE TABLE Foo");
-            cmd.ExecuteNonQuery();
+            await cmd.ExecuteNonQueryAsync();
 
             // var requests = _fixture.DatabaseAdminMock.Requests.OfType<UpdateDatabaseDdlRequest>();
             // Assert.Collection(requests, request => Assert.Collection(request.Statements, statement => Assert.Equal("CREATE TABLE Foo", statement)));
