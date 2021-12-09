@@ -29,6 +29,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 using Environment = NHibernate.Cfg.Environment;
 
@@ -38,27 +39,46 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
     {
         private readonly NHibernateMockServerFixture _fixture;
         
-        // private Configuration Configuration { get; }
+        private Configuration Configuration { get; }
 
         public SpannerSchemaTests(NHibernateMockServerFixture fixture)
         {
             _fixture = fixture;
             fixture.SpannerMock.Reset();
-            // fixture.DatabaseAdminMock.Reset();
+            fixture.DatabaseAdminMock.Reset();
             
-            // Configuration = new Configuration().DataBaseIntegration(db =>
-            // {
-            //     db.Dialect<SpannerDialect>();
-            //     db.ConnectionString = _fixture.ConnectionString;
-            //     db.ConnectionProvider<TestConnectionProvider>();
-            // });
-            // var mapper = new ModelMapper();
-            // mapper.AddMapping<SingerMapping>();
-            // mapper.AddMapping<AlbumMapping>();
-            // mapper.AddMapping<TableWithAllColumnTypesMapping>();
-            // mapper.AddMapping<TrackMapping>();
-            // var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
-            // Configuration.AddMapping(mapping);
+            Configuration = new Configuration().DataBaseIntegration(db =>
+            {
+                db.Dialect<SpannerDialect>();
+                db.ConnectionString = _fixture.ConnectionString;
+                db.ConnectionProvider<TestConnectionProvider>();
+            });
+            var mapper = new ModelMapper();
+            mapper.AddMapping<SingerMapping>();
+            mapper.AddMapping<AlbumMapping>();
+            mapper.AddMapping<TableWithAllColumnTypesMapping>();
+            mapper.AddMapping<TrackMapping>();
+            var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
+            Configuration.AddMapping(mapping);
+        }
+        
+        [Fact]
+        public async Task Basics()
+        {
+            var conn = new SpannerRetriableConnection(new SpannerConnection(new SpannerConnectionStringBuilder(_fixture.ConnectionString, ChannelCredentials.Insecure)
+            {
+                EmulatorDetection = EmulatorDetection.None,
+            }));
+            _fixture.SpannerMock.AddOrUpdateStatementResult("Update singers", StatementResult.CreateUpdateCount(1L));
+            var cmd = conn.CreateDmlCommand("Update singers");
+            // var cmd = conn.CreateDdlCommand("CREATE TABLE Foo");
+            await cmd.ExecuteNonQueryAsync();
+
+            // var requests = _fixture.DatabaseAdminMock.Requests.OfType<UpdateDatabaseDdlRequest>();
+            // Assert.Collection(requests, request => Assert.Collection(request.Statements, statement => Assert.Equal("CREATE TABLE Foo", statement)));
+
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal("Update singers", request.Sql));
         }
         
 /*
