@@ -46,6 +46,7 @@ namespace Google.Cloud.Spanner.Connection
 				{ "Columns", FillColumns },
 				{ "ColumnOptions", FillColumnOptions },
 				{ "Indexes", FillIndexes },
+				{ "IndexColumns", FillIndexColumns },
 				{ "KeyColumnUsage", FillKeyColumnUsage },
 				{ "Tables", FillTables },
 				{ "ReferentialConstraints", FillReferentialConstraints },
@@ -185,6 +186,25 @@ namespace Google.Cloud.Spanner.Connection
 			});
 
 			FillDataTable(dataTable, "INDEXES");
+		}
+
+		private void FillIndexColumns(DataTable dataTable)
+		{
+			dataTable.Columns.AddRange(new []
+			{
+				new DataColumn("TABLE_CATALOG", typeof(string)),
+				new DataColumn("TABLE_SCHEMA", typeof(string)),
+				new DataColumn("TABLE_NAME", typeof(string)),
+				new DataColumn("INDEX_NAME", typeof(string)),
+				new DataColumn("INDEX_TYPE", typeof(string)),
+				new DataColumn("COLUMN_NAME", typeof(string)),
+				new DataColumn("ORDINAL_POSITION", typeof(long)),
+				new DataColumn("COLUMN_ORDERING", typeof(string)),
+				new DataColumn("IS_NULLABLE", typeof(string)),
+				new DataColumn("SPANNER_TYPE", typeof(string)),
+			});
+
+			FillDataTable(dataTable, "INDEX_COLUMNS");
 		}
 
 		private void FillTables(DataTable dataTable)

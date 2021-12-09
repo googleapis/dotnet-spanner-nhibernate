@@ -24,12 +24,8 @@ using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
-using System.Linq;
-using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml;
-using System.Xml.Serialization;
 using Environment = NHibernate.Cfg.Environment;
 
 namespace Google.Cloud.Spanner.NHibernate
@@ -240,14 +236,20 @@ namespace Google.Cloud.Spanner.NHibernate
 
         internal static IDictionary<string, string> ReplaceDialectAndConnectionProvider(IDictionary<string, string> properties)
         {
-            GaxPreconditions.CheckNotNull(properties, nameof(properties));
-            properties[Environment.Dialect] = typeof(SpannerSchemaExportDialect).AssemblyQualifiedName;
-            if (properties.TryGetValue(Environment.ConnectionProvider, out var providerClass))
+            lock (properties)
             {
-                properties[$"wrapped.{Environment.ConnectionProvider}"] = providerClass;
+                GaxPreconditions.CheckNotNull(properties, nameof(properties));
+                var copy = new Dictionary<string, string>(properties)
+                {
+                    [Environment.Dialect] = typeof(SpannerSchemaExportDialect).AssemblyQualifiedName
+                };
+                if (copy.TryGetValue(Environment.ConnectionProvider, out var providerClass))
+                {
+                    copy[$"wrapped.{Environment.ConnectionProvider}"] = providerClass;
+                }
+                copy[Environment.ConnectionProvider] = typeof(DdlBatchConnectionProvider).AssemblyQualifiedName;
+                return copy;
             }
-            properties[Environment.ConnectionProvider] = typeof(DdlBatchConnectionProvider).AssemblyQualifiedName;
-            return properties;
         }
 
         internal static void MovePrimaryKeysToComment(Configuration configuration, Dictionary<Table, string> tableComments, Dictionary<Table, IKeyValue> primaryKeysGenerators, Dictionary<Column, string> columnDefaultValues)

@@ -13,6 +13,8 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection;
+using System.Data;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
@@ -35,10 +37,65 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             var exporter = new SpannerSchemaExport(_fixture.Configuration);
             exporter.Execute(false, true, false);
             
+            VerifySchemaEquality(initialTables, initialColumns, initialColumnOptions);
+        }
+
+        [Fact]
+        public async Task CanDropAndRecreateSchemaAsync()
+        {
+            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
+            var initialTables = connection.GetSchema("Tables");
+            var initialColumns = connection.GetSchema("Columns");
+            var initialColumnOptions = connection.GetSchema("ColumnOptions");
+            
+            var exporter = new SpannerSchemaExport(_fixture.Configuration);
+            await exporter.ExecuteAsync(false, true, false);
+            
+            VerifySchemaEquality(initialTables, initialColumns, initialColumnOptions);
+        }
+
+        [Fact]
+        public void CanAddMissingTable()
+        {
+            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
+            var initialTables = connection.GetSchema("Tables");
+            var initialColumns = connection.GetSchema("Columns");
+            var initialColumnOptions = connection.GetSchema("ColumnOptions");
+            
+            // Drop a table and then execute a SchemaUpdate to recreate it.
+            var cmd = connection.CreateDdlCommand("DROP TABLE Performances");
+            cmd.ExecuteNonQuery();
+            var updater = new SpannerSchemaUpdate(_fixture.Configuration);
+            updater.Execute(false, true);
+            
+            Assert.Empty(updater.Exceptions);
+            VerifySchemaEquality(initialTables, initialColumns, initialColumnOptions);
+        }
+
+        [Fact]
+        public async Task CanAddMissingTableAsync()
+        {
+            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
+            var initialTables = connection.GetSchema("Tables");
+            var initialColumns = connection.GetSchema("Columns");
+            var initialColumnOptions = connection.GetSchema("ColumnOptions");
+            
+            // Drop a table and then execute a SchemaUpdate to recreate it.
+            var cmd = connection.CreateDdlCommand("DROP TABLE Performances");
+            await cmd.ExecuteNonQueryAsync();
+            var updater = new SpannerSchemaUpdate(_fixture.Configuration);
+            await updater.ExecuteAsync(false, true);
+            
+            Assert.Empty(updater.Exceptions);
+            VerifySchemaEquality(initialTables, initialColumns, initialColumnOptions);
+        }
+
+        private void VerifySchemaEquality(DataTable initialTables, DataTable initialColumns, DataTable initialColumnOptions)
+        {
+            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
             var tables = connection.GetSchema("Tables");
             var columns = connection.GetSchema("Columns");
             var columnOptions = connection.GetSchema("ColumnOptions");
-            
             Assert.Equal(initialTables.Rows.Count, tables.Rows.Count);
             for (var i = 0; i < initialTables.Rows.Count; i++)
             {
