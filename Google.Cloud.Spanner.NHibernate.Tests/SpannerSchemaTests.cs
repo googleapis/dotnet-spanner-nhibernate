@@ -44,21 +44,21 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         {
             _fixture = fixture;
             fixture.SpannerMock.Reset();
-            fixture.DatabaseAdminMock.Reset();
+            // fixture.DatabaseAdminMock.Reset();
             
-            Configuration = new Configuration().DataBaseIntegration(db =>
-            {
-                db.Dialect<SpannerDialect>();
-                db.ConnectionString = _fixture.ConnectionString;
-                db.ConnectionProvider<TestConnectionProvider>();
-            });
-            var mapper = new ModelMapper();
-            mapper.AddMapping<SingerMapping>();
-            mapper.AddMapping<AlbumMapping>();
-            mapper.AddMapping<TableWithAllColumnTypesMapping>();
-            mapper.AddMapping<TrackMapping>();
-            var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
-            Configuration.AddMapping(mapping);
+            // Configuration = new Configuration().DataBaseIntegration(db =>
+            // {
+            //     db.Dialect<SpannerDialect>();
+            //     db.ConnectionString = _fixture.ConnectionString;
+            //     db.ConnectionProvider<TestConnectionProvider>();
+            // });
+            // var mapper = new ModelMapper();
+            // mapper.AddMapping<SingerMapping>();
+            // mapper.AddMapping<AlbumMapping>();
+            // mapper.AddMapping<TableWithAllColumnTypesMapping>();
+            // mapper.AddMapping<TrackMapping>();
+            // var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
+            // Configuration.AddMapping(mapping);
         }
         
         [Fact]
