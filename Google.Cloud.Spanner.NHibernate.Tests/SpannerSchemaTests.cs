@@ -69,7 +69,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             var expected = GetExpectedSpannerCreateDdl();
             Assert.Equal(expected, ddl);
         }
-/*
+
         [Fact]
         public void DefaultExporterCanGenerateCreateModel()
         {
@@ -84,7 +84,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             var expected = GetExpectedDefaultCreateDdl();
             Assert.Equal(expected, ddl);
         }
-
+/*
         [Fact]
         public void SpannerExporterCanGenerateDropModel()
         {
