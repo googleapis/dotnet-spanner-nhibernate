@@ -69,7 +69,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             var expected = GetExpectedSpannerCreateDdl();
             Assert.Equal(expected, ddl);
         }
-
+/*
         [Fact]
         public void DefaultExporterCanGenerateCreateModel()
         {
@@ -306,7 +306,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Fact]
         public void SpannerUpdaterExecuteAsyncWithAction() =>
             SpannerUpdaterExecute(updater => updater.ExecuteAsync(s => {}, true).WaitWithUnwrappedExceptions());
-
+*/
         private void SpannerUpdaterExecute(Action<SpannerSchemaUpdate> action)
         {
             AddTablesResult(new Table[]{});
