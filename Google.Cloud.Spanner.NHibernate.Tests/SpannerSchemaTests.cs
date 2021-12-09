@@ -38,7 +38,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
     {
         private readonly NHibernateMockServerFixture _fixture;
         
-        private Configuration Configuration { get; }
+        // private Configuration Configuration { get; }
 
         public SpannerSchemaTests(NHibernateMockServerFixture fixture)
         {
@@ -331,7 +331,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Fact]
         public void SpannerUpdaterExecuteAsyncWithAction() =>
             SpannerUpdaterExecute(updater => updater.ExecuteAsync(s => {}, true).WaitWithUnwrappedExceptions());
-*/
+
         private void SpannerUpdaterExecute(Action<SpannerSchemaUpdate> action)
         {
             AddTablesResult(new Table[]{});
@@ -751,5 +751,6 @@ alter table Track  drop constraint FK_1F357587
         foreign key (AlbumId) 
         references Album (AlbumId);
 ";
+*/
     }
 }
