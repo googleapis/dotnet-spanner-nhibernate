@@ -113,6 +113,10 @@ namespace Google.Cloud.Spanner.NHibernate
 
 		public override string GetTypeName(SqlType sqlType, int length, int precision, int scale)
 		{
+			if (sqlType is SpannerCommitTimestampSqlType)
+			{
+				return "TIMESTAMP OPTIONS (allow_commit_timestamp=true)";
+			}
 			if (sqlType is SpannerSqlType spannerSqlType)
 			{
 				if (spannerSqlType.ArrayElementType != null)

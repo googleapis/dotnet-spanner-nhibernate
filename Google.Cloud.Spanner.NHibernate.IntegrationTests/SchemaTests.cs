@@ -13,9 +13,6 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
 using Xunit;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
@@ -33,12 +30,14 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
             var initialTables = connection.GetSchema("Tables");
             var initialColumns = connection.GetSchema("Columns");
+            var initialColumnOptions = connection.GetSchema("ColumnOptions");
             
             var exporter = new SpannerSchemaExport(_fixture.Configuration);
             exporter.Execute(false, true, false);
             
             var tables = connection.GetSchema("Tables");
             var columns = connection.GetSchema("Columns");
+            var columnOptions = connection.GetSchema("ColumnOptions");
             
             Assert.Equal(initialTables.Rows.Count, tables.Rows.Count);
             for (var i = 0; i < initialTables.Rows.Count; i++)
@@ -53,12 +52,19 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 Assert.Equal(initialColumns.Rows[i]["COLUMN_NAME"], columns.Rows[i]["COLUMN_NAME"]);
                 Assert.Equal(initialColumns.Rows[i]["IS_NULLABLE"], columns.Rows[i]["IS_NULLABLE"]);
                 Assert.Equal(initialColumns.Rows[i]["SPANNER_TYPE"], columns.Rows[i]["SPANNER_TYPE"]);
-                // Assert.Equal(initialColumns.Rows[i]["IS_GENERATED"], columns.Rows[i]["IS_GENERATED"]);
-                // Assert.Equal(initialColumns.Rows[i]["GENERATION_EXPRESSION"], columns.Rows[i]["GENERATION_EXPRESSION"]);
-                if (initialColumns.Rows[i]["COLUMN_NAME"].Equals("FullName") || initialColumns.Rows[i]["COLUMN_NAME"].Equals("ColComputed"))
-                {
-                    // Assert.Equal("ALWAYS", columns.Rows[i]["IS_GENERATED"]);
-                }
+                Assert.Equal(initialColumns.Rows[i]["COLUMN_DEFAULT"], columns.Rows[i]["COLUMN_DEFAULT"]);
+                Assert.Equal(initialColumns.Rows[i]["IS_GENERATED"], columns.Rows[i]["IS_GENERATED"]);
+                Assert.Equal(initialColumns.Rows[i]["GENERATION_EXPRESSION"], columns.Rows[i]["GENERATION_EXPRESSION"]);
+            }
+            
+            Assert.Equal(initialColumnOptions.Rows.Count, columnOptions.Rows.Count);
+            for (var i = 0; i < initialColumnOptions.Rows.Count; i++)
+            {
+                Assert.Equal(initialColumnOptions.Rows[i]["TABLE_NAME"], columnOptions.Rows[i]["TABLE_NAME"]);
+                Assert.Equal(initialColumnOptions.Rows[i]["COLUMN_NAME"], columnOptions.Rows[i]["COLUMN_NAME"]);
+                Assert.Equal(initialColumnOptions.Rows[i]["OPTION_NAME"], columnOptions.Rows[i]["OPTION_NAME"]);
+                Assert.Equal(initialColumnOptions.Rows[i]["OPTION_TYPE"], columnOptions.Rows[i]["OPTION_TYPE"]);
+                Assert.Equal(initialColumnOptions.Rows[i]["OPTION_VALUE"], columnOptions.Rows[i]["OPTION_VALUE"]);
             }
         }
     }

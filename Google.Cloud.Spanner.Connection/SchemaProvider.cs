@@ -44,6 +44,7 @@ namespace Google.Cloud.Spanner.Connection
 				{ DbMetaDataCollectionNames.ReservedWords, FillReservedWords },
 				{ DbMetaDataCollectionNames.DataTypes, FillDataTypes },
 				{ "Columns", FillColumns },
+				{ "ColumnOptions", FillColumnOptions },
 				{ "Indexes", FillIndexes },
 				{ "KeyColumnUsage", FillKeyColumnUsage },
 				{ "Tables", FillTables },
@@ -111,6 +112,22 @@ namespace Google.Cloud.Spanner.Connection
 			});
 
 			FillDataTable(dataTable, "COLUMNS");
+		}
+
+		private void FillColumnOptions(DataTable dataTable)
+		{
+			dataTable.Columns.AddRange(new []
+			{
+				new DataColumn("TABLE_CATALOG", typeof(string)),
+				new DataColumn("TABLE_SCHEMA", typeof(string)),
+				new DataColumn("TABLE_NAME", typeof(string)),
+				new DataColumn("COLUMN_NAME", typeof(string)),
+				new DataColumn("OPTION_NAME", typeof(string)),
+				new DataColumn("OPTION_TYPE", typeof(string)),
+				new DataColumn("OPTION_VALUE", typeof(string)),
+			});
+
+			FillDataTable(dataTable, "COLUMN_OPTIONS");
 		}
 
 		private void FillKeyColumnUsage(DataTable dataTable)
@@ -227,7 +244,7 @@ namespace Google.Cloud.Spanner.Connection
 
 			using (var command = _connection.CreateCommand())
 			{
-				command.CommandText = $"SELECT {string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(x => x!.ColumnName))}\n"
+				command.CommandText = $"SELECT {string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(x => x!.ColumnName.Replace("COLUMN_DEFAULT", "CAST(COLUMN_DEFAULT AS STRING) AS COLUMN_DEFAULT")))}\n"
 				                      + $"FROM INFORMATION_SCHEMA.{tableName}\n"
 				                      + $"ORDER BY {string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(x => x!.ColumnName))}";
 				using var reader = command.ExecuteReader();

@@ -56,9 +56,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             });
             Property(x => x.FullName, m =>
             {
-                m.NotNullable(true);
                 m.Length(400);
                 m.Generated(PropertyGeneration.Always);
+                m.Column(c => c.SqlType("STRING(400) NOT NULL AS (COALESCE(FirstName || ' ', '') || LastName) STORED"));
                 m.Index("Idx_Singers_FullName");
             });
             Property(x => x.BirthDate);

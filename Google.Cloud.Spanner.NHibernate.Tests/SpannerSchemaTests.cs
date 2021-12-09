@@ -251,7 +251,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             Assert.Empty(updater.Exceptions);
             Assert.Collection(statements,
                 s => Assert.Equal(@"create table Album (AlbumId INT64 NOT NULL, Title STRING(MAX), ReleaseDate DATE, SingerId INT64) primary key (AlbumId)", s),
-                s => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP, ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX), ASC STRING(MAX)) primary key (ColInt64)", s),
+                s => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true), ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED, ASC STRING(MAX)) primary key (ColInt64)", s),
                 s => Assert.Equal("create table Track (TrackId INT64 NOT NULL, Title STRING(MAX), AlbumId INT64 not null) primary key (TrackId)", s),
                 s => Assert.Equal("create index Idx_Singers_FullName on Singer (FullName)", s),
                 s => Assert.Equal("alter table Album add constraint FK_8373D1C5 foreign key (SingerId) references Singer (SingerId)", s),
@@ -283,7 +283,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 s => Assert.Equal("alter table Singer ADD COLUMN BirthDate DATE", s),
                 s => Assert.Equal("alter table Singer ADD COLUMN Picture BYTES(MAX)", s),
                 s => Assert.Equal("create table Album (AlbumId INT64 NOT NULL, Title STRING(MAX), ReleaseDate DATE, SingerId INT64) primary key (AlbumId)", s),
-                s => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP, ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX), ASC STRING(MAX)) primary key (ColInt64)", s),
+                s => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true), ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED, ASC STRING(MAX)) primary key (ColInt64)", s),
                 s => Assert.Equal("create table Track (TrackId INT64 NOT NULL, Title STRING(MAX), AlbumId INT64 not null) primary key (TrackId)", s),
                 s => Assert.Equal("create index Idx_Singers_FullName on Singer (FullName)", s),
                 s => Assert.Equal("alter table Album add constraint FK_8373D1C5 foreign key (SingerId) references Singer (SingerId)", s),
@@ -357,7 +357,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         private void AddColumnsResult(IEnumerable<Column> rows)
         {
             var sql =
-                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE\nFROM INFORMATION_SCHEMA.COLUMNS\nORDER BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE";
+                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, CAST(COLUMN_DEFAULT AS STRING) AS COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE\nFROM INFORMATION_SCHEMA.COLUMNS\nORDER BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE";
             _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
                 new List<Tuple<V1.TypeCode, string>>
                 {
@@ -485,7 +485,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     statement => Assert.Equal("drop table Track", statement),
                     statement => Assert.Equal("create table Singer (SingerId INT64 NOT NULL, FirstName STRING(MAX), LastName STRING(MAX), FullName STRING(MAX), BirthDate DATE, Picture BYTES(MAX)) primary key (SingerId)", statement),
                     statement => Assert.Equal("create table Album (AlbumId INT64 NOT NULL, Title STRING(MAX), ReleaseDate DATE, SingerId INT64) primary key (AlbumId)", statement),
-                    statement => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP, ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX), ASC STRING(MAX)) primary key (ColInt64)", statement),
+                    statement => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true), ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED, ASC STRING(MAX)) primary key (ColInt64)", statement),
                     statement => Assert.Equal("create table Track (TrackId INT64 NOT NULL, Title STRING(MAX), AlbumId INT64 not null) primary key (TrackId)", statement),
                     statement => Assert.Equal("create index Idx_Singers_FullName on Singer (FullName)", statement),
                     statement => Assert.Equal("alter table Album add constraint FK_8373D1C5 foreign key (SingerId) references Singer (SingerId)", statement),
@@ -502,7 +502,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 Assert.Collection(request.Statements,
                     statement => Assert.Equal("create table Singer (SingerId INT64 NOT NULL, FirstName STRING(MAX), LastName STRING(MAX), FullName STRING(MAX), BirthDate DATE, Picture BYTES(MAX)) primary key (SingerId)", statement),
                     statement => Assert.Equal("create table Album (AlbumId INT64 NOT NULL, Title STRING(MAX), ReleaseDate DATE, SingerId INT64) primary key (AlbumId)", statement),
-                    statement => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP, ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX), ASC STRING(MAX)) primary key (ColInt64)", statement),
+                    statement => Assert.Equal("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true), ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED, ASC STRING(MAX)) primary key (ColInt64)", statement),
                     statement => Assert.Equal("create table Track (TrackId INT64 NOT NULL, Title STRING(MAX), AlbumId INT64 not null) primary key (TrackId)", statement),
                     statement => Assert.Equal("create index Idx_Singers_FullName on Singer (FullName)", statement),
                     statement => Assert.Equal("alter table Album add constraint FK_8373D1C5 foreign key (SingerId) references Singer (SingerId)", statement),
@@ -601,7 +601,7 @@ alter table Track  drop constraint FK_1F357587
        ColDate DATE,
        ColTimestamp TIMESTAMP,
        ColJson JSON,
-       ColCommitTs TIMESTAMP,
+       ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true),
        ColInt64Array ARRAY<INT64>,
        ColFloat64Array ARRAY<FLOAT64>,
        ColNumericArray ARRAY<NUMERIC>,
@@ -613,7 +613,7 @@ alter table Track  drop constraint FK_1F357587
        ColDateArray ARRAY<DATE>,
        ColTimestampArray ARRAY<TIMESTAMP>,
        ColJsonArray ARRAY<JSON>,
-       ColComputed STRING(MAX),
+       ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED,
        ASC STRING(MAX)
     ) primary key (
         ColInt64
@@ -690,7 +690,7 @@ alter table Track  drop constraint FK_1F357587
        ColDate DATE,
        ColTimestamp TIMESTAMP,
        ColJson JSON,
-       ColCommitTs TIMESTAMP default PENDING_COMMIT_TIMESTAMP() ,
+       ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true) default PENDING_COMMIT_TIMESTAMP() ,
        ColInt64Array ARRAY<INT64>,
        ColFloat64Array ARRAY<FLOAT64>,
        ColNumericArray ARRAY<NUMERIC>,
@@ -702,7 +702,7 @@ alter table Track  drop constraint FK_1F357587
        ColDateArray ARRAY<DATE>,
        ColTimestampArray ARRAY<TIMESTAMP>,
        ColJsonArray ARRAY<JSON>,
-       ColComputed STRING(MAX),
+       ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED,
        ASC STRING(MAX),
        primary key (ColInt64)
     );

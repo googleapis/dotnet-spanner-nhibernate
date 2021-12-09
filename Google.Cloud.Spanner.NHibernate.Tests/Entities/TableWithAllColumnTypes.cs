@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Cloud.Spanner.Data;
 using NHibernate.Mapping.ByCode.Conformist;
 using System;
 using System.Linq;
@@ -104,6 +103,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
                 mapper.Update(false);
                 mapper.Column(c =>
                 {
+                    c.SqlType(SpannerCommitTimestampSqlType.Instance);
                     c.Default("PENDING_COMMIT_TIMESTAMP()");
                 });
             });
@@ -118,7 +118,11 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.ColDateArray);
             Property(x => x.ColTimestampArray);
             Property(x => x.ColJsonArray);
-            Property(x => x.ColComputed, mapper => mapper.Generated(PropertyGeneration.Always));
+            Property(x => x.ColComputed, mapper =>
+            {
+                mapper.Generated(PropertyGeneration.Always);
+                mapper.Column(c => c.SqlType("STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED"));
+            });
             Property(x => x.ASC);
         }
     }
