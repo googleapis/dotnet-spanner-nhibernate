@@ -1,7 +1,13 @@
+using Google.Api.Gax;
+using Google.Cloud.Spanner.Connection;
 using Google.Cloud.Spanner.Connection.MockServer;
+using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
+using Google.Cloud.Spanner.V1;
+using Grpc.Core;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -25,6 +31,25 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
 
             var singer = await session.GetAsync<Singer>(1L);
             Assert.Null(singer);
+        }
+        
+        [Fact]
+        public void Basics()
+        {
+            var conn = new SpannerRetriableConnection(new SpannerConnection(new SpannerConnectionStringBuilder(_fixture.ConnectionString, ChannelCredentials.Insecure)
+            {
+                EmulatorDetection = EmulatorDetection.None,
+            }));
+            _fixture.SpannerMock.AddOrUpdateStatementResult("Update singers", StatementResult.CreateUpdateCount(1L));
+            var cmd = conn.CreateDmlCommand("Update singers");
+            // var cmd = conn.CreateDdlCommand("CREATE TABLE Foo");
+            cmd.ExecuteNonQuery();
+
+            // var requests = _fixture.DatabaseAdminMock.Requests.OfType<UpdateDatabaseDdlRequest>();
+            // Assert.Collection(requests, request => Assert.Collection(request.Statements, statement => Assert.Equal("CREATE TABLE Foo", statement)));
+
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal("Update singers", request.Sql));
         }
 
         private static string GetSelectSingerSql() =>
