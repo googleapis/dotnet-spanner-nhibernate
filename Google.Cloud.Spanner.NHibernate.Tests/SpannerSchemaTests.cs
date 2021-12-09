@@ -19,6 +19,7 @@ using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.Internal;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
+using Google.Cloud.Spanner.V1;
 using Grpc.Core;
 using NHibernate.Cfg;
 using NHibernate.Mapping.ByCode;
@@ -67,11 +68,16 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             {
                 EmulatorDetection = EmulatorDetection.None,
             }));
-            var cmd = conn.CreateDdlCommand("CREATE TABLE Foo");
+            _fixture.SpannerMock.AddOrUpdateStatementResult("Update singers", StatementResult.CreateUpdateCount(1L));
+            var cmd = conn.CreateDmlCommand("Update singers");
+            // var cmd = conn.CreateDdlCommand("CREATE TABLE Foo");
             cmd.ExecuteNonQuery();
 
-            var requests = _fixture.DatabaseAdminMock.Requests.OfType<UpdateDatabaseDdlRequest>();
-            Assert.Collection(requests, request => Assert.Collection(request.Statements, statement => Assert.Equal("CREATE TABLE Foo", statement)));
+            // var requests = _fixture.DatabaseAdminMock.Requests.OfType<UpdateDatabaseDdlRequest>();
+            // Assert.Collection(requests, request => Assert.Collection(request.Statements, statement => Assert.Equal("CREATE TABLE Foo", statement)));
+
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal("Update singers", request.Sql));
         }
         
 /*
