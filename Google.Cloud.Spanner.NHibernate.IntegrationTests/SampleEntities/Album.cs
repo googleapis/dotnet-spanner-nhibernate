@@ -26,9 +26,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
         }
 
         public virtual string Id { get; set; }
+        public virtual Singer Singer { get; set; }
         public virtual string Title { get; set; }
         public virtual SpannerDate ReleaseDate { get; set; }
-        public virtual Singer Singer { get; set; }
         public virtual IList<Track> Tracks { get; set; }
     }
 
@@ -44,19 +44,22 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
                 m.Generator(new UUIDHexGeneratorDef());
                 m.Length(36);
             });
-            Property(x => x.Title, m =>
-            {
-                m.NotNullable(true);
-                m.Length(100);
-                m.Index("Idx_Albums_Title");
-            });
-            Property(x => x.ReleaseDate);
             ManyToOne(x => x.Singer, m =>
             {
                 m.NotNullable(true);
                 m.Column(c => c.Length(36));
                 m.ForeignKey("FK_Albums_Singers");
+                // m.UniqueKey("Idx_Albums_Title");
+                m.Index("Idx_Albums_Title");
             });
+            Property(x => x.Title, m =>
+            {
+                m.NotNullable(true);
+                m.Length(100);
+                // m.UniqueKey("Idx_Albums_Title");
+                m.Index("Idx_Albums_Title");
+            });
+            Property(x => x.ReleaseDate);
             Bag(x => x.Tracks, c => { }, r => r.OneToMany());
         }
     }

@@ -26,9 +26,9 @@ CREATE INDEX Idx_Singers_FullName ON Singers (FullName);
 
 CREATE TABLE Albums (
   Id          STRING(36) NOT NULL,
+  Singer      STRING(36) NOT NULL,
   Title       STRING(100) NOT NULL,
   ReleaseDate DATE,
-  Singer      STRING(36) NOT NULL,
   CONSTRAINT  FK_Albums_Singers FOREIGN KEY (Singer) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
 

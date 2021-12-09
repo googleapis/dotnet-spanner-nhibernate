@@ -29,99 +29,153 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public void CanDropAndRecreateSchema()
         {
-            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
-            var initialTables = connection.GetSchema("Tables");
-            var initialColumns = connection.GetSchema("Columns");
-            var initialColumnOptions = connection.GetSchema("ColumnOptions");
+            var initialSchema = GetCurrentSchema();
             
             var exporter = new SpannerSchemaExport(_fixture.Configuration);
             exporter.Execute(false, true, false);
             
-            VerifySchemaEquality(initialTables, initialColumns, initialColumnOptions);
+            VerifySchemaEquality(initialSchema);
         }
 
         [Fact]
         public async Task CanDropAndRecreateSchemaAsync()
         {
-            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
-            var initialTables = connection.GetSchema("Tables");
-            var initialColumns = connection.GetSchema("Columns");
-            var initialColumnOptions = connection.GetSchema("ColumnOptions");
+            var initialSchema = GetCurrentSchema();
             
             var exporter = new SpannerSchemaExport(_fixture.Configuration);
             await exporter.ExecuteAsync(false, true, false);
             
-            VerifySchemaEquality(initialTables, initialColumns, initialColumnOptions);
+            VerifySchemaEquality(initialSchema);
         }
 
         [Fact]
         public void CanAddMissingTable()
         {
-            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
-            var initialTables = connection.GetSchema("Tables");
-            var initialColumns = connection.GetSchema("Columns");
-            var initialColumnOptions = connection.GetSchema("ColumnOptions");
+            var initialSchema = GetCurrentSchema();
             
             // Drop a table and then execute a SchemaUpdate to recreate it.
+            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
             var cmd = connection.CreateDdlCommand("DROP TABLE Performances");
             cmd.ExecuteNonQuery();
             var updater = new SpannerSchemaUpdate(_fixture.Configuration);
             updater.Execute(false, true);
             
             Assert.Empty(updater.Exceptions);
-            VerifySchemaEquality(initialTables, initialColumns, initialColumnOptions);
+            VerifySchemaEquality(initialSchema);
         }
 
         [Fact]
         public async Task CanAddMissingTableAsync()
         {
-            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
-            var initialTables = connection.GetSchema("Tables");
-            var initialColumns = connection.GetSchema("Columns");
-            var initialColumnOptions = connection.GetSchema("ColumnOptions");
+            var initialSchema = GetCurrentSchema();
             
             // Drop a table and then execute a SchemaUpdate to recreate it.
+            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
             var cmd = connection.CreateDdlCommand("DROP TABLE Performances");
             await cmd.ExecuteNonQueryAsync();
             var updater = new SpannerSchemaUpdate(_fixture.Configuration);
             await updater.ExecuteAsync(false, true);
             
             Assert.Empty(updater.Exceptions);
-            VerifySchemaEquality(initialTables, initialColumns, initialColumnOptions);
+            VerifySchemaEquality(initialSchema);
         }
 
-        private void VerifySchemaEquality(DataTable initialTables, DataTable initialColumns, DataTable initialColumnOptions)
+        [Fact]
+        public void CanAddMissingColumn()
+        {
+            var initialSchema = GetCurrentSchema();
+            // Drop a table and then execute a SchemaUpdate to recreate it.
+            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
+            var cmd = connection.CreateDdlCommand("DROP TABLE Performances");
+            cmd.ExecuteNonQuery();
+            var updater = new SpannerSchemaUpdate(_fixture.Configuration);
+            updater.Execute(false, true);
+            
+            Assert.Empty(updater.Exceptions);
+            VerifySchemaEquality(initialSchema);
+        }
+
+        struct Schema
+        {
+            public DataTable Tables;
+            public DataTable Columns;
+            public DataTable ColumnOptions;
+            public DataTable Indexes;
+            public DataTable IndexColumns;
+            public DataTable ReferentialConstraints;
+        }
+
+        private Schema GetCurrentSchema()
         {
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
-            var tables = connection.GetSchema("Tables");
-            var columns = connection.GetSchema("Columns");
-            var columnOptions = connection.GetSchema("ColumnOptions");
-            Assert.Equal(initialTables.Rows.Count, tables.Rows.Count);
-            for (var i = 0; i < initialTables.Rows.Count; i++)
+            var schema = new Schema
             {
-                Assert.Equal(initialTables.Rows[i]["TABLE_NAME"], tables.Rows[i]["TABLE_NAME"]);
+                Tables = connection.GetSchema("Tables"),
+                Columns = connection.GetSchema("Columns"),
+                ColumnOptions = connection.GetSchema("ColumnOptions"),
+                Indexes = connection.GetSchema("Indexes"),
+                IndexColumns = connection.GetSchema("IndexColumns"),
+                ReferentialConstraints = connection.GetSchema("ReferentialConstraints"),
+            };
+
+            return schema;
+        }
+
+        private void VerifySchemaEquality(Schema initialSchema)
+        {
+            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
+            var schema = GetCurrentSchema();
+            
+            Assert.Equal(initialSchema.Tables.Rows.Count, schema.Tables.Rows.Count);
+            for (var row = 0; row < initialSchema.Tables.Rows.Count; row++)
+            {
+                Assert.Equal(initialSchema.Tables.Rows[row]["TABLE_NAME"], schema.Tables.Rows[row]["TABLE_NAME"]);
             }
             
-            Assert.Equal(initialColumns.Rows.Count, columns.Rows.Count);
-            for (var i = 0; i < initialColumns.Rows.Count; i++)
+            Assert.Equal(initialSchema.Columns.Rows.Count, schema.Columns.Rows.Count);
+            for (var i = 0; i < initialSchema.Columns.Rows.Count; i++)
             {
-                Assert.Equal(initialColumns.Rows[i]["TABLE_NAME"], columns.Rows[i]["TABLE_NAME"]);
-                Assert.Equal(initialColumns.Rows[i]["COLUMN_NAME"], columns.Rows[i]["COLUMN_NAME"]);
-                Assert.Equal(initialColumns.Rows[i]["IS_NULLABLE"], columns.Rows[i]["IS_NULLABLE"]);
-                Assert.Equal(initialColumns.Rows[i]["SPANNER_TYPE"], columns.Rows[i]["SPANNER_TYPE"]);
-                Assert.Equal(initialColumns.Rows[i]["COLUMN_DEFAULT"], columns.Rows[i]["COLUMN_DEFAULT"]);
-                Assert.Equal(initialColumns.Rows[i]["IS_GENERATED"], columns.Rows[i]["IS_GENERATED"]);
-                Assert.Equal(initialColumns.Rows[i]["GENERATION_EXPRESSION"], columns.Rows[i]["GENERATION_EXPRESSION"]);
+                Assert.Equal(initialSchema.Columns.Rows[i]["TABLE_NAME"], schema.Columns.Rows[i]["TABLE_NAME"]);
+                Assert.Equal($"{initialSchema.Columns.Rows[i]["TABLE_NAME"]}.{initialSchema.Columns.Rows[i]["COLUMN_NAME"]}",
+                    $"{schema.Columns.Rows[i]["TABLE_NAME"]}.{schema.Columns.Rows[i]["COLUMN_NAME"]}");
+                Assert.Equal(initialSchema.Columns.Rows[i]["COLUMN_NAME"], schema.Columns.Rows[i]["COLUMN_NAME"]);
+                Assert.Equal(initialSchema.Columns.Rows[i]["ORDINAL_POSITION"], schema.Columns.Rows[i]["ORDINAL_POSITION"]);
+                Assert.Equal(initialSchema.Columns.Rows[i]["IS_NULLABLE"], schema.Columns.Rows[i]["IS_NULLABLE"]);
+                Assert.Equal(initialSchema.Columns.Rows[i]["SPANNER_TYPE"], schema.Columns.Rows[i]["SPANNER_TYPE"]);
+                Assert.Equal(initialSchema.Columns.Rows[i]["COLUMN_DEFAULT"], schema.Columns.Rows[i]["COLUMN_DEFAULT"]);
+                Assert.Equal(initialSchema.Columns.Rows[i]["IS_GENERATED"], schema.Columns.Rows[i]["IS_GENERATED"]);
+                Assert.Equal(initialSchema.Columns.Rows[i]["GENERATION_EXPRESSION"], schema.Columns.Rows[i]["GENERATION_EXPRESSION"]);
             }
             
-            Assert.Equal(initialColumnOptions.Rows.Count, columnOptions.Rows.Count);
-            for (var i = 0; i < initialColumnOptions.Rows.Count; i++)
+            Assert.Equal(initialSchema.ColumnOptions.Rows.Count, schema.ColumnOptions.Rows.Count);
+            for (var i = 0; i < initialSchema.ColumnOptions.Rows.Count; i++)
             {
-                Assert.Equal(initialColumnOptions.Rows[i]["TABLE_NAME"], columnOptions.Rows[i]["TABLE_NAME"]);
-                Assert.Equal(initialColumnOptions.Rows[i]["COLUMN_NAME"], columnOptions.Rows[i]["COLUMN_NAME"]);
-                Assert.Equal(initialColumnOptions.Rows[i]["OPTION_NAME"], columnOptions.Rows[i]["OPTION_NAME"]);
-                Assert.Equal(initialColumnOptions.Rows[i]["OPTION_TYPE"], columnOptions.Rows[i]["OPTION_TYPE"]);
-                Assert.Equal(initialColumnOptions.Rows[i]["OPTION_VALUE"], columnOptions.Rows[i]["OPTION_VALUE"]);
+                Assert.Equal(initialSchema.ColumnOptions.Rows[i][0], schema.ColumnOptions.Rows[i][0]);
+                Assert.Equal(initialSchema.ColumnOptions.Rows[i]["TABLE_NAME"], schema.ColumnOptions.Rows[i]["TABLE_NAME"]);
+                Assert.Equal(initialSchema.ColumnOptions.Rows[i]["COLUMN_NAME"], schema.ColumnOptions.Rows[i]["COLUMN_NAME"]);
+                Assert.Equal(initialSchema.ColumnOptions.Rows[i]["OPTION_NAME"], schema.ColumnOptions.Rows[i]["OPTION_NAME"]);
+                Assert.Equal(initialSchema.ColumnOptions.Rows[i]["OPTION_TYPE"], schema.ColumnOptions.Rows[i]["OPTION_TYPE"]);
+                Assert.Equal(initialSchema.ColumnOptions.Rows[i]["OPTION_VALUE"], schema.ColumnOptions.Rows[i]["OPTION_VALUE"]);
+            }
+            
+            AssertDataTablesEqual(initialSchema.Tables, schema.Tables);
+            AssertDataTablesEqual(initialSchema.Columns, schema.Columns);
+            AssertDataTablesEqual(initialSchema.ColumnOptions, schema.ColumnOptions);
+            // TODO: Allow creating unique indexes by converting unique keys to unique indexes.
+            // AssertDataTablesEqual(initialSchema.Indexes, schema.Indexes);
+            // AssertDataTablesEqual(initialSchema.IndexColumns, schema.IndexColumns);
+            AssertDataTablesEqual(initialSchema.ReferentialConstraints, schema.ReferentialConstraints);
+        }
+
+        private static void AssertDataTablesEqual(DataTable expected, DataTable actual)
+        {
+            Assert.Equal(expected.Rows.Count, actual.Rows.Count);
+            for (var row = 0; row < expected.Rows.Count; row++)
+            {
+                for (var col = 0; col < expected.Columns.Count; col++)
+                {
+                    Assert.Equal(expected.Rows[row][col], actual.Rows[row][col]);
+                }
             }
         }
     }
