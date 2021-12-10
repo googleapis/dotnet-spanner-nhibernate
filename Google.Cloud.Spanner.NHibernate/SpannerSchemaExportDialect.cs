@@ -19,6 +19,16 @@ namespace Google.Cloud.Spanner.NHibernate
         // Cloud Spanner does not support any identity columns, but this allows us to skip the primary key generation
         // during schema export.
         public override bool GenerateTablePrimaryKeyConstraintForIdentityColumn => false;
+
+        // Cloud Spanner does not support unique constraints, but this makes sure that NHibernate tries to generate
+        // the unique constraint in the table itself. The Spanner SchemaExport then prohibits the actual generation of
+        // the constraint by simulating that the constraint contains a nullable column, and that it does not support
+        // nullable columns in unique constraints.
+        public override bool SupportsUniqueConstraintInCreateAlterTable => true;
+
+        // Cloud Spanner does support null in unique indexes, but this prevents NHibernate from generating unique
+        // constraints, which are not supported by Cloud Spanner.
+        public override bool SupportsNullInUnique => false;
         
         public override string IdentityColumnString => "NOT NULL";
 

@@ -50,13 +50,13 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
                 m.NotNullable(true);
                 m.Column(c => c.Length(36));
                 m.ForeignKey("FK_Tracks_Albums");
-                m.Index("Idx_Tracks_Album_Title");
+                m.UniqueKey("Idx_Tracks_Album_Title");
             });
             Property(x => x.Title, m =>
             {
                 m.NotNullable(true);
                 m.Length(200);
-                m.Index("Idx_Tracks_Album_Title");
+                m.UniqueKey("Idx_Tracks_Album_Title");
             });
             Property(x => x.Duration);
             Property(x => x.LyricsLanguages, m => m.Length(2));

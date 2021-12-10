@@ -275,6 +275,7 @@ namespace Google.Cloud.Spanner.NHibernate
             // Also add all indexes as auxiliary objects to the configuration so these can be dropped before any tables.
             // We cannot get the auxiliary objects that have already been added to the config, so we have to use a
             // custom property to remember that.
+            // We also convert all unique keys into unique indexes.
             if (configuration.Properties.TryAdd("spanner.auxiliary.indexes", "true"))
             {
                 foreach (var mapping in configuration.ClassMappings)
@@ -282,6 +283,10 @@ namespace Google.Cloud.Spanner.NHibernate
                     foreach (var index in mapping.Table.IndexIterator)
                     {
                         configuration.AddAuxiliaryDatabaseObject(new IndexAsAuxiliaryObject(index.Name));
+                    }
+                    foreach (var uniqueKey in mapping.Table.UniqueKeyIterator)
+                    {
+                        configuration.AddAuxiliaryDatabaseObject(new UniqueKeyAsAuxiliaryObject(uniqueKey));
                     }
                 }
             }

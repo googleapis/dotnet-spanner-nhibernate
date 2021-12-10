@@ -146,6 +146,8 @@ namespace Google.Cloud.Spanner.NHibernate
 
 		public override bool SupportsUnique => false;
 
+		public override bool SupportsUniqueConstraintInCreateAlterTable => false;
+
 		public override bool SupportsColumnCheck => false;
 		
 		public override bool SupportsLimit => true;

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection;
+using System;
 using System.Data;
 using System.Threading.Tasks;
 using Xunit;
@@ -161,9 +162,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             AssertDataTablesEqual(initialSchema.Tables, schema.Tables);
             AssertDataTablesEqual(initialSchema.Columns, schema.Columns);
             AssertDataTablesEqual(initialSchema.ColumnOptions, schema.ColumnOptions);
-            // TODO: Allow creating unique indexes by converting unique keys to unique indexes.
-            // AssertDataTablesEqual(initialSchema.Indexes, schema.Indexes);
-            // AssertDataTablesEqual(initialSchema.IndexColumns, schema.IndexColumns);
+            AssertDataTablesEqual(initialSchema.Indexes, schema.Indexes);
+            AssertDataTablesEqual(initialSchema.IndexColumns, schema.IndexColumns);
             AssertDataTablesEqual(initialSchema.ReferentialConstraints, schema.ReferentialConstraints);
         }
 
@@ -174,7 +174,16 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             {
                 for (var col = 0; col < expected.Columns.Count; col++)
                 {
-                    Assert.Equal(expected.Rows[row][col], actual.Rows[row][col]);
+                    if (Equals("IS_NULL_FILTERED", actual.Columns[col].ColumnName) ||
+                        Equals("IS_NULLABLE", actual.Columns[col].ColumnName) && Equals("IndexColumns", actual.TableName))
+                    {
+                        // Ignore any differences in IS_NULL_FILTERED, as there is no way to generate a null-filtered index
+                        // using NHibernate.
+                    }
+                    else
+                    {
+                        Assert.Equal(expected.Rows[row][col], actual.Rows[row][col]);
+                    }
                 }
             }
         }
