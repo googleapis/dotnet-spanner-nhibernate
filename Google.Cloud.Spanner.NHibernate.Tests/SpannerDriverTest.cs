@@ -86,8 +86,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             var singerSql = AddSingerResult(GetSelectSingerSql());
             var albumsSql = AddSingerAlbumsResults(GetSelectSingerAlbumsSql(), new []
             {
-                new object[] { 1L, 1L, 1L, "Title 1", null, 1L },
-                new object[] { 1L, 2L, 2L, "Title 2", null, 1L },
+                new object[] { 1L, 1L, 1L, 1L, "Title 1", null },
+                new object[] { 1L, 2L, 2L, 1L, "Title 2", null },
             });
             
             var singer = await session.GetAsync<Singer>(1L);
@@ -1195,10 +1195,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseTableHintOnJoinWithHql()
         {
             var sql =
-                "select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.Title as title2_1_0_, album0_.ReleaseDate as releasedate3_1_0_, album0_.SingerId as singerid4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ "
-                    + "from Album@{FORCE_INDEX=Idx_Albums_Title} album0_ "
-                    + "left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId "
-                    + "where singer1_.LastName=@p0";
+                "select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ from Album@{FORCE_INDEX=Idx_Albums_Title} album0_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId where singer1_.LastName=@p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
@@ -1219,10 +1216,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseStatementAndTableHintsWithHql()
         {
             var sql =
-                "@{OPTIMIZER_VERSION=1}select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.Title as title2_1_0_, album0_.ReleaseDate as releasedate3_1_0_, album0_.SingerId as singerid4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ "
-                + "from Album@{FORCE_INDEX=Idx_Albums_Title} album0_ "
-                + "left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId "
-                + "where singer1_.LastName=@p0";
+                "@{OPTIMIZER_VERSION=1}select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ from Album@{FORCE_INDEX=Idx_Albums_Title} album0_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId where singer1_.LastName=@p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
@@ -1278,10 +1272,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseTableHintOnJoinWithCriteria()
         {
             var sql =
-                "/* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.Title as title2_1_1_, this_.ReleaseDate as releasedate3_1_1_, this_.SingerId as singerid4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ "
-                    + "FROM Album@{FORCE_INDEX=Idx_Albums_Title} this_ "
-                    + "left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on this_.SingerId=singer1_.SingerId "
-                    + "WHERE singer1_.LastName = @p0";
+                "/* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.SingerId as singerid2_1_1_, this_.Title as title3_1_1_, this_.ReleaseDate as releasedate4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ FROM Album@{FORCE_INDEX=Idx_Albums_Title} this_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on this_.SingerId=singer1_.SingerId WHERE singer1_.LastName = @p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
@@ -1303,10 +1294,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseStatementAndTableHintsWithCriteria()
         {
             var sql =
-                "@{OPTIMIZER_VERSION=1}/* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.Title as title2_1_1_, this_.ReleaseDate as releasedate3_1_1_, this_.SingerId as singerid4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ "
-                    + "FROM Album@{FORCE_INDEX=Idx_Albums_Title} this_ "
-                    + "left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on this_.SingerId=singer1_.SingerId "
-                    + "WHERE singer1_.LastName = @p0";
+                "@{OPTIMIZER_VERSION=1}/* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.SingerId as singerid2_1_1_, this_.Title as title3_1_1_, this_.ReleaseDate as releasedate4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ FROM Album@{FORCE_INDEX=Idx_Albums_Title} this_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on this_.SingerId=singer1_.SingerId WHERE singer1_.LastName = @p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
@@ -1370,21 +1358,19 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
         
         private static string GetSelectSingerAlbumsSql() =>
-            "SELECT albums0_.SingerId as singerid4_1_1_, albums0_.AlbumId as albumid1_1_1_, albums0_.AlbumId as albumid1_1_0_, "
-            + "albums0_.Title as title2_1_0_, albums0_.ReleaseDate as releasedate3_1_0_, albums0_.SingerId as singerid4_1_0_ "
-            + "FROM Album albums0_ WHERE albums0_.SingerId=@p0";
+            "SELECT albums0_.SingerId as singerid2_1_1_, albums0_.AlbumId as albumid1_1_1_, albums0_.AlbumId as albumid1_1_0_, albums0_.SingerId as singerid2_1_0_, albums0_.Title as title3_1_0_, albums0_.ReleaseDate as releasedate4_1_0_ FROM Album albums0_ WHERE albums0_.SingerId=@p0";
         
         private string AddSingerAlbumsResults(string sql, IEnumerable<object[]> rows)
         {
             _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
                 new List<Tuple<V1.TypeCode, string>>
                 {
-                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid2_1_1_"),
                     Tuple.Create(V1.TypeCode.Int64, "albumid1_1_1_"),
                     Tuple.Create(V1.TypeCode.Int64, "albumid1_1_0_"),
-                    Tuple.Create(V1.TypeCode.String, "title2_1_0_"),
-                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_0_"),
-                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_0_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid2_1_0_"),
+                    Tuple.Create(V1.TypeCode.String, "title3_1_0_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate4_1_0_"),
                 }, rows));
             return sql;
         }
