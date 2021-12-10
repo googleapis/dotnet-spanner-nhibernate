@@ -15,6 +15,7 @@
 using Google.Api.Gax;
 using Google.Cloud.Spanner.Admin.Database.V1;
 using Google.Cloud.Spanner.Connection.MockServer;
+using Google.Cloud.Spanner.NHibernate.Internal;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
 using NHibernate.Cfg;
 using NHibernate.Mapping.ByCode;
@@ -291,7 +292,6 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 s => AssertEqual("create index Idx_Singers_FullName on Singer (FullName)", s),
                 s => AssertEqual("alter table Album add constraint FK_8373D1C5 foreign key (SingerId) references Singer (SingerId)", s),
                 s => AssertEqual("alter table Track add constraint FK_1F357587 foreign key (AlbumId) references Album (AlbumId)", s)
-                // s => AssertEqual("create unique index Idx_Albums_Title on Album (SingerId, Title)", s)
             );
         }
 
@@ -420,7 +420,6 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             public string IndexState;
             public bool SpannerIsManaged;
         }
-        
 
         private void AddIndexesResult(IEnumerable<Index> rows)
         {

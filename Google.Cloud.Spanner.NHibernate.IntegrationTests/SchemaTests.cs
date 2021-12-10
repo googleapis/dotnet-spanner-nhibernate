@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection;
+using Google.Cloud.Spanner.NHibernate.Internal;
 using System;
 using System.Data;
 using System.Threading.Tasks;

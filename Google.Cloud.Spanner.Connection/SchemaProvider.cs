@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using Google.Api.Gax;
-using Google.Cloud.Spanner.Data;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -23,13 +22,8 @@ using TypeCode = Google.Cloud.Spanner.V1.TypeCode;
 
 namespace Google.Cloud.Spanner.Connection
 {
-
 	internal sealed class SchemaProvider
 	{
-		private static readonly List<string> ReservedWords = new List<string>
-		{
-			"SELECT",
-		};
 		private static readonly List<string> DataTypes =
 			Enum.GetValues(typeof(TypeCode)).Cast<TypeCode>().Select(t => t.ToString()).ToList();
 		private readonly SpannerRetriableConnection _connection;
@@ -82,7 +76,7 @@ namespace Google.Cloud.Spanner.Connection
 			dataTable.Columns.AddRange(new [] {
 				new DataColumn(DbMetaDataColumnNames.ReservedWord, typeof(string)),
 			});
-			_ = ReservedWords.Select(w => dataTable.Rows.Add(w));
+			_ = Keywords.ReservedKeywords.Select(w => dataTable.Rows.Add(w));
 		}
 
 		private void FillDataTypes(DataTable dataTable)
