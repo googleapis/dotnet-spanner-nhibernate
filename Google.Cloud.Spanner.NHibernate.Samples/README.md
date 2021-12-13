@@ -4,8 +4,10 @@ This project contains a number of samples for using NHibernate in combination wi
 The Snippets directory contains standalone samples for commonly used features of NHibernate and Cloud Spanner.
 Browse these samples to get an impression of how the integration works or use it as a reference for best practices when implementing your own application.
 
-The SampleModel directory contains the data model and mapping that is used with the samples.
-All mapping is created in code using `NHibernate.Mapping.ByCode`.
+The SampleModel directory contains the [data model](SampleModel/SampleDataModel.sql) and mapping that is used with the samples.
+All mapping is created in code using `NHibernate.Mapping.ByCode`. The entities share a
+[common base entity definition](SampleModel/AbstractVersionedEntity.cs) that defines the identifier, the identifier generation,
+a optimistic locking version property, and columns for tracking the date/time of when a record was created and last updated.
 
 ## Running a Sample
 The samples can be executed using the command `dotnet run <SampleName>` from this directory. The sample runner will automatically download and
