@@ -178,7 +178,7 @@ namespace Google.Cloud.Spanner.Connection
         {
             while (true)
             {
-                var spannerCommand = command.CreateSpannerBatchCommand();
+                var spannerCommand = command.CreateSpannerBatchCommand(command.Transaction.SpannerTransaction);
                 try
                 {
                     IReadOnlyList<long> res = await spannerCommand.ExecuteNonQueryAsync(cancellationToken);

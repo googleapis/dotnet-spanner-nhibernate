@@ -14,7 +14,9 @@
 
 using Google.Cloud.Spanner.Data;
 using NHibernate.SqlCommand;
+using NHibernate.SqlTypes;
 using System.Collections.Generic;
+using System.Data;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
@@ -29,16 +31,14 @@ namespace Google.Cloud.Spanner.NHibernate
         public string Table { get; }
         public string[] Columns { get; }
         public List<SpannerParameter> AdditionalParameters { get; } = new List<SpannerParameter>();
-        public int DiscriminatorColumnIndex { get; }
         public string[] WhereColumns { get; }
         public int WhereParamsStartIndex { get; }
 
-        public SpannerMutationSqlString(SqlString dmlSqlString, string operation, string table, string[] columns, int discriminatorColumnIndex) : base(dmlSqlString)
+        public SpannerMutationSqlString(SqlString dmlSqlString, string operation, string table, string[] columns) : base(dmlSqlString)
         {
             Operation = operation;
             Table = table;
             Columns = columns;
-            DiscriminatorColumnIndex = discriminatorColumnIndex;
             WhereColumns = new string[] { };
         }
 

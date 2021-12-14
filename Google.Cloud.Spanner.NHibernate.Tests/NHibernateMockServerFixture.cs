@@ -44,6 +44,11 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             mapper.AddMapping<TrackMapping>();
             mapper.AddMapping<SingerWithVersionMapping>();
             mapper.AddMapping<AlbumWithVersionMapping>();
+            
+            mapper.AddMapping<PersonMapping>();
+            mapper.AddMapping<StudentMapping>();
+            mapper.AddMapping<TeacherMapping>();
+            
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             Configuration.AddMapping(mapping);
             
@@ -68,6 +73,10 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             // get the value.
             Configuration.GetClassMapping(typeof(Singer)).GetProperty(nameof(Singer.FullName)).Generation = PropertyGeneration.Never;
             Configuration.GetClassMapping(typeof(TableWithAllColumnTypes)).GetProperty(nameof(TableWithAllColumnTypes.ColComputed)).Generation = PropertyGeneration.Never;
+            Configuration.GetClassMapping(typeof(Person)).GetProperty(nameof(Person.FullName)).Generation = PropertyGeneration.Never;
+            // This is needed to be able to use mutations with versioned data. Otherwise, NHibernate will never use
+            // batching for versioned data, and mutations are only supported during batches.
+            Configuration.Properties[Environment.BatchVersionedData] = "true";
             SessionFactoryUsingMutations = Configuration.BuildSessionFactory();
         }
 

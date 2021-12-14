@@ -39,7 +39,7 @@ namespace Google.Cloud.Spanner.Connection
         {
             try
             {
-                await _command.CreateSpannerBatchCommand().ExecuteNonQueryAsync(cancellationToken);
+                await _command.CreateSpannerBatchCommand(transaction.SpannerTransaction).ExecuteNonQueryAsync(cancellationToken);
                 // Fallthrough and throw the exception at the end of the method.
             }
             catch (SpannerBatchNonQueryException e)
