@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using NHibernate.Mapping.ByCode;
 using System;
 
 namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
@@ -29,7 +28,6 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
     {
         public PerformanceMapping()
         {
-            Persister<SpannerSingleTableWithFixedValuesEntityPersister>();
             Table("Performances");
             ManyToOne(x => x.Concert);
             ManyToOne(x => x.Track);

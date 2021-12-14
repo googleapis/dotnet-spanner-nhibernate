@@ -97,7 +97,14 @@ namespace Google.Cloud.Spanner.NHibernate
 
         public override int GetHashCode() => Array.GetHashCode();
 
-        public override string ToString() => Array.ToString();
+        public override string ToString()
+        {
+            if (Array == null)
+            {
+                return "NULL";
+            }
+            return "[" + string.Join(", ", Array.Select(e => e?.ToString() ?? "NULL")) + "]";
+        }
 
         public int GetHashCode(object x) => x?.GetHashCode() ?? 0;
         

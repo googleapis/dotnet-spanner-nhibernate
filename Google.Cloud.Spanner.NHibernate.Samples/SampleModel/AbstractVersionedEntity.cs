@@ -58,7 +58,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
     {
         public VersionedEntityMapping()
         {
-            Persister<SpannerSingleTableWithFixedValuesEntityPersister>();
+            Persister<SpannerSingleTableEntityPersister>();
             // DynamicUpdate(true) ensures that NHibernate will generate UPDATE statements that only modify the columns
             // of the table that have actually been updated.
             DynamicUpdate(true);

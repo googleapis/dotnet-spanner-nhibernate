@@ -25,7 +25,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         /// <summary>
         /// NUMERIC columns are mapped to <see cref="V1.SpannerNumeric"/> by default.
         /// </summary>
-        public virtual V1.SpannerNumeric? Duration { get; set; }
+        public virtual SpannerNumeric Duration { get; set; }
 
         /// <summary>
         /// ARRAY columns are mapped using custom types. Note that both the column itself (i.e. the underlying List)

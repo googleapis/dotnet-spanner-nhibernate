@@ -15,8 +15,11 @@
 using Google.Cloud.Spanner.NHibernate.Samples.SampleModel;
 using Google.Cloud.Spanner.V1;
 using NHibernate;
+using NHibernate.Linq;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
@@ -41,53 +44,56 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
     {
         public static async Task Run(SampleConfiguration configuration)
         {
-            try
+            var (_, album) = await GetSingerAndAlbumAsync(configuration);
+            
+            using var session = configuration.SessionFactory.OpenSession();
+            // A track has two array columns: Lyrics and LyricsLanguages. The length of both arrays
+            // should be equal, as the LyricsLanguages indicate the language of the corresponding Lyrics.
+            await session.SaveAsync(new Track
             {
-                using var session = configuration.SessionFactory.OpenSession();
-                using var transaction = session.BeginTransaction();
-                var (_, album) = await GetSingerAndAlbumAsync(session);
-
-                // A track has two array columns: Lyrics and LyricsLanguages. The length of both arrays
-                // should be equal, as the LyricsLanguages indicate the language of the corresponding Lyrics.
-                var track1 = new Track
-                {
-                    Title = "Whenever",
-                    Lyrics = new SpannerStringArray(new List<string> { "Lyrics 1", "Lyrics 2" }),
-                    LyricsLanguages = new SpannerStringArray(new List<string> { "EN", "DE" }),
-                    Album = album,
-                };
-                var track2 = new Track
-                {
-                    Title = "Wherever",
-                    // Array elements may be null, regardless whether the column itself is defined as NULL/NOT NULL.
-                    Lyrics = new SpannerStringArray(new List<string> { null, "Lyrics 2" }),
-                    LyricsLanguages = new SpannerStringArray(new List<string> { "EN", "DE" }),
-                    Album = album,
-                };
-                var track3 = new Track
-                {
-                    Title = "Probably",
-                    // ARRAY columns may also be null.
-                    Lyrics = null,
-                    LyricsLanguages = null,
-                    Album = album,
-                };
-                await session.SaveAsync(track1);
-                await session.SaveAsync(track2);
-                await session.SaveAsync(track3);
-                await transaction.CommitAsync();
-
-                Console.WriteLine("Added 3 tracks.");
-            }
-            catch (Exception e)
+                Title = "Whenever",
+                Lyrics = new SpannerStringArray(new List<string> { "Lyrics 1", "Lyrics 2" }),
+                LyricsLanguages = new SpannerStringArray(new List<string> { "EN", "DE" }),
+                Album = album,
+            });
+            await session.FlushAsync();
+            await session.SaveAsync(new Track
             {
-                Console.WriteLine(e.ToString());
-                throw;
+                Title = "Wherever",
+                // Array elements may be null, regardless whether the column itself is defined as NULL/NOT NULL.
+                Lyrics = new SpannerStringArray(new List<string> { null, "Lyrics 2" }),
+                LyricsLanguages = new SpannerStringArray(new List<string> { "EN", "DE" }),
+                Album = album,
+            });
+            await session.FlushAsync();
+            await session.SaveAsync(new Track
+            {
+                Title = "Probably",
+                // ARRAY columns may also be null.
+                Lyrics = null,
+                LyricsLanguages = null,
+                Album = album,
+            });
+            await session.FlushAsync();
+
+            var tracks = await session
+                .Query<Track>()
+                .OrderBy(t => t.Title)
+                .ToListAsync();
+            Console.WriteLine("Found tracks:");
+            foreach (var track in tracks)
+            {
+                Console.WriteLine($"Track {track.Title} has lyrics " +
+                                  $"{track.Lyrics?.ToString() ?? "NULL"} " +
+                                  $"and lyrics languages " +
+                                  $"{track.LyricsLanguages?.ToString() ?? "NULL"}");
             }
         }
         
-        private static async Task<(Singer, Album)> GetSingerAndAlbumAsync(ISession session)
+        private static async Task<(Singer, Album)> GetSingerAndAlbumAsync(SampleConfiguration configuration)
         {
+            using var session = configuration.SessionFactory.OpenSession();
+            using var transaction = session.BeginTransaction();
             var singer = new Singer
             {
                 FirstName = "Hannah",
@@ -100,6 +106,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
                 Title = "Somewhere",
             };
             await session.SaveAsync(album);
+            await transaction.CommitAsync();
 
             return (singer, album);
         }
