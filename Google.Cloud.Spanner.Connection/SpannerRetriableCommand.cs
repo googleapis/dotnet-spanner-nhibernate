@@ -83,7 +83,24 @@ namespace Google.Cloud.Spanner.Connection
         public override void Cancel() => _spannerCommand.Cancel();
 
         public override int ExecuteNonQuery() =>
-            _transaction?.ExecuteNonQueryWithRetry(_spannerCommand) ?? ExecuteNonQueryWithRetryAsync(_spannerCommand).ResultWithUnwrappedExceptions();
+            _transaction?.ExecuteNonQueryWithRetry(_spannerCommand) ?? ExecuteNonQueryWithRetry(_spannerCommand);
+
+        /// <summary>
+        /// Wraps a DML command in a Spanner retriable transaction to retry Aborted errors.
+        /// </summary>
+        private int ExecuteNonQueryWithRetry(SpannerCommand spannerCommand)
+        {
+            var builder = SpannerCommandTextBuilder.FromCommandText(spannerCommand.CommandText);
+            if (builder.SpannerCommandType == SpannerCommandType.Ddl)
+            {
+                return spannerCommand.ExecuteNonQuery();
+            }
+            return _connection.SpannerConnection.RunWithRetriableTransaction(transaction =>
+            {
+                spannerCommand.Transaction = transaction;
+                return spannerCommand.ExecuteNonQuery();
+            });
+        }
 
         public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken) =>
             _transaction == null

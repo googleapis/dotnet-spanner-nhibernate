@@ -49,6 +49,6 @@ namespace Google.Cloud.Spanner.NHibernate
             return new SpannerDateArray();
         }
 
-        protected override SpannerDbType GetArrayElementType() => SpannerDbType.Date;
+        public override SpannerDbType GetArrayElementType() => SpannerDbType.Date;
     }
 }

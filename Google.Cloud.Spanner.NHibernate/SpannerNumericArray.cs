@@ -49,6 +49,6 @@ namespace Google.Cloud.Spanner.NHibernate
             return new SpannerNumericArray();
         }
 
-        protected override SpannerDbType GetArrayElementType() => SpannerDbType.Numeric;
+        public override SpannerDbType GetArrayElementType() => SpannerDbType.Numeric;
     }
 }
