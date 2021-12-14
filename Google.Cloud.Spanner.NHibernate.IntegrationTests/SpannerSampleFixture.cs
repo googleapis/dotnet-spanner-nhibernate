@@ -65,8 +65,10 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             mapper.AddMapping<SingerMapping>();
             mapper.AddMapping<TrackMapping>();
             mapper.AddMapping<VenueMapping>();
-            
+
             mapper.AddMapping<TableWithAllColumnTypesMapping>();
+            mapper.AddMapping<SingerWithVersionMapping>();
+            mapper.AddMapping<AlbumWithVersionMapping>();
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             Configuration.AddMapping(mapping);
             
@@ -98,6 +100,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 var cmd = transaction.CreateBatchDmlCommand();
                 foreach (var table in new string[]
                 {
+                    "AlbumsWithVersion",
+                    "SingersWithVersion",
                     "TableWithAllColumnTypes",
                     "Performances",
                     "Concerts",

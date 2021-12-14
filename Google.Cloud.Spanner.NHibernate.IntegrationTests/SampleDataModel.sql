@@ -104,3 +104,26 @@ CREATE TABLE TableWithAllColumnTypes (
 ) PRIMARY KEY (ColInt64);
 
 CREATE NULL_FILTERED INDEX IDX_TableWithAllColumnTypes_ColDate_ColCommitTs ON TableWithAllColumnTypes (ColDate, ColCommitTs);
+
+CREATE TABLE SingersWithVersion (
+  Id        STRING(36) NOT NULL,    
+  Version INT64 NOT NULL,
+  FirstName STRING(200),
+  LastName  STRING(200) NOT NULL,
+  FullName  STRING(400) NOT NULL AS (COALESCE(FirstName || ' ', '') || LastName) STORED,
+  BirthDate DATE,
+  Picture   BYTES(MAX),
+) PRIMARY KEY (Id);
+
+CREATE INDEX Idx_SingersWithVersion_FullName ON SingersWithVersion (FullName);
+
+CREATE TABLE AlbumsWithVersion (
+  Id          STRING(36) NOT NULL, 
+  Version INT64 NOT NULL,    
+  Singer      STRING(36) NOT NULL,
+  Title       STRING(100) NOT NULL,
+  ReleaseDate DATE,
+  CONSTRAINT  FK_Albums_Singers_WithVersion FOREIGN KEY (Singer) REFERENCES SingersWithVersion (Id),
+) PRIMARY KEY (Id);
+
+CREATE UNIQUE INDEX Idx_AlbumsWithVersions_Title ON AlbumsWithVersion (Singer, Title);
