@@ -30,7 +30,12 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         {
             Table("Performances");
             ManyToOne(x => x.Concert);
-            ManyToOne(x => x.Track);
+            ManyToOne(x => x.Track, m =>
+            {
+                m.Columns(
+                    c => c.Name("AlbumId"),
+                    c => c.Name("TrackNumber"));
+            });
             Property(x => x.StartTime);
             Property(x => x.Rating);
         }

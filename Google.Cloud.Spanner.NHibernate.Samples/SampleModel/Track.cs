@@ -12,13 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Collections.Generic;
 
 namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
 {
+    [Serializable]
+    public class TrackIdentifier
+    {
+        public TrackIdentifier()
+        {
+        }
+
+        public TrackIdentifier(Album album, long trackNumber)
+        {
+            Album = album;
+            TrackNumber = trackNumber;
+        }
+        
+        public virtual Album Album { get; private set; }
+        public virtual long TrackNumber { get; private set; }
+
+        public override bool Equals(object other) =>
+            other is TrackIdentifier trackIdentifier && Equals(Album?.Id, trackIdentifier.Album?.Id) && Equals(TrackNumber, trackIdentifier.TrackNumber);
+
+        // ReSharper disable twice NonReadonlyMemberInGetHashCode
+        public override int GetHashCode() => Album?.Id?.GetHashCode() ?? 0 | TrackNumber.GetHashCode();
+    }
+    
     public class Track : AbstractVersionedEntity
     {
-        public virtual Album Album { get; set; }
+        public virtual TrackIdentifier TrackIdentifier { get; set; }
+
+        public override string Id => TrackIdentifier?.Album?.Id;
+        
+        public virtual Album Album => TrackIdentifier?.Album;
+
+        public virtual long TrackNumber => TrackIdentifier?.TrackNumber ?? 0L;
 
         public virtual string Title { get; set; }
 
@@ -41,15 +71,31 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
 
     public class TrackMapping : VersionedEntityMapping<Track>
     {
-        public TrackMapping()
+        public TrackMapping() : base(false)
         {
             Table("Tracks");
-            ManyToOne(x => x.Album, m => m.Column("AlbumId"));
+            // The primary key of the table Tracks consists of the columns (Id, TrackNumber). The Id column also
+            // references a row in the Albums table (the parent table).
+            ComponentAsId(x => x.TrackIdentifier, m =>
+            {
+                m.ManyToOne(id => id.Album, mapping => mapping.Column("Id"));
+                m.Property(id => id.TrackNumber);
+            });
             Property(x => x.Title);
             Property(x => x.Duration);
             Property(x => x.LyricsLanguages);
             Property(x => x.Lyrics);
-            Bag(x => x.Performances, c => { }, r => r.OneToMany());
+            Bag(x => x.Performances, c =>
+            {
+                c.Inverse(true);
+                c.Key(k =>
+                {
+                    // The relationship Performance => Track is defined by the (AlbumId, TrackNumber) columns.
+                    k.Columns(
+                        column => column.Name("AlbumId"),
+                        column => column.Name("TrackNumber"));
+                });
+            }, r => r.OneToMany());
         }
     }
 

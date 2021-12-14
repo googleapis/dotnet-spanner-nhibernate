@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using NHibernate.Mapping.ByCode;
 using System;
 using System.Collections.Generic;
 
@@ -41,7 +40,18 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
             ManyToOne(x => x.Singer, m => m.Column("SingerId"));
             Property(x => x.Title);
             Property(x => x.ReleaseDate);
-            Bag(x => x.Tracks, c => { }, r => r.OneToMany());
+            Bag(x => x.Tracks,
+                collectionMapping =>
+                {
+                    // Make sure to set Inverse(true) to prevent NHibernate from trying to break the association between
+                    // an Album and a Track by setting the key values to NULL.
+                    collectionMapping.Inverse(true);
+                    // The Id column of a Track defines the Album that it belongs to.
+                    collectionMapping.Key(key => key.Column("Id"));
+                    // The tracks will be order by their track numbers.
+                    collectionMapping.OrderBy("TrackNumber");
+                },
+                r => r.OneToMany());
         }
     }
 }

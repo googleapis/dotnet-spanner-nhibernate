@@ -40,7 +40,7 @@ CREATE TABLE Albums (
 
 CREATE TABLE Tracks (
   Id              STRING(36) NOT NULL,
-  AlbumId         STRING(36) NOT NULL,
+  TrackNumber     INT64 NOT NULL,
   Title           STRING(200) NOT NULL,
   Duration        NUMERIC,
   LyricsLanguages ARRAY<STRING(2)>,
@@ -48,10 +48,9 @@ CREATE TABLE Tracks (
   Version         INT64 NOT NULL,
   CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
   LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
-  CONSTRAINT FK_Tracks_Albums FOREIGN KEY (AlbumId) REFERENCES Albums (Id),
-) PRIMARY KEY (Id);
+) PRIMARY KEY (Id, TrackNumber), INTERLEAVE IN PARENT Albums;
 
-CREATE UNIQUE INDEX Idx_Tracks_AlbumId_Title ON Tracks (AlbumId, Title);
+CREATE UNIQUE INDEX Idx_Tracks_AlbumId_Title ON Tracks (Id, Title);
 
 CREATE TABLE Venues (
   Id        STRING(36) NOT NULL,
@@ -79,12 +78,13 @@ CREATE TABLE Concerts (
 CREATE TABLE Performances (
   Id               STRING(36) NOT NULL,
   ConcertId        STRING(36) NOT NULL,
-  TrackId          STRING(36) NOT NULL,
+  AlbumId          STRING(36) NOT NULL,
+  TrackNumber      INT64 NOT NULL,
   StartTime        TIMESTAMP,
   Rating           FLOAT64,
   Version          INT64 NOT NULL,
   CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
   LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
   CONSTRAINT FK_Performances_Concerts FOREIGN KEY (ConcertId) REFERENCES Concerts (Id),
-  CONSTRAINT FK_Performances_Tracks FOREIGN KEY (TrackId) REFERENCES Tracks (Id),
+  CONSTRAINT FK_Performances_Tracks FOREIGN KEY (AlbumId, TrackNumber) REFERENCES Tracks (Id, TrackNumber),
 ) PRIMARY KEY (Id);

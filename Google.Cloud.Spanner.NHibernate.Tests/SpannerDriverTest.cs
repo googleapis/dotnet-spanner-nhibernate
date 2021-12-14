@@ -1336,6 +1336,73 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             });
         }
 
+        [Fact]
+        public async Task CanUseInterleavedTables()
+        {
+            var insertInvoiceSql =
+                "INSERT INTO Invoices (Version, LastUpdatedAt, Customer, CreatedAt, Id) VALUES (@p0, @p1, @p2, PENDING_COMMIT_TIMESTAMP(), @p3)";
+            var insertInvoiceLineSql =
+                "INSERT INTO InvoiceLines (Version, LastUpdatedAt, Product, CreatedAt, Id, LineNumber) VALUES (@p0, @p1, @p2, PENDING_COMMIT_TIMESTAMP(), @p3, @p4)";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(insertInvoiceSql, StatementResult.CreateUpdateCount(1L));
+            _fixture.SpannerMock.AddOrUpdateStatementResult(insertInvoiceLineSql, StatementResult.CreateUpdateCount(1L));
+            
+            using var session = _fixture.SessionFactory.OpenSession();
+            using var transaction = session.BeginTransaction();
+            var invoice = new Invoice
+            {
+                Customer = "Pete",
+            };
+            invoice.InvoiceLines = new List<InvoiceLine>
+            {
+                new InvoiceLine { InvoiceLineIdentifier = new InvoiceLineIdentifier(invoice, 1L), Product = "Product 1"},
+                new InvoiceLine { InvoiceLineIdentifier = new InvoiceLineIdentifier(invoice, 2L), Product = "Product 2"},
+            };
+            await session.SaveAsync(invoice);
+            foreach (var invoiceLine in invoice.InvoiceLines)
+            {
+                await session.SaveAsync(invoiceLine);
+            }
+            await transaction.CommitAsync();
+
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests,
+                request =>
+                {
+                    Assert.Equal(insertInvoiceSql, request.Sql);
+                    Assert.Collection(request.Params.Fields,
+                        param => Assert.Equal("1", param.Value.StringValue),
+                        param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
+                        param => Assert.Equal("Pete", param.Value.StringValue),
+                        param => Assert.Equal(invoice.Id, param.Value.StringValue)
+                    );
+                });
+            var batchRequests = _fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>();
+            Assert.Collection(batchRequests,
+                request => Assert.Collection(request.Statements,
+                statement =>
+                {
+                    Assert.Equal(insertInvoiceLineSql, statement.Sql);
+                    Assert.Collection(statement.Params.Fields,
+                        param => Assert.Equal("1", param.Value.StringValue),
+                        param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
+                        param => Assert.Equal("Product 1", param.Value.StringValue),
+                        param => Assert.Equal(invoice.Id, param.Value.StringValue),
+                        param => Assert.Equal("1", param.Value.StringValue)
+                    );
+                },
+                statement =>
+                {
+                    Assert.Equal(insertInvoiceLineSql, statement.Sql);
+                    Assert.Collection(statement.Params.Fields,
+                        param => Assert.Equal("1", param.Value.StringValue),
+                        param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
+                        param => Assert.Equal("Product 2", param.Value.StringValue),
+                        param => Assert.Equal(invoice.Id, param.Value.StringValue),
+                        param => Assert.Equal("2", param.Value.StringValue)
+                    );
+                }));
+        }
+
         private static string GetSelectSingerSql() =>
             "SELECT singer0_.SingerId as singerid1_0_0_, singer0_.FirstName as firstname2_0_0_, singer0_.LastName as lastname3_0_0_, "
             + "singer0_.FullName as fullname4_0_0_, singer0_.BirthDate as birthdate5_0_0_, singer0_.Picture as picture6_0_0_ "

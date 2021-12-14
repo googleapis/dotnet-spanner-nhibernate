@@ -13,12 +13,9 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.NHibernate.Samples.SampleModel;
-using Google.Cloud.Spanner.V1;
-using NHibernate;
 using NHibernate.Linq;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -45,34 +42,34 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
         public static async Task Run(SampleConfiguration configuration)
         {
             var (_, album) = await GetSingerAndAlbumAsync(configuration);
-            
+
             using var session = configuration.SessionFactory.OpenSession();
             // A track has two array columns: Lyrics and LyricsLanguages. The length of both arrays
             // should be equal, as the LyricsLanguages indicate the language of the corresponding Lyrics.
             await session.SaveAsync(new Track
             {
+                TrackIdentifier = new TrackIdentifier(album, 1L),
                 Title = "Whenever",
                 Lyrics = new SpannerStringArray(new List<string> { "Lyrics 1", "Lyrics 2" }),
                 LyricsLanguages = new SpannerStringArray(new List<string> { "EN", "DE" }),
-                Album = album,
             });
             await session.FlushAsync();
             await session.SaveAsync(new Track
             {
+                TrackIdentifier = new TrackIdentifier(album, 2L),
                 Title = "Wherever",
                 // Array elements may be null, regardless whether the column itself is defined as NULL/NOT NULL.
                 Lyrics = new SpannerStringArray(new List<string> { null, "Lyrics 2" }),
                 LyricsLanguages = new SpannerStringArray(new List<string> { "EN", "DE" }),
-                Album = album,
             });
             await session.FlushAsync();
             await session.SaveAsync(new Track
             {
+                TrackIdentifier = new TrackIdentifier(album, 3L),
                 Title = "Probably",
                 // ARRAY columns may also be null.
                 Lyrics = null,
                 LyricsLanguages = null,
-                Album = album,
             });
             await session.FlushAsync();
 
