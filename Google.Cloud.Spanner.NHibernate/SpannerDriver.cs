@@ -79,7 +79,7 @@ namespace Google.Cloud.Spanner.NHibernate
 
         private void SetMutationCommandParameters(DbCommand cmd, SpannerMutationSqlString spannerMutationSqlString, SqlType[] sqlTypes)
         {
-            for (int i = 0; i < sqlTypes.Length; i++)
+            for (var i = 0; i < spannerMutationSqlString.Columns.Length; i++)
             {
                 var dbParam = GenerateParameter(cmd, spannerMutationSqlString.Columns[i], sqlTypes[i]);
                 // Override the name that is generated to make it match with the column name.

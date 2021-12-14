@@ -103,7 +103,12 @@ namespace Google.Cloud.Spanner.NHibernate
                         // Copy the parameter values to the mutation command.
                         for (var i = 0; i < Math.Min(cmd.Parameters.Count, mutationCommand.Parameters.Count); i++)
                         {
-                            mutationCommand.Parameters[i].Value = cmd.Parameters[i].Value;
+                            // Do not overwrite any existing values on the parameter. It could be that the DML command
+                            // has more parameters than the mutation command, if the DML command is an UPDATE statement
+                            // and the command includes a WHERE clause with the current version of the row. The mutation
+                            // command on the other hand might contain one or more fixed value parameters, for example
+                            // for setting the commit timestamp.
+                            mutationCommand.Parameters[i].Value ??= cmd.Parameters[i].Value;
                         }
                         mutationCommands.Add(dmlOrMutationCommand.MutationCommand);
                     }

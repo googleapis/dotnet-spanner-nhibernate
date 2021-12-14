@@ -85,7 +85,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
     {
         public TableWithAllColumnTypesMapping()
         {
-            Persister<SpannerSingleTableWithFixedValuesEntityPersister>();
+            Persister<SpannerSingleTableEntityPersister>();
             Id(x => x.ColInt64);
             Property(x => x.ColFloat64);
             Property(x => x.ColNumeric);
