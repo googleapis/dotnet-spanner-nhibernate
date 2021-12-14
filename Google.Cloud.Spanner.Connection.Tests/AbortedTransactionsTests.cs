@@ -15,12 +15,15 @@
 using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.Connection.Tests.MockServer;
 using Google.Cloud.Spanner.Data;
+using Google.Cloud.Spanner.V1;
+using Google.Protobuf;
 using Grpc.Core;
 using System.Collections.Generic;
 using Xunit;
 using System.Threading.Tasks;
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 
 namespace Google.Cloud.Spanner.Connection.Tests
 {
@@ -818,6 +821,152 @@ namespace Google.Cloud.Spanner.Connection.Tests
             var e = await Assert.ThrowsAsync<SpannerException>(() => cmd2.ExecuteNonQueryAsync());
             Assert.Equal(ErrorCode.Aborted, e.ErrorCode);
             Assert.Contains("Transaction was aborted because it aborted and retried too many times", e.Message);
+        }
+
+        [Fact]
+        public void DmlWithEphemeralTransaction_CanBeRetried()
+        {
+            var sql = $"UPDATE Foo SET Bar='bar' WHERE Id={_fixture.RandomLong()}";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateUpdateCount(1));
+            using var connection = CreateConnection();
+            connection.Open();
+            // Abort the transaction on the mock server. The transaction should be able to internally retry.
+            _fixture.SpannerMock.AbortNextStatement();
+            var cmd = connection.CreateDmlCommand(sql);
+            var updateCount = cmd.ExecuteNonQuery();
+            
+            Assert.Equal(1, updateCount);
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            ByteString lastTransactionId = null;
+            Assert.Collection(requests, request =>
+            {
+                Assert.NotNull(request.Transaction.Id);
+                Assert.Equal(sql, request.Sql);
+                lastTransactionId = request.Transaction.Id;
+            }, request =>
+            {
+                Assert.NotNull(request.Transaction.Id);
+                Assert.Equal(sql, request.Sql);
+                Assert.NotEqual(lastTransactionId, request.Transaction.Id);
+                lastTransactionId = request.Transaction.Id;
+            });
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits, commit => Assert.Equal(lastTransactionId, commit.TransactionId));
+        }
+
+        [Fact]
+        public async Task DmlWithEphemeralTransaction_CanBeRetried_Async()
+        {
+            var sql = $"UPDATE Foo SET Bar='bar' WHERE Id={_fixture.RandomLong()}";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateUpdateCount(1));
+            using var connection = CreateConnection();
+            await connection.OpenAsync();
+            // Abort the transaction on the mock server. The transaction should be able to internally retry.
+            _fixture.SpannerMock.AbortNextStatement();
+            var cmd = connection.CreateDmlCommand(sql);
+            var updateCount = await cmd.ExecuteNonQueryAsync();
+            
+            Assert.Equal(1, updateCount);
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            ByteString lastTransactionId = null;
+            Assert.Collection(requests, request =>
+            {
+                Assert.NotNull(request.Transaction.Id);
+                Assert.Equal(sql, request.Sql);
+                lastTransactionId = request.Transaction.Id;
+            }, request =>
+            {
+                Assert.NotNull(request.Transaction.Id);
+                Assert.Equal(sql, request.Sql);
+                Assert.NotEqual(lastTransactionId, request.Transaction.Id);
+                lastTransactionId = request.Transaction.Id;
+            });
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits, commit => Assert.Equal(lastTransactionId, commit.TransactionId));
+        }
+
+        [Fact]
+        public void BatchDmlWithEphemeralTransaction_CanBeRetried()
+        {
+            var sql1 = $"UPDATE Foo SET Bar='bar' WHERE Id={_fixture.RandomLong()}";
+            var sql2 = $"UPDATE Foo SET Bar='bar' WHERE Id={_fixture.RandomLong()}";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql1, StatementResult.CreateUpdateCount(1));
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql2, StatementResult.CreateUpdateCount(2));
+            using var connection = CreateConnection();
+            connection.Open();
+            // Abort the transaction on the mock server. The transaction should be able to internally retry.
+            _fixture.SpannerMock.AbortNextStatement();
+            var cmd = connection.CreateBatchDmlCommand();
+            cmd.Add(sql1);
+            cmd.Add(sql2);
+            var updateCounts = cmd.ExecuteNonQuery();
+            
+            Assert.Collection(updateCounts,
+                updateCount => Assert.Equal(1L, updateCount),
+                updateCount => Assert.Equal(2L, updateCount));
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>();
+            ByteString lastTransactionId = null;
+            Assert.Collection(requests, request =>
+            {
+                Assert.NotNull(request.Transaction.Id);
+                Assert.Collection(request.Statements,
+                    statement => Assert.Equal(sql1, statement.Sql),
+                    statement => Assert.Equal(sql2, statement.Sql));
+                lastTransactionId = request.Transaction.Id;
+            }, request =>
+            {
+                Assert.NotNull(request.Transaction.Id);
+                Assert.NotNull(request.Transaction.Id);
+                Assert.Collection(request.Statements,
+                    statement => Assert.Equal(sql1, statement.Sql),
+                    statement => Assert.Equal(sql2, statement.Sql));
+                Assert.NotEqual(lastTransactionId, request.Transaction.Id);
+                lastTransactionId = request.Transaction.Id;
+            });
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits, commit => Assert.Equal(lastTransactionId, commit.TransactionId));
+        }
+
+        [Fact]
+        public async Task BatchDmlWithEphemeralTransaction_CanBeRetried_Async()
+        {
+            var sql1 = $"UPDATE Foo SET Bar='bar' WHERE Id={_fixture.RandomLong()}";
+            var sql2 = $"UPDATE Foo SET Bar='bar' WHERE Id={_fixture.RandomLong()}";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql1, StatementResult.CreateUpdateCount(1));
+            _fixture.SpannerMock.AddOrUpdateStatementResult(sql2, StatementResult.CreateUpdateCount(2));
+            using var connection = CreateConnection();
+            await connection.OpenAsync();
+            // Abort the transaction on the mock server. The transaction should be able to internally retry.
+            _fixture.SpannerMock.AbortNextStatement();
+            var cmd = connection.CreateBatchDmlCommand();
+            cmd.Add(sql1);
+            cmd.Add(sql2);
+            var updateCounts = await cmd.ExecuteNonQueryAsync();
+            
+            Assert.Collection(updateCounts,
+                updateCount => Assert.Equal(1L, updateCount),
+                updateCount => Assert.Equal(2L, updateCount));
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>();
+            ByteString lastTransactionId = null;
+            Assert.Collection(requests, request =>
+            {
+                Assert.NotNull(request.Transaction.Id);
+                Assert.Collection(request.Statements,
+                    statement => Assert.Equal(sql1, statement.Sql),
+                    statement => Assert.Equal(sql2, statement.Sql));
+                lastTransactionId = request.Transaction.Id;
+            }, request =>
+            {
+                Assert.NotNull(request.Transaction.Id);
+                Assert.NotNull(request.Transaction.Id);
+                Assert.Collection(request.Statements,
+                    statement => Assert.Equal(sql1, statement.Sql),
+                    statement => Assert.Equal(sql2, statement.Sql));
+                Assert.NotEqual(lastTransactionId, request.Transaction.Id);
+                lastTransactionId = request.Transaction.Id;
+            });
+            var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commits, commit => Assert.Equal(lastTransactionId, commit.TransactionId));
         }
     }
 }

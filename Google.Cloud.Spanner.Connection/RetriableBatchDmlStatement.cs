@@ -41,7 +41,7 @@ namespace Google.Cloud.Spanner.Connection
             try
             {
                 _command.Transaction = transaction;
-                if (!_updateCounts.SequenceEqual(await _command.CreateSpannerBatchCommand().ExecuteNonQueryAsync(cancellationToken)))
+                if (!_updateCounts.SequenceEqual(await _command.CreateSpannerBatchCommand(transaction.SpannerTransaction).ExecuteNonQueryAsync(cancellationToken)))
                 {
                     throw new SpannerAbortedDueToConcurrentModificationException();
                 }
