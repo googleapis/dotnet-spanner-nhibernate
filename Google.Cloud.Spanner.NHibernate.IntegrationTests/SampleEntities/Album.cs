@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using NHibernate.Mapping;
 using NHibernate.Mapping.ByCode;
 using NHibernate.Mapping.ByCode.Conformist;
 using System.Collections.Generic;
@@ -25,9 +26,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
         }
 
         public virtual string Id { get; set; }
+        public virtual Singer Singer { get; set; }
         public virtual string Title { get; set; }
         public virtual SpannerDate ReleaseDate { get; set; }
-        public virtual Singer Singer { get; set; }
         public virtual IList<Track> Tracks { get; set; }
     }
 
@@ -38,10 +39,25 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
             Table("Albums");
-            Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
-            Property(x => x.Title);
+            Id(x => x.Id, m =>
+            {
+                m.Generator(new UUIDHexGeneratorDef());
+                m.Length(36);
+            });
+            ManyToOne(x => x.Singer, m =>
+            {
+                m.NotNullable(true);
+                m.Column(c => c.Length(36));
+                m.ForeignKey("FK_Albums_Singers");
+                m.UniqueKey("Idx_Albums_Title");
+            });
+            Property(x => x.Title, m =>
+            {
+                m.NotNullable(true);
+                m.Length(100);
+                m.UniqueKey("Idx_Albums_Title");
+            });
             Property(x => x.ReleaseDate);
-            ManyToOne(x => x.Singer);
             Bag(x => x.Tracks, c => { }, r => r.OneToMany());
         }
     }

@@ -26,9 +26,9 @@ CREATE INDEX Idx_Singers_FullName ON Singers (FullName);
 
 CREATE TABLE Albums (
   Id          STRING(36) NOT NULL,
+  Singer      STRING(36) NOT NULL,
   Title       STRING(100) NOT NULL,
   ReleaseDate DATE,
-  Singer      STRING(36) NOT NULL,
   CONSTRAINT  FK_Albums_Singers FOREIGN KEY (Singer) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
 
@@ -84,7 +84,6 @@ CREATE TABLE TableWithAllColumnTypes (
 	ColStringMax STRING(MAX),
 	ColBytes BYTES(100),
 	ColBytesMax BYTES(MAX),
-	ColJson STRING(MAX),
 	ColDate DATE,
 	ColTimestamp TIMESTAMP,
 	ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true),
@@ -96,7 +95,6 @@ CREATE TABLE TableWithAllColumnTypes (
 	ColStringMaxArray ARRAY<STRING(MAX)>,
 	ColBytesArray ARRAY<BYTES(100)>,
 	ColBytesMaxArray ARRAY<BYTES(MAX)>,
-	ColJsonArray ARRAY<STRING(MAX)>,
 	ColDateArray ARRAY<DATE>,
 	ColTimestampArray ARRAY<TIMESTAMP>,
 	ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED,

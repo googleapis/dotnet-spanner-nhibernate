@@ -28,10 +28,16 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Id(x => x.SingerId);
             Property(x => x.FirstName);
             Property(x => x.LastName);
-            Property(x => x.FullName, mapper => mapper.Generated(PropertyGeneration.Always));
+            Property(x => x.FullName, mapper =>
+            {
+                mapper.Generated(PropertyGeneration.Always);
+                mapper.Index("Idx_Singers_FullName");
+            });
             Property(x => x.BirthDate);
             Property(x => x.Picture);
-            Bag(x => x.Albums, c => { }, r => r.OneToMany());
+            Bag(x => x.Albums,
+                c => c.Key(k => k.Column("SingerId")),
+            r => r.OneToMany());
         }
     }
 }

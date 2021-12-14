@@ -39,9 +39,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
             Table("Venues");
-            Id(x => x.Code);
-            Property(x => x.Name);
-            Property(x => x.Active);
+            Id(x => x.Code, m => m.Length(10));
+            Property(x => x.Name, m => m.Length(100));
+            Property(x => x.Active, m => m.NotNullable(true));
             Property(x => x.Capacity);
             Property(x => x.Ratings);
             Bag(x => x.Concerts, c => { }, r => r.OneToMany());

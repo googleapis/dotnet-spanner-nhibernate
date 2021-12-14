@@ -25,9 +25,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
         }
 
         public virtual long AlbumId { get; set; }
+        public virtual Singer Singer { get; set; }
         public virtual string Title { get; set; }
         public virtual SpannerDate ReleaseDate { get; set; }
-        public virtual Singer Singer { get; set; }
         public virtual IList<Track> Tracks { get; set; } 
     }
 
@@ -36,14 +36,23 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
         public AlbumMapping()
         {
             Id(x => x.AlbumId, m => m.Column(c => c.NotNullable(true)));
-            Property(x => x.Title);
+            ManyToOne(x => x.Singer, m =>
+            {
+                m.Column("SingerId");
+                m.UniqueKey("Idx_Albums_Title");
+            });
+            Property(x => x.Title, m => m.UniqueKey("Idx_Albums_Title"));
             Property(x => x.ReleaseDate);
-            ManyToOne(x => x.Singer, m => m.Column("SingerId"));
             Bag(x => x.Tracks, c =>
             {
-                // This prevents NHibernate from generating an `UPDATE Tracks SET AlbumId=null WHERE AlbumId=@p0` when
-                // an Album is deleted.
-                c.Key(k => k.NotNullable(true));
+                c.Inverse(true);
+                c.Key(k =>
+                {
+                    k.Column("AlbumId");
+                    // This prevents NHibernate from generating an `UPDATE Tracks SET AlbumId=null WHERE AlbumId=@p0` when
+                    // an Album is deleted.
+                    k.NotNullable(true);
+                });
             }, r => r.OneToMany());
         }
     }

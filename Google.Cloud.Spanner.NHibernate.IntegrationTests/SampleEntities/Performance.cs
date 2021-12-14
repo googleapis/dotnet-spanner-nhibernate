@@ -34,9 +34,23 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
             Table("Performances");
-            Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
-            ManyToOne(x => x.Concert);
-            ManyToOne(x => x.Track);
+            Id(x => x.Id, m =>
+            {
+                m.Generator(new UUIDHexGeneratorDef());
+                m.Length(36);
+            });
+            ManyToOne(x => x.Concert, m =>
+            {
+                m.NotNullable(true);
+                m.Column(c => c.Length(36));
+                m.ForeignKey("FK_Performances_Concerts");
+            });
+            ManyToOne(x => x.Track, m =>
+            {
+                m.NotNullable(true);
+                m.Column(c => c.Length(36));
+                m.ForeignKey("FK_Performances_Tracks");
+            });
             Property(x => x.StartTime);
             Property(x => x.Rating);
         }
