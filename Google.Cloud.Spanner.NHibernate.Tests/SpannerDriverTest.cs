@@ -28,6 +28,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 using IsolationLevel = System.Data.IsolationLevel;
+using TypeCode = Google.Cloud.Spanner.V1.TypeCode;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests
 {
@@ -1310,6 +1311,29 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             
             var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
             Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanCompareDates()
+        {
+            var sql =
+                "/* [expression] */select singer0_.SingerId as singerid1_0_, singer0_.FirstName as firstname2_0_, singer0_.LastName as lastname3_0_, singer0_.FullName as fullname4_0_, singer0_.BirthDate as birthdate5_0_, singer0_.Picture as picture6_0_ from Singer singer0_ where singer0_.BirthDate>=@p0 and singer0_.BirthDate<@p1";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .Query<Singer>()
+                .Where(s => s.BirthDate >= new SpannerDate(1980, 1, 1) && s.BirthDate < new SpannerDate(1981, 1, 1))
+                .ToListAsync();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request =>
+            {
+                Assert.Equal(sql, request.Sql);
+                Assert.Collection(request.ParamTypes.Values,
+                    t => Assert.Equal(TypeCode.Date, t.Code),
+                    t => Assert.Equal(TypeCode.Date, t.Code)
+                );
+            });
         }
 
         private static string GetSelectSingerSql() =>

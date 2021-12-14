@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using NHibernate.Mapping.ByCode;
 using System.Collections.Generic;
 
 namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
@@ -45,7 +44,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public TrackMapping()
         {
             Table("Tracks");
-            ManyToOne(x => x.Album);
+            ManyToOne(x => x.Album, m => m.Column("AlbumId"));
             Property(x => x.Title);
             Property(x => x.Duration);
             Property(x => x.LyricsLanguages);

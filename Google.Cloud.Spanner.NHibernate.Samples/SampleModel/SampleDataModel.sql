@@ -33,6 +33,8 @@ CREATE TABLE Albums (
   Title       STRING(100) NOT NULL,
   ReleaseDate DATE,
   Version     INT64 NOT NULL,
+  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
   CONSTRAINT FK_Albums_Singers FOREIGN KEY (SingerId) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
 
@@ -44,6 +46,8 @@ CREATE TABLE Tracks (
   LyricsLanguages ARRAY<STRING(2)>,
   Lyrics          ARRAY<STRING(MAX)>,
   Version         INT64 NOT NULL,
+  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
   CONSTRAINT FK_Tracks_Albums FOREIGN KEY (AlbumId) REFERENCES Albums (Id),
 ) PRIMARY KEY (Id);
 
@@ -55,6 +59,8 @@ CREATE TABLE Venues (
   Name      STRING(100),
   Active    BOOL NOT NULL,
   Version   INT64 NOT NULL,
+  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
 ) PRIMARY KEY (Id);
 
 CREATE TABLE Concerts (
@@ -64,6 +70,8 @@ CREATE TABLE Concerts (
   SingerId  STRING(36) NOT NULL,
   Title     STRING(200),
   Version   INT64 NOT NULL,
+  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
   CONSTRAINT FK_Concerts_Venues FOREIGN KEY (VenueId) REFERENCES Venues (Id),
   CONSTRAINT FK_Concerts_Singers FOREIGN KEY (SingerId) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
@@ -74,9 +82,9 @@ CREATE TABLE Performances (
   TrackId          STRING(36) NOT NULL,
   StartTime        TIMESTAMP,
   Rating           FLOAT64,
+  Version          INT64 NOT NULL,
   CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
   LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
-  Version          INT64 NOT NULL,
   CONSTRAINT FK_Performances_Concerts FOREIGN KEY (ConcertId) REFERENCES Concerts (Id),
   CONSTRAINT FK_Performances_Tracks FOREIGN KEY (TrackId) REFERENCES Tracks (Id),
 ) PRIMARY KEY (Id);
