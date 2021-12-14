@@ -14,6 +14,7 @@
 
 using NHibernate.Mapping.ByCode;
 using NHibernate.Mapping.ByCode.Conformist;
+using NHibernate.Type;
 using System;
 using System.Linq;
 
@@ -91,33 +92,42 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Property(x => x.ColFloat64);
             Property(x => x.ColNumeric);
             Property(x => x.ColBool);
-            Property(x => x.ColString);
+            Property(x => x.ColString, m => m.Length(100));
             Property(x => x.ColStringMax);
-            Property(x => x.ColBytes);
+            Property(x => x.ColBytes, m => m.Length(100));
             Property(x => x.ColBytesMax);
-            Property(x => x.ColDate);
+            Property(x => x.ColDate, m => m.Index("IDX_TableWithAllColumnTypes_ColDate_ColCommitTs"));
             Property(x => x.ColTimestamp);
             //Property(x => x.ColJson);
             Property(x => x.ColCommitTs, m =>
             {
-                // The following ensures that the SpannerDefaultValueSingleTableEntityPersister will set the column
+                // This ensures that `OPTIONS (allow_commit_timestamp=true)` is added to the column definition.
+                m.Column(c => c.SqlType(SpannerCommitTimestampSqlType.Instance));
+                // The following ensures that the SpannerSingleTableWithFixedValuesEntityPersister will set the column
                 // to the default value for both inserts and updates.
                 m.Insert(false); // This will prevent Hibernate from assigning a value to the column during inserts.
                 m.Update(false); // This will prevent Hibernate from assigning a value to the column during updates.
+                // This will automatically set the value of the column to the commit timestamp of the transaction
+                // when the record is updated/inserted.
                 m.Column(c => c.Default("PENDING_COMMIT_TIMESTAMP()"));
+                m.Index("IDX_TableWithAllColumnTypes_ColDate_ColCommitTs");
             });
             Property(x => x.ColInt64Array);
             Property(x => x.ColFloat64Array);
             Property(x => x.ColNumericArray);
             Property(x => x.ColBoolArray);
-            Property(x => x.ColStringArray);
+            Property(x => x.ColStringArray, m => m.Length(100));
             Property(x => x.ColStringMaxArray);
-            Property(x => x.ColBytesArray);
+            Property(x => x.ColBytesArray, m => m.Length(100));
             Property(x => x.ColBytesMaxArray);
             Property(x => x.ColDateArray);
             Property(x => x.ColTimestampArray);
             //Property(x => x.ColJsonArray);
-            Property(x => x.ColComputed, mapper => mapper.Generated(PropertyGeneration.Always));
+            Property(x => x.ColComputed, mapper =>
+            {
+                mapper.Generated(PropertyGeneration.Always);
+                mapper.Column(c => c.SqlType("STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED"));
+            });
             Property(x => x.ColASC);
         }
     }

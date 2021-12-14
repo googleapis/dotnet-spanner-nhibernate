@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection.MockServer;
+using Google.Cloud.Spanner.Connection.Tests.MockServer;
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.V1;
 using Google.Protobuf;

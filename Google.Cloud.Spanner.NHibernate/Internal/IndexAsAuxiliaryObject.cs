@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Cloud.Spanner.Data;
+using NHibernate.Mapping;
+using System;
 
-namespace Google.Cloud.Spanner.NHibernate
+namespace Google.Cloud.Spanner.NHibernate.Internal
 {
-    public interface ISpannerType
+    internal class IndexAsAuxiliaryObject : SimpleAuxiliaryDatabaseObject
     {
-        SpannerDbType GetSpannerDbType();
+        internal IndexAsAuxiliaryObject(string name) : base(String.Empty, $"DROP INDEX {name}")
+        {
+        }
     }
 }
