@@ -96,6 +96,18 @@ namespace Google.Cloud.Spanner.NHibernate
             return Day.CompareTo(other.Day);
         }
 
+        public static bool operator ==(SpannerDate lhs, SpannerDate rhs) => Equals(lhs, rhs);
+
+        public static bool operator !=(SpannerDate lhs, SpannerDate rhs) => !Equals(lhs, rhs);
+
+        public static bool operator >(SpannerDate lhs, SpannerDate rhs) => lhs.CompareTo(rhs) > 0;
+
+        public static bool operator <(SpannerDate lhs, SpannerDate rhs) => lhs.CompareTo(rhs) < 0;
+
+        public static bool operator >=(SpannerDate lhs, SpannerDate rhs) => lhs.CompareTo(rhs) >= 0;
+
+        public static bool operator <=(SpannerDate lhs, SpannerDate rhs) => lhs.CompareTo(rhs) <= 0;
+
         public override int GetHashCode() => (Year, Month, Day).GetHashCode();
 
         public override string ToString() => $"{Year:D04}-{Month:D02}-{Day:D02}";

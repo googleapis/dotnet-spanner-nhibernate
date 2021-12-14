@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.Connection.Tests.MockServer;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
 using NHibernate;
