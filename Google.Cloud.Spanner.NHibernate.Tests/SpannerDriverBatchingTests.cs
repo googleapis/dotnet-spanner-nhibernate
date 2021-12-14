@@ -39,7 +39,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task InsertMultipleAlbums_UsesBatchDml(bool async)
         {
-            var insertSql = "INSERT INTO Album (Title, ReleaseDate, SingerId, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
+            var insertSql = "INSERT INTO Album (SingerId, Title, ReleaseDate, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
 
             using var session = _fixture.SessionFactory.OpenSession();
@@ -73,7 +73,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [Theory]
         public async Task UpdateMultipleAlbums_UsesBatchDml(bool async)
         {
-            var updateSql = "UPDATE Album SET Title = @p0, ReleaseDate = @p1, SingerId = @p2 WHERE AlbumId = @p3";
+            var updateSql = "UPDATE Album SET SingerId = @p0, Title = @p1, ReleaseDate = @p2 WHERE AlbumId = @p3";
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(1L));
             AddQueryAlbumsResults(QueryAllAlbumsSql(),
                 new Album { AlbumId = 1L, Title = "My first title" },
@@ -114,8 +114,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         {
                             Assert.Equal(sql, statement.Sql);
                             Assert.Collection(statement.Params.Fields,
-                                param => Assert.Equal("Title 1", param.Value.StringValue),
                                 param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
+                                param => Assert.Equal("Title 1", param.Value.StringValue),
                                 param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
                                 param => Assert.Equal("1", param.Value.StringValue));
                         },
@@ -123,8 +123,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         {
                             Assert.Equal(sql, statement.Sql);
                             Assert.Collection(statement.Params.Fields,
-                                param => Assert.Equal("Title 2", param.Value.StringValue),
                                 param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
+                                param => Assert.Equal("Title 2", param.Value.StringValue),
                                 param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
                                 param => Assert.Equal("2", param.Value.StringValue));
                         });
@@ -151,7 +151,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             // That would mean overriding the heart of NHibernate, and is not worth the effort when compared to the
             // relatively small upside.
             
-            var insertSql = "INSERT INTO Album (Title, ReleaseDate, SingerId, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
+            var insertSql = "INSERT INTO Album (SingerId, Title, ReleaseDate, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
 
             using var session = _fixture.SessionFactory.OpenSession();
@@ -318,15 +318,12 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 Assert.Equal(Mutation.OperationOneofCase.Insert, mutation.OperationCase);
             });
         }
-
-        private string GetAlbumSql() =>
-            "SELECT album0_.AlbumId as albumid1_1_0_, album0_.Title as title2_1_0_, album0_.ReleaseDate as releasedate3_1_0_, album0_.SingerId as singerid4_1_0_ FROM Album album0_ WHERE album0_.AlbumId=@p0";
         
         private string QueryAllAlbumsSql() =>
-            "select album0_.AlbumId as albumid1_1_, album0_.Title as title2_1_, album0_.ReleaseDate as releasedate3_1_, album0_.SingerId as singerid4_1_ from Album album0_";
+            "select album0_.AlbumId as albumid1_1_, album0_.SingerId as singerid2_1_, album0_.Title as title3_1_, album0_.ReleaseDate as releasedate4_1_ from Album album0_";
 
         private string AddGetAlbumResult(string sql, Album album) =>
-            AddGetAlbumResult(sql, new [] { new object[] { album.AlbumId, album.Title, album.ReleaseDate, album.Singer?.SingerId } });
+            AddGetAlbumResult(sql, new [] { new object[] { album.AlbumId, album.Singer?.SingerId, album.Title, album.ReleaseDate } });
 
         private string AddGetAlbumResult(string sql, IEnumerable<object[]> rows)
         {
@@ -334,15 +331,15 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 new List<Tuple<V1.TypeCode, string>>
                 {
                     Tuple.Create(V1.TypeCode.Int64, "albumid1_1_0_"),
-                    Tuple.Create(V1.TypeCode.String, "title2_1_0_"),
-                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_0_"),
-                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_0_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid2_1_0_"),
+                    Tuple.Create(V1.TypeCode.String, "title3_1_0_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate4_1_0_"),
                 }, rows));
             return sql;
         }
         
         private string AddQueryAlbumsResults(string sql, params Album[] albums) =>
-            AddQueryAlbumsResult(sql, albums.Select(album => new object[] { album.AlbumId, album.Title, album.ReleaseDate, album.Singer?.SingerId }).ToArray());
+            AddQueryAlbumsResult(sql, albums.Select(album => new object[] { album.AlbumId, album.Singer?.SingerId, album.Title, album.ReleaseDate }).ToArray());
 
         private string AddQueryAlbumsResult(string sql, IEnumerable<object[]> rows)
         {
@@ -350,9 +347,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 new List<Tuple<V1.TypeCode, string>>
                 {
                     Tuple.Create(V1.TypeCode.Int64, "albumid1_1_"),
-                    Tuple.Create(V1.TypeCode.String, "title2_1_"),
-                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_"),
-                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid2_1_"),
+                    Tuple.Create(V1.TypeCode.String, "title3_1_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate4_1_"),
                 }, rows));
             return sql;
         }

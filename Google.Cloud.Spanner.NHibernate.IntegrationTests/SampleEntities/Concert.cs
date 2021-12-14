@@ -28,8 +28,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
         public virtual string Id { get; set; }
         public virtual Venue Venue { get; set; }
         public virtual DateTime StartTime { get; set; }
-        public virtual string Title { get; set; }
         public virtual Singer Singer { get; set; }
+        public virtual string Title { get; set; }
         public virtual IList<Performance> Performances { get; set; }
     }
 
@@ -40,11 +40,25 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
             Table("Concerts");
-            Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
-            ManyToOne(x => x.Venue);
-            Property(x => x.StartTime);
-            Property(x => x.Title);
-            ManyToOne(x => x.Singer);
+            Id(x => x.Id, m =>
+            {
+                m.Generator(new UUIDHexGeneratorDef());
+                m.Length(36);
+            });
+            ManyToOne(x => x.Venue, m =>
+            {
+                m.NotNullable(true);
+                m.Column(c => c.Length(10));
+                m.ForeignKey("FK_Concerts_Venues");
+            });
+            Property(x => x.StartTime, m => m.NotNullable(true));
+            ManyToOne(x => x.Singer, m =>
+            {
+                m.NotNullable(true);
+                m.Column(c => c.Length(36));
+                m.ForeignKey("FK_Concerts_Singers");
+            });
+            Property(x => x.Title, m => m.Length(200));
             Bag(x => x.Performances, c => { }, r => r.OneToMany());
         }
     }

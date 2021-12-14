@@ -48,6 +48,6 @@ namespace Google.Cloud.Spanner.NHibernate
             return new SpannerStringArray();
         }
 
-        protected override SpannerDbType GetArrayElementType() => SpannerDbType.String;
+        public override SpannerDbType GetArrayElementType() => SpannerDbType.String;
     }
 }

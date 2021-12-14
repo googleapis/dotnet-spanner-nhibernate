@@ -709,6 +709,11 @@ namespace Google.Cloud.Spanner.Connection.MockServer
         private readonly ConcurrentQueue<IMessage> _requests = new ConcurrentQueue<IMessage>();
 
         public IEnumerable<IMessage> Requests => new List<IMessage>(_requests).AsReadOnly();
+        
+        public void Reset()
+        {
+            _requests.Clear();
+        }
 
         public override Task<Operation> CreateDatabase(CreateDatabaseRequest request, ServerCallContext context)
         {

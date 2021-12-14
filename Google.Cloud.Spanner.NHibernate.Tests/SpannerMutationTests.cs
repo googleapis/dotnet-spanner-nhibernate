@@ -70,14 +70,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     {
                         Assert.Equal("Album", mutation.Insert.Table);
                         Assert.Collection(mutation.Insert.Columns,
+                            c => Assert.Equal("SingerId", c),
                             c => Assert.Equal("Title", c),
                             c => Assert.Equal("ReleaseDate", c),
-                            c => Assert.Equal("SingerId", c),
                             c => Assert.Equal("AlbumId", c));
                         Assert.Collection(mutation.Insert.Values,
                             row => Assert.Collection(row.Values,
-                                value => Assert.Equal("My title", value.StringValue),
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                value => Assert.Equal("My title", value.StringValue),
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                 value => Assert.Equal("1", value.StringValue)));
                     }));
@@ -123,28 +123,28 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     {
                         Assert.Equal("Album", mutation.Insert.Table);
                         Assert.Collection(mutation.Insert.Columns,
+                            c => Assert.Equal("SingerId", c),
                             c => Assert.Equal("Title", c),
                             c => Assert.Equal("ReleaseDate", c),
-                            c => Assert.Equal("SingerId", c),
                             c => Assert.Equal("AlbumId", c));
                         Assert.Collection(mutation.Insert.Values,
                             row => Assert.Collection(row.Values,
-                                value => Assert.Equal("My first title", value.StringValue),
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                value => Assert.Equal("My first title", value.StringValue),
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                 value => Assert.Equal("1", value.StringValue)));
                     }, mutation =>
                     {
                         Assert.Equal("Album", mutation.Insert.Table);
                         Assert.Collection(mutation.Insert.Columns,
+                            c => Assert.Equal("SingerId", c),
                             c => Assert.Equal("Title", c),
                             c => Assert.Equal("ReleaseDate", c),
-                            c => Assert.Equal("SingerId", c),
                             c => Assert.Equal("AlbumId", c));
                         Assert.Collection(mutation.Insert.Values,
                             row => Assert.Collection(row.Values,
-                                value => Assert.Equal("My second title", value.StringValue),
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                value => Assert.Equal("My second title", value.StringValue),
                                 value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                 value => Assert.Equal("2", value.StringValue)));
                     }));
@@ -195,28 +195,28 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         {
                             Assert.Equal("Album", mutation.Insert.Table);
                             Assert.Collection(mutation.Insert.Columns,
+                                c => Assert.Equal("SingerId", c),
                                 c => Assert.Equal("Title", c),
                                 c => Assert.Equal("ReleaseDate", c),
-                                c => Assert.Equal("SingerId", c),
                                 c => Assert.Equal("AlbumId", c));
                             Assert.Collection(mutation.Insert.Values,
                                 row => Assert.Collection(row.Values,
-                                    value => Assert.Equal("My first title", value.StringValue),
                                     value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                    value => Assert.Equal("My first title", value.StringValue),
                                     value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                     value => Assert.Equal("1", value.StringValue)));
                         }, mutation =>
                         {
                             Assert.Equal("Album", mutation.Insert.Table);
                             Assert.Collection(mutation.Insert.Columns,
+                                c => Assert.Equal("SingerId", c),
                                 c => Assert.Equal("Title", c),
                                 c => Assert.Equal("ReleaseDate", c),
-                                c => Assert.Equal("SingerId", c),
                                 c => Assert.Equal("AlbumId", c));
                             Assert.Collection(mutation.Insert.Values,
                                 row => Assert.Collection(row.Values,
-                                    value => Assert.Equal("My second title", value.StringValue),
                                     value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                    value => Assert.Equal("My second title", value.StringValue),
                                     value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                     value => Assert.Equal("2", value.StringValue)));
                         }));
@@ -230,14 +230,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         {
                             Assert.Equal("Album", mutation.Insert.Table);
                             Assert.Collection(mutation.Insert.Columns,
+                                c => Assert.Equal("SingerId", c),
                                 c => Assert.Equal("Title", c),
                                 c => Assert.Equal("ReleaseDate", c),
-                                c => Assert.Equal("SingerId", c),
                                 c => Assert.Equal("AlbumId", c));
                             Assert.Collection(mutation.Insert.Values,
                                 row => Assert.Collection(row.Values,
-                                    value => Assert.Equal("My first title", value.StringValue),
                                     value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                    value => Assert.Equal("My first title", value.StringValue),
                                     value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                     value => Assert.Equal("1", value.StringValue)));
                         }),
@@ -247,14 +247,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         {
                             Assert.Equal("Album", mutation.Insert.Table);
                             Assert.Collection(mutation.Insert.Columns,
+                                c => Assert.Equal("SingerId", c),
                                 c => Assert.Equal("Title", c),
                                 c => Assert.Equal("ReleaseDate", c),
-                                c => Assert.Equal("SingerId", c),
                                 c => Assert.Equal("AlbumId", c));
                             Assert.Collection(mutation.Insert.Values,
                                 row => Assert.Collection(row.Values,
-                                    value => Assert.Equal("My second title", value.StringValue),
                                     value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
+                                    value => Assert.Equal("My second title", value.StringValue),
                                     value => Assert.Equal(Value.KindOneofCase.NullValue, value.KindCase),
                                     value => Assert.Equal("2", value.StringValue)));
                         });
@@ -792,13 +792,13 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
 
         private string GetAlbumSql() =>
-            "/* load Google.Cloud.Spanner.NHibernate.Tests.Entities.Album */ SELECT album0_.AlbumId as albumid1_1_0_, album0_.Title as title2_1_0_, album0_.ReleaseDate as releasedate3_1_0_, album0_.SingerId as singerid4_1_0_ FROM Album album0_ WHERE album0_.AlbumId=@p0";
+            "/* load Google.Cloud.Spanner.NHibernate.Tests.Entities.Album */ SELECT album0_.AlbumId as albumid1_1_0_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_ FROM Album album0_ WHERE album0_.AlbumId=@p0";
         
         private string QueryAllAlbumsSql() =>
-            "/* [expression] */select album0_.AlbumId as albumid1_1_, album0_.Title as title2_1_, album0_.ReleaseDate as releasedate3_1_, album0_.SingerId as singerid4_1_ from Album album0_";
+            "/* [expression] */select album0_.AlbumId as albumid1_1_, album0_.SingerId as singerid2_1_, album0_.Title as title3_1_, album0_.ReleaseDate as releasedate4_1_ from Album album0_";
 
         private string AddGetAlbumResult(string sql, Album album) =>
-            AddGetAlbumResult(sql, new [] { new object[] { album.AlbumId, album.Title, album.ReleaseDate, album.Singer?.SingerId } });
+            AddGetAlbumResult(sql, new [] { new object[] { album.AlbumId, album.Singer?.SingerId, album.Title, album.ReleaseDate } });
 
         private string AddGetAlbumResult(string sql, IEnumerable<object[]> rows)
         {
@@ -806,15 +806,15 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 new List<Tuple<V1.TypeCode, string>>
                 {
                     Tuple.Create(V1.TypeCode.Int64, "albumid1_1_0_"),
-                    Tuple.Create(V1.TypeCode.String, "title2_1_0_"),
-                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_0_"),
-                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_0_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid2_1_0_"),
+                    Tuple.Create(V1.TypeCode.String, "title3_1_0_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate4_1_0_"),
                 }, rows));
             return sql;
         }
         
         private string AddQueryAlbumsResults(string sql, params Album[] albums) =>
-            AddQueryAlbumsResult(sql, albums.Select(album => new object[] { album.AlbumId, album.Title, album.ReleaseDate, album.Singer?.SingerId }).ToArray());
+            AddQueryAlbumsResult(sql, albums.Select(album => new object[] { album.AlbumId, album.Singer?.SingerId, album.Title, album.ReleaseDate }).ToArray());
 
         private string AddQueryAlbumsResult(string sql, IEnumerable<object[]> rows)
         {
@@ -822,9 +822,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 new List<Tuple<V1.TypeCode, string>>
                 {
                     Tuple.Create(V1.TypeCode.Int64, "albumid1_1_"),
-                    Tuple.Create(V1.TypeCode.String, "title2_1_"),
-                    Tuple.Create(V1.TypeCode.Date, "releasedate3_1_"),
-                    Tuple.Create(V1.TypeCode.Int64, "singerid4_1_"),
+                    Tuple.Create(V1.TypeCode.Int64, "singerid2_1_"),
+                    Tuple.Create(V1.TypeCode.String, "title3_1_"),
+                    Tuple.Create(V1.TypeCode.Date, "releasedate4_1_"),
                 }, rows));
             return sql;
         }

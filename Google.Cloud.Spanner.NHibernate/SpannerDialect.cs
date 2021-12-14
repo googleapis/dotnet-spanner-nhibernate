@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.Functions;
 using NHibernate;
 using NHibernate.Dialect;
 using NHibernate.Dialect.Function;
 using NHibernate.Dialect.Schema;
 using NHibernate.SqlCommand;
+using NHibernate.SqlTypes;
 using System.Data;
 using System.Data.Common;
 using Environment = NHibernate.Cfg.Environment;
@@ -32,26 +34,25 @@ namespace Google.Cloud.Spanner.NHibernate
 
 			RegisterDateTimeTypeMappings();
 			RegisterColumnType(DbType.AnsiStringFixedLength, "STRING(MAX)");
-			RegisterColumnType(DbType.AnsiStringFixedLength, 8000, "STRING($l)");
+			RegisterColumnType(DbType.AnsiStringFixedLength, 2621440, "STRING($l)");
 			RegisterColumnType(DbType.AnsiString, "STRING(MAX)");
-			RegisterColumnType(DbType.AnsiString, 8000, "STRING($l)");
-			RegisterColumnType(DbType.AnsiString, 2147483647, "STRING(MAX)");
+			RegisterColumnType(DbType.AnsiString, 2621440, "STRING($l)");
 			RegisterColumnType(DbType.Binary, "BYTES(MAX)");
-			RegisterColumnType(DbType.Binary, 2147483647, "BYTES(MAX)");
+			RegisterColumnType(DbType.Binary, 10485760, "BYTES($l)");
 			RegisterColumnType(DbType.Boolean, "BOOL");
 			RegisterColumnType(DbType.Byte, "INT64");
 			RegisterColumnType(DbType.Currency, "NUMERIC");
 			RegisterColumnType(DbType.Decimal, "NUMERIC");
+			RegisterColumnType(DbType.VarNumeric, "NUMERIC");
 			RegisterColumnType(DbType.Double, "FLOAT64");
 			RegisterColumnType(DbType.Int16, "INT64");
 			RegisterColumnType(DbType.Int32, "INT64");
 			RegisterColumnType(DbType.Int64, "INT64");
 			RegisterColumnType(DbType.Single, "FLOAT64");
 			RegisterColumnType(DbType.StringFixedLength, "STRING(MAX)");
-			RegisterColumnType(DbType.StringFixedLength, 4000, "STRING($l)");
+			RegisterColumnType(DbType.StringFixedLength, 2621440, "STRING($l)");
 			RegisterColumnType(DbType.String, "STRING(MAX)");
-			RegisterColumnType(DbType.String, 4000, "STRING($l)");
-			RegisterColumnType(DbType.String, 1073741823, "STRING(MAX)");
+			RegisterColumnType(DbType.String, 2621440, "STRING($l)");
 
 			// Override standard HQL function
 			RegisterFunction("current_timestamp", new NoArgSQLFunction("CURRENT_TIMESTAMP", NHibernateUtil.LocalDateTime, true));
@@ -94,12 +95,57 @@ namespace Google.Cloud.Spanner.NHibernate
 			RegisterKeywords(DialectKeywords);
 		}
 
+		private static string WithSize(SpannerDbType type)
+		{
+			if (type.Size.HasValue)
+			{
+				return type.ToString();
+			}
+			if (type.Equals(SpannerDbType.Bytes) || type.Equals(SpannerDbType.String))
+			{
+				return $"{type}(MAX)";
+			}
+			return type.ToString();
+		}
+
+		public override string GetTypeName(SqlType sqlType) =>
+			GetTypeName(sqlType, 0, 0, 0);
+
+		public override string GetTypeName(SqlType sqlType, int length, int precision, int scale)
+		{
+			if (sqlType is SpannerSqlType spannerSqlType)
+			{
+				if (spannerSqlType.ArrayElementType != null)
+				{
+					var elementType = length > 0
+						? spannerSqlType.ArrayElementType.WithSize(length)
+						: spannerSqlType.ArrayElementType;
+					return $"ARRAY<{WithSize(elementType)}>";
+				}
+				var type = length > 0
+					? spannerSqlType.SpannerDbType.WithSize(length)
+					: spannerSqlType.SpannerDbType;
+				return WithSize(type);
+			}
+			if (length > 0)
+			{
+				return base.GetTypeName(sqlType, length, precision, scale);
+			}
+			return base.GetTypeName(sqlType);
+		}
+		
 		public override char OpenQuote => '`';
 
 		public override char CloseQuote => '`';
 
 		public override string AddColumnString => "ADD COLUMN";
 
+		public override bool SupportsUnique => false;
+
+		public override bool SupportsUniqueConstraintInCreateAlterTable => false;
+
+		public override bool SupportsColumnCheck => false;
+		
 		public override bool SupportsLimit => true;
 
 		public override bool SupportsLimitOffset => true;
@@ -134,16 +180,19 @@ namespace Google.Cloud.Spanner.NHibernate
 			return pagingBuilder.ToSqlString();
 		}
 
+		public override string GetAddForeignKeyConstraintString(string constraintName, string[] foreignKey,
+			string referencedTable, string[] primaryKey, bool referencesPrimaryKey) =>
+			// Simulate that we are never referencing the primary key of the referenced table.
+			// This ensures that the referenced column names are included in the constraint definition.
+			base.GetAddForeignKeyConstraintString(constraintName, foreignKey, referencedTable, primaryKey,
+				false);
+
 		public override bool SupportsUnionAll => true;
 
 		public override string ToBooleanValueString(bool value)
 			=> value ? "TRUE" : "FALSE";
 		
-		public override IDataBaseSchema GetDataBaseSchema(DbConnection connection)
-		{
-			// TODO: Replace with Spanner specific metadata.
-			return new PostgreSQLDataBaseMetadata(connection);
-		}
+		public override IDataBaseSchema GetDataBaseSchema(DbConnection connection) => new SpannerDataBaseMetadata(connection);
 
 		public override bool SupportsCurrentTimestampSelection => true;
 

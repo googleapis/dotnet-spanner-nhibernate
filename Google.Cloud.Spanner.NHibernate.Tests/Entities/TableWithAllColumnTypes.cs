@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Cloud.Spanner.Data;
 using NHibernate.Mapping.ByCode.Conformist;
 using System;
 using System.Linq;
@@ -91,9 +90,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.ColFloat64);
             Property(x => x.ColNumeric);
             Property(x => x.ColBool);
-            Property(x => x.ColString);
+            Property(x => x.ColString, c => c.Length(100));
             Property(x => x.ColStringMax);
-            Property(x => x.ColBytes);
+            Property(x => x.ColBytes, c => c.Length(100));
             Property(x => x.ColBytesMax);
             Property(x => x.ColDate);
             Property(x => x.ColTimestamp);
@@ -104,6 +103,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
                 mapper.Update(false);
                 mapper.Column(c =>
                 {
+                    c.SqlType(SpannerCommitTimestampSqlType.Instance);
                     c.Default("PENDING_COMMIT_TIMESTAMP()");
                 });
             });
@@ -111,14 +111,18 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Property(x => x.ColFloat64Array);
             Property(x => x.ColNumericArray);
             Property(x => x.ColBoolArray);
-            Property(x => x.ColStringArray);
+            Property(x => x.ColStringArray, c => c.Length(100));
             Property(x => x.ColStringMaxArray);
-            Property(x => x.ColBytesArray);
+            Property(x => x.ColBytesArray, c => c.Length(100));
             Property(x => x.ColBytesMaxArray);
             Property(x => x.ColDateArray);
             Property(x => x.ColTimestampArray);
             Property(x => x.ColJsonArray);
-            Property(x => x.ColComputed, mapper => mapper.Generated(PropertyGeneration.Always));
+            Property(x => x.ColComputed, mapper =>
+            {
+                mapper.Generated(PropertyGeneration.Always);
+                mapper.Column(c => c.SqlType("STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED"));
+            });
             Property(x => x.ASC);
         }
     }

@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Google.Cloud.Spanner.Connection.MockServer;
 using Grpc.Core;
 using System;
 using System.Linq;
 
-namespace Google.Cloud.Spanner.Connection.MockServer
+namespace Google.Cloud.Spanner.Connection.Tests.MockServer
 {
     public class SpannerMockServerFixture : IDisposable
     {
@@ -25,15 +26,9 @@ namespace Google.Cloud.Spanner.Connection.MockServer
         private readonly Server _server;
         public MockSpannerService SpannerMock { get; }
         public MockDatabaseAdminService DatabaseAdminMock { get; }
-        public string Endpoint
-        {
-            get
-            {
-                return $"{_server.Ports.ElementAt(0).Host}:{_server.Ports.ElementAt(0).BoundPort}";
-            }
-        }
-        public string Host { get { return _server.Ports.ElementAt(0).Host; } }
-        public int Port { get { return _server.Ports.ElementAt(0).BoundPort; } }
+        public string Endpoint => $"{_server.Ports.ElementAt(0).Host}:{_server.Ports.ElementAt(0).BoundPort}";
+        public string Host => _server.Ports.ElementAt(0).Host;
+        public int Port => _server.Ports.ElementAt(0).BoundPort;
 
         public SpannerMockServerFixture()
         {
@@ -41,7 +36,7 @@ namespace Google.Cloud.Spanner.Connection.MockServer
             DatabaseAdminMock = new MockDatabaseAdminService();
             _server = new Server
             {
-                Services = { Google.Cloud.Spanner.V1.Spanner.BindService(SpannerMock), Google.Cloud.Spanner.Admin.Database.V1.DatabaseAdmin.BindService(DatabaseAdminMock) },
+                Services = { V1.Spanner.BindService(SpannerMock), Google.Cloud.Spanner.Admin.Database.V1.DatabaseAdmin.BindService(DatabaseAdminMock) },
                 Ports = { new ServerPort("localhost", 0, ServerCredentials.Insecure) }
             };
             _server.Start();
