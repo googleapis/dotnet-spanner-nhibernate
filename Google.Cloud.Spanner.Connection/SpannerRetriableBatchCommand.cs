@@ -48,11 +48,9 @@ namespace Google.Cloud.Spanner.Connection
 
         public int CommandCount => _commands.Count;
 
-        internal SpannerBatchCommand CreateSpannerBatchCommand()
+        internal SpannerBatchCommand CreateSpannerBatchCommand(SpannerTransaction transaction)
         {
-            var batch = Transaction == null
-                ? Connection.SpannerConnection.CreateBatchDmlCommand()
-                : Transaction.SpannerTransaction.CreateBatchDmlCommand();
+            var batch = transaction.CreateBatchDmlCommand();
             foreach (var cmd in _commands)
             {
                 batch.Add(cmd);
@@ -62,12 +60,34 @@ namespace Google.Cloud.Spanner.Connection
 
         public IEnumerable<long> ExecuteNonQuery() =>
             Transaction == null
-            ? CreateSpannerBatchCommand().ExecuteNonQuery() 
+            ? ExecuteNonQueryWithRetry() 
             : Transaction.ExecuteNonQueryWithRetry(this);
+
+        private IEnumerable<long> ExecuteNonQueryWithRetry()
+        {
+            return Connection.SpannerConnection.RunWithRetriableTransaction(transaction =>
+            {
+                var spannerBatchCommand = CreateSpannerBatchCommand(transaction);
+                return spannerBatchCommand.ExecuteNonQuery();
+            });
+        }
 
         public Task<IReadOnlyList<long>> ExecuteNonQueryAsync(CancellationToken cancellationToken = default) =>
             Transaction == null
-            ? CreateSpannerBatchCommand().ExecuteNonQueryAsync(cancellationToken)
+            ? ExecuteNonQueryWithRetryAsync(cancellationToken)
             : Transaction.ExecuteNonQueryWithRetryAsync(this, cancellationToken);
+
+        private Task<IReadOnlyList<long>> ExecuteNonQueryWithRetryAsync(CancellationToken cancellationToken)
+        {
+            return Connection.SpannerConnection.RunWithRetriableTransactionAsync(transaction =>
+            {
+                var spannerBatchCommand = transaction.CreateBatchDmlCommand();
+                foreach (var cmd in _commands)
+                {
+                    spannerBatchCommand.Add(cmd);
+                }
+                return spannerBatchCommand.ExecuteNonQueryAsync(cancellationToken);
+            }, cancellationToken);
+        }
     }
 }
