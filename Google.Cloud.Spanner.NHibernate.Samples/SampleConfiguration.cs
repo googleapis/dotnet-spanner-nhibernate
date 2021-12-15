@@ -28,10 +28,12 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
     public class SampleConfiguration
     {
         public ISessionFactory SessionFactory { get; }
+        
+        public Configuration Configuration { get; }
 
         public SampleConfiguration(string connectionString)
         {
-            var nhConfig = new Configuration().DataBaseIntegration(db =>
+            Configuration = new Configuration().DataBaseIntegration(db =>
             {
                 db.Dialect<SpannerDialect>();
                 db.ConnectionString = connectionString;
@@ -46,13 +48,16 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
             mapper.AddMapping<VenueMapping>();
             
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
-            nhConfig.AddMapping(mapping);
+            Configuration.AddMapping(mapping);
             
             // Both the following lines are needed for support for query hints.
-            nhConfig.SetInterceptor(new SpannerQueryHintInterceptor());
-            nhConfig.Properties[Environment.UseSqlComments] = "true";
+            Configuration.SetInterceptor(new SpannerQueryHintInterceptor());
+            Configuration.Properties[Environment.UseSqlComments] = "true";
             
-            SessionFactory = nhConfig.BuildSessionFactory();
+            // The following enables batching UPDATE and DELETE statements for entities that are versioned.
+            Configuration.Properties[Environment.BatchVersionedData] = "true";
+            
+            SessionFactory = Configuration.BuildSessionFactory();
         }
     }
 }
