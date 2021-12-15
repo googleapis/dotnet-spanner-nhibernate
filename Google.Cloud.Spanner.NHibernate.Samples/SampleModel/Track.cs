@@ -36,7 +36,6 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public override bool Equals(object other) =>
             other is TrackIdentifier trackIdentifier && Equals(Album?.Id, trackIdentifier.Album?.Id) && Equals(TrackNumber, trackIdentifier.TrackNumber);
 
-        // ReSharper disable twice NonReadonlyMemberInGetHashCode
         public override int GetHashCode() => Album?.Id?.GetHashCode() ?? 0 | TrackNumber.GetHashCode();
     }
     

@@ -50,7 +50,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
     ///    collection mappings that are automatically managed by NHibernate.
     /// 3. Entities with generated columns cannot be used in combination with Mutations, except if
     ///    the column generation strategy is (temporarily) set to <see cref="PropertyGeneration.Never"/>.
-    ///    The reason that generated columns cannot be used with Mutations ,is that NHibernate will
+    ///    The reason that generated columns cannot be used with Mutations, is that NHibernate will
     ///    try to read the generated value from the database directly after an entity has been
     ///    updated. This read operation will fail as Mutations do not support read-your-writes.
     ///
