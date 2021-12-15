@@ -48,6 +48,9 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             mapper.AddMapping<StudentMapping>();
             mapper.AddMapping<TeacherMapping>();
             
+            mapper.AddMapping<InvoiceMapping>();
+            mapper.AddMapping<InvoiceLineMapping>();
+            
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             Configuration.AddMapping(mapping);
             

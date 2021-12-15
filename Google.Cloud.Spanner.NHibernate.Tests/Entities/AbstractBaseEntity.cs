@@ -14,11 +14,18 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
     
     public class AbstractBaseEntityMapping<T> : ClassMapping<T> where T : AbstractBaseEntity
     {
-        public AbstractBaseEntityMapping()
+        public AbstractBaseEntityMapping() : this(true)
+        {
+        }
+
+        public AbstractBaseEntityMapping(bool includeIdMapping)
         {
             Persister<SpannerSingleTableEntityPersister>();
             DynamicUpdate(true);
-            Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
+            if (includeIdMapping)
+            {
+                Id(x => x.Id, m => m.Generator(new UUIDHexGeneratorDef()));
+            }
             Version(x => x.Version, m =>
             {
                 m.Generated(VersionGeneration.Never);
