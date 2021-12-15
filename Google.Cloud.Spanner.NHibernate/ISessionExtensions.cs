@@ -29,6 +29,14 @@ namespace Google.Cloud.Spanner.NHibernate
     public static class ISessionExtensions
     {
         /// <summary>
+        /// Gets the underlying <see cref="SpannerRetriableConnection"/> for this session.
+        /// </summary>
+        /// <param name="session">The session to get the connection from</param>
+        /// <returns>The connection that is used by this session</returns>
+        public static SpannerRetriableConnection GetSpannerConnection(this ISession session) =>
+            (SpannerRetriableConnection)session.Connection;
+        
+        /// <summary>
         /// Instruct the given session to use the given <see cref="TimestampBound"/> for the next query or read-only
         /// transaction. The given session will be modified and then returned for call chaining.
         /// </summary>

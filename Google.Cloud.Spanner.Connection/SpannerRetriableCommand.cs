@@ -19,6 +19,7 @@ using System.Data;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
+using Spanner = Google.Cloud.Spanner.Data;
 
 namespace Google.Cloud.Spanner.Connection
 {
@@ -33,8 +34,11 @@ namespace Google.Cloud.Spanner.Connection
         private readonly SpannerCommand _spannerCommand;
         private SpannerTransactionBase _transaction;
 
-        public SpannerRetriableCommand(SpannerCommand spannerCommand) =>
-            _spannerCommand = spannerCommand;
+        /// <summary>
+        /// Creates a new SpannerRetriableCommand that will use the given SpannerCommand as its underlying command.
+        /// </summary>
+        /// <param name="spannerCommand"></param>
+        public SpannerRetriableCommand(SpannerCommand spannerCommand) => _spannerCommand = spannerCommand;
 
         internal SpannerRetriableCommand(SpannerRetriableConnection connection, SpannerCommand spannerCommand)
         {
@@ -47,10 +51,19 @@ namespace Google.Cloud.Spanner.Connection
             Transaction = _transaction,
         };
 
+        /// <inheritdoc />
         public override string CommandText { get => _spannerCommand.CommandText; set => _spannerCommand.CommandText = value; }
+        
+        /// <inheritdoc />
         public override int CommandTimeout { get => _spannerCommand.CommandTimeout; set => _spannerCommand.CommandTimeout = value; }
+        
+        /// <inheritdoc />
         public override CommandType CommandType { get => _spannerCommand.CommandType; set => _spannerCommand.CommandType = value; }
+        
+        /// <inheritdoc />
         public override bool DesignTimeVisible { get => _spannerCommand.DesignTimeVisible; set => _spannerCommand.DesignTimeVisible = value; }
+        
+        /// <inheritdoc />
         public override UpdateRowSource UpdatedRowSource { get => _spannerCommand.UpdatedRowSource; set => _spannerCommand.UpdatedRowSource = value; }
         protected override DbConnection DbConnection
         {
@@ -72,16 +85,25 @@ namespace Google.Cloud.Spanner.Connection
             set => _transaction = (SpannerTransactionBase)value;
         }
         
+        /// <summary>
+        /// The <see cref="Google.Cloud.Spanner.Data.TimestampBound"/> that will be used for queries that are executed
+        /// using this command without a transaction.
+        /// </summary>
         public TimestampBound TimestampBound { get; set; }
-        
+
+        /// <summary>
+        /// Returns the underlying <see cref="Google.Cloud.Spanner.Data.SpannerCommand"/>
+        /// </summary>
         public SpannerCommand SpannerCommand => _spannerCommand;
 
         protected override DbParameterCollection DbParameterCollection => _spannerCommand.Parameters;
 
         protected override DbParameter CreateDbParameter() => new SpannerParameter();
 
+        /// <inheritdoc />
         public override void Cancel() => _spannerCommand.Cancel();
 
+        /// <inheritdoc />
         public override int ExecuteNonQuery() =>
             _transaction?.ExecuteNonQueryWithRetry(_spannerCommand) ?? ExecuteNonQueryWithRetry(_spannerCommand);
 
@@ -102,6 +124,7 @@ namespace Google.Cloud.Spanner.Connection
             });
         }
 
+        /// <inheritdoc />
         public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken) =>
             _transaction == null
             ? ExecuteNonQueryWithRetryAsync(_spannerCommand, cancellationToken)
@@ -124,6 +147,7 @@ namespace Google.Cloud.Spanner.Connection
             }, cancellationToken);
         }
 
+        /// <inheritdoc />
         public override object ExecuteScalar() =>
             _transaction == null
             // These don't need retry protection as the ephemeral transaction used by the client library is a read-only transaction.
@@ -145,6 +169,37 @@ namespace Google.Cloud.Spanner.Connection
             return _spannerCommand.ExecuteReader();
         }
 
+        /// <inheritdoc />
         public override void Prepare() => _spannerCommand.Prepare();
+
+        /// <summary>
+        /// Executes this command as a partitioned update. The command must be a generalized DML command;
+        /// <see cref="SpannerConnection.CreateDmlCommand(string, SpannerParameterCollection)"/> for details.
+        /// </summary>
+        /// <remarks>
+        /// The command is executed in parallel across multiple partitions, and automatically committed as it executes.
+        /// This operation is not atomic: if it is cancelled part way through, the data that has already been updated will
+        /// remain updated. Additionally, it is performed "at least once" in each partition; if the statement is non-idempotent
+        /// (for example, incrementing a column) then the update may be performed more than once on a given row. 
+        /// This command must not be part of any other transaction.
+        /// </remarks>
+        /// <returns>A lower bound for the number of rows affected.</returns>
+        public long ExecutePartitionedUpdate() => _spannerCommand.ExecutePartitionedUpdate();
+
+        /// <summary>
+        /// Executes this command as a partitioned update. The command must be a generalized DML command;
+        /// <see cref="SpannerConnection.CreateDmlCommand(string, SpannerParameterCollection)"/> for details.
+        /// </summary>
+        /// <remarks>
+        /// The command is executed in parallel across multiple partitions, and automatically committed as it executes.
+        /// This operation is not atomic: if it is cancelled part way through, the data that has already been updated will
+        /// remain updated. Additionally, it is performed "at least once" in each partition; if the statement is non-idempotent
+        /// (for example, incrementing a column) then the update may be performed more than once on a given row. 
+        /// This command must not be part of any other transaction.
+        /// </remarks>
+        /// <param name="cancellationToken">An optional token for canceling the call.</param>
+        /// <returns>A task whose result is a lower bound for the number of rows affected.</returns>
+        public Task<long> ExecutePartitionedUpdateAsync(CancellationToken cancellationToken = default) =>
+            _spannerCommand.ExecutePartitionedUpdateAsync(cancellationToken);
     }
 }
