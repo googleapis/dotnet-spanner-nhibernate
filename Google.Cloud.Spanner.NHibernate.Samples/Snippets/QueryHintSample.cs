@@ -64,7 +64,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
                 ? configuration.SessionFactory.OpenSession()
                 : configuration.SessionFactory.WithOptions().Interceptor(new SpannerQueryHintInterceptor()).OpenSession();
         
-            // The Spanner driver contains extension methods that can be used to set both statement, table and joint
+            // The Spanner driver contains extension methods that can be used to set both statement, table and join
             // hints for Linq, Criteria and HQL queries.
             
             // Example for adding a table hint to a Linq query.
