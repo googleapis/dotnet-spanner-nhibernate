@@ -15,7 +15,6 @@
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
 using NHibernate;
-using NHibernate.Criterion;
 using NHibernate.Exceptions;
 using NHibernate.Linq;
 using System;
@@ -445,7 +444,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 // will cause a large number of the transactions to be aborted.
                 var existing = await session
                     .Query<Singer>()
-                    .Where(v => v.LastName.IsLike(prefix, MatchMode.Start))
+                    .Where(v => v.LastName.StartsWith(prefix))
                     .OrderBy(v => v.LastName)
                     .FirstOrDefaultAsync();
 

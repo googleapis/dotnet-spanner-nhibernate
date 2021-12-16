@@ -829,12 +829,12 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 .CreateSQLQuery(@"INSERT INTO TableWithAllColumnTypes 
                               (ColBool, ColBoolArray, ColBytes, ColBytesMax, ColBytesArray, ColBytesMaxArray,
                                ColDate, ColDateArray, ColFloat64, ColFloat64Array, ColInt64, ColInt64Array,
-                               /*ColJson, ColJsonArray,*/ ColNumeric, ColNumericArray, ColString, ColStringArray,
+                               ColJson, ColJsonArray, ColNumeric, ColNumericArray, ColString, ColStringArray,
                                ColStringMax, ColStringMaxArray, ColTimestamp, ColTimestampArray)
                               VALUES
                               (:ColBool, :ColBoolArray, :ColBytes, :ColBytesMax, :ColBytesArray, :ColBytesMaxArray,
                                :ColDate, :ColDateArray, :ColFloat64, :ColFloat64Array, :ColInt64, :ColInt64Array,
-                               /*:ColJson, :ColJsonArray,*/ :ColNumeric, :ColNumericArray, :ColString, :ColStringArray,
+                               :ColJson, :ColJsonArray, :ColNumeric, :ColNumericArray, :ColString, :ColStringArray,
                                :ColStringMax, :ColStringMaxArray, :ColTimestamp, :ColTimestampArray)")
                 .SetParameter("ColBool", row.ColBool)
                 .SetParameter("ColBoolArray", row.ColBoolArray)
@@ -848,8 +848,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 .SetParameter("ColFloat64Array", row.ColFloat64Array)
                 .SetParameter("ColInt64", row.ColInt64)
                 .SetParameter("ColInt64Array", row.ColInt64Array)
-                // .SetParameter("ColJson", row.ColJson)
-                // .SetParameter("ColJsonArray", row.ColJsonArray)
+                .SetParameter("ColJson", row.ColJson)
+                .SetParameter("ColJsonArray", row.ColJsonArray)
                 .SetParameter("ColNumeric", row.ColNumeric)
                 .SetParameter("ColNumericArray", row.ColNumericArray)
                 .SetParameter("ColString", row.ColString)
