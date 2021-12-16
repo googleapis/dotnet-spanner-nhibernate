@@ -933,6 +933,29 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         }
 
         [Fact]
+        public async Task CanUseJoinHint()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singer = new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            };
+            var id = (string) await session.SaveAsync(singer);
+            await session.SaveAsync(new Album
+            {
+                Singer = singer, Title = "My first album"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                .SetJoinHint("Singers", "@{JOIN_METHOD=HASH_JOIN}")
+                .Where(s => s.LastName.Equals("Peterson") && s.Id.Equals(id))
+                .ToListAsync();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
         public async Task CanUseStatementAndTableHints()
         {
             using var session = _fixture.SessionFactory.OpenSession();
@@ -953,6 +976,32 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 {
                     {"Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"},
                     {"Album", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .Where(s => s.LastName.Equals("Peterson") && s.Id.Equals(id))
+                .ToListAsync();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndJoinHints()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singer = new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            };
+            var id = (string) await session.SaveAsync(singer);
+            await session.SaveAsync(new Album
+            {
+                Singer = singer, Title = "My first album"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                .SetStatementAndJoinHints("@{USE_ADDITIONAL_PARALLELISM=TRUE}", new Dictionary<string, string>
+                {
+                    {"Singer", "@{JOIN_METHOD=APPLY_JOIN}"},
                 })
                 .Where(s => s.LastName.Equals("Peterson") && s.Id.Equals(id))
                 .ToListAsync();
@@ -1018,6 +1067,28 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         }
 
         [Fact]
+        public async Task CanUseJoinHintsWithHql()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = (string) await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateQuery("from Singer as singer left outer join singer.Albums as album left outer join album.Tracks as track where singer.LastName = :lastName and singer.Id = :id")
+                .SetJoinHints(new Dictionary<string, string>
+                {
+                    {"Albums", "@{JOIN_METHOD=HASH_JOIN}"},
+                    {"Tracks", "@{JOIN_METHOD=APPLY_JOIN}"},
+                })
+                .SetParameter("lastName", "Peterson")
+                .SetParameter("id", id)
+                .ListAsync<object[]>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", (singer[0] as Singer)!.FullName));
+        }
+
+        [Fact]
         public async Task CanUseStatementAndTableHintsWithHql()
         {
             using var session = _fixture.SessionFactory.OpenSession();
@@ -1032,6 +1103,27 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 {
                     {"Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"},
                     {"Albums", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .SetParameter("lastName", "Peterson")
+                .SetParameter("id", id)
+                .ListAsync<object[]>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", (singer[0] as Singer)!.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndJoinHintsWithHql()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = (string) await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateQuery("from Singer as singer left outer join singer.Albums as album where singer.LastName = :lastName and singer.Id = :id")
+                .SetStatementAndJoinHints("@{USE_ADDITIONAL_PARALLELISM=TRUE}", new Dictionary<string, string>
+                {
+                    {"Albums", "@{JOIN_METHOD=HASH_JOIN}"},
                 })
                 .SetParameter("lastName", "Peterson")
                 .SetParameter("id", id)
@@ -1099,6 +1191,42 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         }
 
         [Fact]
+        public async Task CanUseJoinHintsWithCriteria()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var singer = new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            };
+            var album = new Album
+            {
+                Singer = singer, Title = "Some album title",
+            };
+            var track = new Track
+            {
+                Album = album, Title = "Some track title",
+            };
+            var id = await session.SaveAsync(singer);
+            await session.SaveAsync(album);
+            await session.SaveAsync(track);
+            await session.FlushAsync();
+            var names = await session
+                .CreateCriteria(typeof(Track), "track")
+                .CreateAlias("Album", "album", JoinType.LeftOuterJoin)
+                .CreateAlias("album.Singer", "singer", JoinType.LeftOuterJoin)
+                .SetProjection(Projections.Property("singer.FullName"))
+                .Add(Restrictions.Eq("singer.LastName", "Peterson"))
+                .Add(Restrictions.Eq("singer.Id", id))
+                .SetJoinHints(new Dictionary<string, string>
+                {
+                    {"Singers", "@{JOIN_METHOD=APPLY_JOIN}"},
+                    {"Albums", "@{JOIN_METHOD=HASH_JOIN}"}
+                })
+                .ListAsync<string>();
+            Assert.Collection(names, name => Assert.Equal("Pete Peterson", name));
+        }
+
+        [Fact]
         public async Task CanUseStatementAndTableHintsWithCriteria()
         {
             using var session = _fixture.SessionFactory.OpenSession();
@@ -1116,6 +1244,28 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 {
                     {"Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"},
                     {"Albums", "@{FORCE_INDEX=Idx_Albums_Title}"}
+                })
+                .ListAsync<Singer>();
+            Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndJoinHintsWithCriteria()
+        {
+            using var session = _fixture.SessionFactory.OpenSession();
+            var id = await session.SaveAsync(new Singer
+            {
+                FirstName = "Pete", LastName = "Peterson"
+            });
+            await session.FlushAsync();
+            var singers = await session
+                .CreateCriteria(typeof(Singer), "singer")
+                .CreateAlias("Albums", "album", JoinType.LeftOuterJoin)
+                .Add(Restrictions.Eq("singer.LastName", "Peterson"))
+                .Add(Restrictions.Eq("singer.Id", id))
+                .SetStatementAndJoinHints("@{USE_ADDITIONAL_PARALLELISM=TRUE}", new Dictionary<string, string>
+                {
+                    {"Albums", "@{JOIN_METHOD=HASH_JOIN}"},
                 })
                 .ListAsync<Singer>();
             Assert.Collection(singers, singer => Assert.Equal("Pete Peterson", singer.FullName));

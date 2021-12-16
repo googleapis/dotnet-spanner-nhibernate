@@ -78,7 +78,7 @@ namespace Google.Cloud.Spanner.NHibernate
             GaxPreconditions.CheckNotNull(query, nameof(query));
             GaxPreconditions.CheckNotNull(hints, nameof(hints));
             var builder = new StringBuilder($"{SpannerQueryHintInterceptor.SpannerQueryHintsPrefix}");
-            return query.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, hints));
+            return query.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, hints).ToString());
         }
 
         /// <summary>
@@ -98,7 +98,127 @@ namespace Google.Cloud.Spanner.NHibernate
             GaxPreconditions.CheckNotNullOrEmpty(statementHint, nameof(statementHint));
             GaxPreconditions.CheckNotNull(tableHints, nameof(tableHints));
             var builder = new StringBuilder(CreateStatementHintString(statementHint)).Append('\n');
-            return query.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, tableHints));
+            return query.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, tableHints).ToString());
+        }
+        
+        /// <summary>
+        /// Sets the join hint to use for the given query.
+        /// See https://cloud.google.com/spanner/docs/reference/standard-sql/query-syntax#join_hints for more
+        /// information on join hints.
+        /// 
+        /// Calling this method will override any other hint(s) that may already have been set on the query.
+        /// </summary>
+        /// <param name="query">The query to set the join hint on</param>
+        /// <param name="table">
+        /// The unquoted name of the right-hand table of the join to apply the hint to.
+        /// Example: `SELECT * FROM Albums LEFT JOIN Singers ...` requires the table name Singers to be specified to add
+        /// a hint to the join.
+        /// </param>
+        /// <param name="hint">The hint to add to the join, e.g. @{JOIN_METHOD=HASH_JOIN}</param>
+        /// <returns>The query including the join hint</returns>
+        public static IQuery SetJoinHint(this IQuery query, string table, string hint)
+        {
+            GaxPreconditions.CheckNotNull(query, nameof(query));
+            return query.SetComment($"{SpannerQueryHintInterceptor.SpannerQueryHintsPrefix}{SpannerQueryHintInterceptor.SpannerJoinHintPrefix}`{table}`{hint}");
+        }
+        
+        /// <summary>
+        /// Sets the join hints to use for the given query.
+        /// See https://cloud.google.com/spanner/docs/reference/standard-sql/query-syntax#join_hints for more
+        /// information on join hints.
+        /// 
+        /// Calling this method will override any other hint(s) that may already have been set on the query.
+        /// </summary>
+        /// <param name="query">The query to set the join hint on</param>
+        /// <param name="hints">
+        /// A dictionary containing the hints to use. The key of each entry should be the unquoted name of the
+        /// right-hand table of the join.
+        /// Example: `SELECT * FROM Albums LEFT JOIN Singers ...` requires the table name Singers to be specified to add
+        /// a hint to the join.
+        /// The value should be the hint to add to the join, e.g. @{JOIN_METHOD=HASH_JOIN}
+        /// </param>
+        /// <returns>The query including the join hints</returns>
+        public static IQuery SetJoinHints(this IQuery query, Dictionary<string, string> hints)
+        {
+            GaxPreconditions.CheckNotNull(query, nameof(query));
+            GaxPreconditions.CheckNotNull(hints, nameof(hints));
+            var builder = new StringBuilder($"{SpannerQueryHintInterceptor.SpannerQueryHintsPrefix}");
+            return query.SetComment(SpannerQueryHintInterceptor.AppendJoinHintsString(builder, hints).ToString());
+        }
+
+        /// <summary>
+        /// Sets the statement and join hints to use for the given query.
+        /// Calling this method will override any other hint(s) that may already have been set on the query.
+        /// </summary>
+        /// <param name="query">The query to set the statement and join hints on</param>
+        /// <param name="statementHint">The statement hint to use for the query, e.g. @{OPTIMIZER_VERSION=1}</param>
+        /// <param name="joinHints">
+        /// A dictionary containing the hints to use. The key of each entry should be the unquoted name of the
+        /// right-hand table of the join.
+        /// The value should be the hint to add to the table, e.g. @{JOIN_METHOD=HASH_JOIN}
+        /// </param>
+        /// <returns>The query including the statement and join hints</returns>
+        public static IQuery SetStatementAndJoinHints(this IQuery query, string statementHint, Dictionary<string, string> joinHints)
+        {
+            GaxPreconditions.CheckNotNull(query, nameof(query));
+            GaxPreconditions.CheckNotNullOrEmpty(statementHint, nameof(statementHint));
+            GaxPreconditions.CheckNotNull(joinHints, nameof(joinHints));
+            var builder = new StringBuilder(CreateStatementHintString(statementHint)).Append('\n');
+            return query.SetComment(SpannerQueryHintInterceptor.AppendJoinHintsString(builder, joinHints).ToString());
+        }
+
+        /// <summary>
+        /// Sets the table and join hints to use for the given query.
+        /// Calling this method will override any other hint(s) that may already have been set on the query.
+        /// </summary>
+        /// <param name="query">The query to set the table and join hints on</param>
+        /// <param name="tableHints">
+        /// A dictionary containing the hints to use. The key of each entry should be the unquoted name of the table.
+        /// The value should be the hint to add to the table, e.g. @{FORCE_INDEX=index_name}
+        /// </param>
+        /// <param name="joinHints">
+        /// A dictionary containing the hints to use. The key of each entry should be the unquoted name of the
+        /// right-hand table of the join.
+        /// The value should be the hint to add to the table, e.g. @{JOIN_METHOD=HASH_JOIN}
+        /// </param>
+        /// <returns>The query including the table and join hints</returns>
+        public static IQuery SetTableAndJoinHints(this IQuery query, Dictionary<string, string> tableHints, Dictionary<string, string> joinHints)
+        {
+            GaxPreconditions.CheckNotNull(query, nameof(query));
+            GaxPreconditions.CheckNotNull(tableHints, nameof(tableHints));
+            GaxPreconditions.CheckNotNull(joinHints, nameof(joinHints));
+            var builder = new StringBuilder($"{SpannerQueryHintInterceptor.SpannerQueryHintsPrefix}");
+            builder = SpannerQueryHintInterceptor.AppendTableHintsString(builder, tableHints);
+            builder = SpannerQueryHintInterceptor.AppendJoinHintsString(builder, joinHints);
+            return query.SetComment(builder.ToString());
+        }
+
+        /// <summary>
+        /// Sets the statement, table and join hints to use for the given query.
+        /// Calling this method will override any other hint(s) that may already have been set on the query.
+        /// </summary>
+        /// <param name="query">The query to set the statement, table and join hints on</param>
+        /// <param name="statementHint">The statement hint to use for the query, e.g. @{OPTIMIZER_VERSION=1}</param>
+        /// <param name="tableHints">
+        /// A dictionary containing the hints to use. The key of each entry should be the unquoted name of the table.
+        /// The value should be the hint to add to the table, e.g. @{FORCE_INDEX=index_name}
+        /// </param>
+        /// <param name="joinHints">
+        /// A dictionary containing the hints to use. The key of each entry should be the unquoted name of the
+        /// right-hand table of the join.
+        /// The value should be the hint to add to the table, e.g. @{JOIN_METHOD=HASH_JOIN}
+        /// </param>
+        /// <returns>The query including the statement, table and join hints</returns>
+        public static IQuery SetStatementAndTableAndJoinHints(this IQuery query, string statementHint, Dictionary<string, string> tableHints, Dictionary<string, string> joinHints)
+        {
+            GaxPreconditions.CheckNotNull(query, nameof(query));
+            GaxPreconditions.CheckNotNullOrEmpty(statementHint, nameof(statementHint));
+            GaxPreconditions.CheckNotNull(tableHints, nameof(tableHints));
+            GaxPreconditions.CheckNotNull(joinHints, nameof(joinHints));
+            var builder = new StringBuilder(CreateStatementHintString(statementHint)).Append('\n');
+            builder = SpannerQueryHintInterceptor.AppendTableHintsString(builder, tableHints);
+            builder = SpannerQueryHintInterceptor.AppendJoinHintsString(builder, joinHints);
+            return query.SetComment(builder.ToString());
         }
     }
 }

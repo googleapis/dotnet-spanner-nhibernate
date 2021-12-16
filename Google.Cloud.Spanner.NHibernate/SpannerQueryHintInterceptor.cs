@@ -32,6 +32,7 @@ namespace Google.Cloud.Spanner.NHibernate
         private const string SpannerQueryHintsCommentPrefix = "/* NHIBERNATE_HINTS:\n";
         public const string SpannerStatementHintPrefix = "STATEMENT_HINT: ";
         public const string SpannerTableHintPrefix = "TABLE_HINT: ";
+        public const string SpannerJoinHintPrefix = "JOIN_HINT: ";
         
         public override SqlString OnPrepareStatement(SqlString sql)
         {
@@ -62,17 +63,21 @@ namespace Google.Cloud.Spanner.NHibernate
                 {
                     sql = ApplyTableHint(sql, hint);
                 }
+                if (hint.StartsWithCaseInsensitive(SpannerJoinHintPrefix))
+                {
+                    sql = ApplyJoinHint(sql, hint);
+                }
             }
             return sql;
         }
 
-        private SqlString ApplyStatementHint(SqlString sql, SqlString statementHintString)
+        private static SqlString ApplyStatementHint(SqlString sql, SqlString statementHintString)
         {
             var hint = statementHintString.Substring(SpannerStatementHintPrefix.Length);
             return sql.Insert(0, hint);
         }
 
-        private SqlString ApplyTableHint(SqlString sql, SqlString tableHintString)
+        private static SqlString ApplyTableHint(SqlString sql, SqlString tableHintString)
         {
             var closingBacktickIndex =
                 tableHintString.IndexOf("`", SpannerTableHintPrefix.Length + 1, tableHintString.Length, StringComparison.Ordinal);
@@ -87,24 +92,53 @@ namespace Google.Cloud.Spanner.NHibernate
             var fromIndex = sql.IndexOfCaseInsensitive(fromClause);
             if (fromIndex > -1)
             {
-                sql = sql.Insert(fromIndex + fromClause.Length - 1, hint);
+                sql = sql.Insert(fromIndex + fromClause.Length, hint);
             }
             var joinClause = $" JOIN {table} ";
             var joinIndex = -1;
             while ((joinIndex = sql.IndexOf(joinClause, joinIndex + 1, sql.Length, StringComparison.InvariantCultureIgnoreCase)) > -1)
             {
-                sql = sql.Insert(joinIndex + joinClause.Length - 1, hint);
+                sql = sql.Insert(joinIndex + joinClause.Length, hint);
             }
             return sql;
         }
 
-        internal static string AppendTableHintsString(StringBuilder builder, Dictionary<string, string> hints)
+        internal static StringBuilder AppendTableHintsString(StringBuilder builder, Dictionary<string, string> hints)
         {
             foreach (var hint in hints)
             {
-                builder.Append($"{SpannerTableHintPrefix}`{hint.Key}`{hint.Value}\n");
+                builder.Append($"{SpannerTableHintPrefix}`{hint.Key}`{hint.Value} \n");
             }
-            return builder.ToString();
+            return builder;
+        }
+
+        private static SqlString ApplyJoinHint(SqlString sql, SqlString joinHintString)
+        {
+            var closingBacktickIndex =
+                joinHintString.IndexOf("`", SpannerJoinHintPrefix.Length + 1, joinHintString.Length, StringComparison.Ordinal);
+            if (closingBacktickIndex < SpannerJoinHintPrefix.Length + 1)
+            {
+                return sql;
+            }
+            var table = joinHintString.Substring(SpannerJoinHintPrefix.Length + 1,
+                closingBacktickIndex - SpannerJoinHintPrefix.Length - 1);
+            var hint = joinHintString.Substring(closingBacktickIndex + 1);
+            var joinClause = $" JOIN {table} ";
+            var joinIndex = -1;
+            while ((joinIndex = sql.IndexOf(joinClause, joinIndex + 1, sql.Length, StringComparison.InvariantCultureIgnoreCase)) > -1)
+            {
+                sql = sql.Insert(joinIndex + " JOIN ".Length, hint);
+            }
+            return sql;
+        }
+
+        internal static StringBuilder AppendJoinHintsString(StringBuilder builder, Dictionary<string, string> hints)
+        {
+            foreach (var hint in hints)
+            {
+                builder.Append($"{SpannerJoinHintPrefix}`{hint.Key}`{hint.Value} \n");
+            }
+            return builder;
         }
     }
 }
