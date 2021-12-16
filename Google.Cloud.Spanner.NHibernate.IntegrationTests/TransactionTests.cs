@@ -14,6 +14,7 @@
 
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
+using Grpc.Core;
 using NHibernate;
 using NHibernate.Exceptions;
 using NHibernate.Linq;
@@ -363,7 +364,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                     // transactions will abort.
                     InsertRandomSinger(disableInternalRetries).Wait();
                 }
-                catch (AggregateException e) when (e.InnerException is SpannerException se && se.ErrorCode == ErrorCode.Aborted)
+                catch (AggregateException e) when (e.GetBaseException().GetBaseException() is RpcException se && se.StatusCode == StatusCode.Aborted)
                 {
                     lock (aborted)
                     {
@@ -375,7 +376,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 }
             });
             Assert.True(
-                disableInternalRetries == (aborted.Count > 0),
+                disableInternalRetries == aborted.Count > 0,
                 $"Unexpected aborted count {aborted.Count} for disableInternalRetries={disableInternalRetries}. First aborted error: {aborted.FirstOrDefault()?.Message ?? "<none>"}"
             );
         }
