@@ -15,7 +15,6 @@
 using Google.Api.Gax;
 using Google.Cloud.Spanner.Admin.Database.V1;
 using Google.Cloud.Spanner.Connection.MockServer;
-using Google.Cloud.Spanner.NHibernate.Internal;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
 using NHibernate.Cfg;
 using NHibernate.Mapping.ByCode;

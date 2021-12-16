@@ -40,13 +40,13 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
                 db.BatchSize = 100;
             });
             var mapper = new ModelMapper();
+            mapper.AddMapping<TrackMapping>();
             mapper.AddMapping<AlbumMapping>();
             mapper.AddMapping<BandMapping>();
             mapper.AddMapping<BandMembershipMapping>();
             mapper.AddMapping<ConcertMapping>();
             mapper.AddMapping<PerformanceMapping>();
             mapper.AddMapping<SingerMapping>();
-            mapper.AddMapping<TrackMapping>();
             mapper.AddMapping<VenueMapping>();
             
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();

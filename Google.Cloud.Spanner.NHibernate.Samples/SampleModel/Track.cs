@@ -77,12 +77,27 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
             // references a row in the Albums table (the parent table).
             ComponentAsId(x => x.TrackIdentifier, m =>
             {
-                m.ManyToOne(id => id.Album, mapping => mapping.Column("Id"));
-                m.Property(id => id.TrackNumber);
+                m.ManyToOne(id => id.Album, albumMapper =>
+                {
+                    albumMapper.Column(c =>
+                    {
+                        c.Name("Id");
+                        c.NotNullable(true);
+                        c.Length(36);
+                    });
+                    albumMapper.UniqueKey("Idx_Tracks_AlbumId_Title");
+                    albumMapper.ForeignKey("INTERLEAVE IN PARENT");
+                });
+                m.Property(id => id.TrackNumber, m => m.NotNullable(true));
             });
-            Property(x => x.Title);
+            Property(x => x.Title, m =>
+            {
+                m.NotNullable(true);
+                m.Length(200);
+                m.UniqueKey("Idx_Tracks_AlbumId_Title");
+            });
             Property(x => x.Duration);
-            Property(x => x.LyricsLanguages);
+            Property(x => x.LyricsLanguages, m => m.Length(2));
             Property(x => x.Lyrics);
             Bag(x => x.Performances, c =>
             {

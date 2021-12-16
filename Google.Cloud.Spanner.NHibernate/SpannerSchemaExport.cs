@@ -271,6 +271,19 @@ namespace Google.Cloud.Spanner.NHibernate
                         col.DefaultValue = null;
                     }
                 }
+                foreach (var fk in mapping.Table.ForeignKeyIterator)
+                {
+                    if (Equals("INTERLEAVE IN PARENT", fk.Name))
+                    {
+                        fk.ReferencedColumns.Add(new Column
+                        {
+                            Name = "DOES NOT EXIST",
+                            Comment = "This column is here to prevent the foreign key from being generated",
+                            IsNullable = true,
+                            Value = new SimpleValue { Table = fk.ReferencedTable },
+                        });
+                    }
+                }
             }
             // Also add all indexes as auxiliary objects to the configuration so these can be dropped before any tables.
             // We cannot get the auxiliary objects that have already been added to the config, so we have to use a

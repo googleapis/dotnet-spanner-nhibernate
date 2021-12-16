@@ -26,7 +26,7 @@ namespace Google.Cloud.Spanner.NHibernate
     ///
     /// Example usage for automatically assigning the commit timestamp to a property on insert/update:
     /// <code>
-    /// Persister<SpannerSingleTableWithFixedValuesEntityPersister>();
+    /// Persister&lt;SpannerSingleTableEntityPersister&gt;();
     /// Property(x => x.ColCommitTs, m =>
     /// {
     ///     // This ensures that `OPTIONS (allow_commit_timestamp=true)` is added to the column definition.
@@ -46,6 +46,7 @@ namespace Google.Cloud.Spanner.NHibernate
     /// </summary>
     public static class SpannerCommitTimestampSqlType
     {
-        public const string Instance = "TIMESTAMP OPTIONS (allow_commit_timestamp=true)";
+        public const string NullableInstance = "TIMESTAMP OPTIONS (allow_commit_timestamp=true)";
+        public const string NotNullInstance = "TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true)";
     }
 }

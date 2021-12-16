@@ -102,7 +102,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Property(x => x.ColCommitTs, m =>
             {
                 // This ensures that `OPTIONS (allow_commit_timestamp=true)` is added to the column definition.
-                m.Column(c => c.SqlType(SpannerCommitTimestampSqlType.Instance));
+                m.Column(c => c.SqlType(SpannerCommitTimestampSqlType.NullableInstance));
                 // The following ensures that the SpannerSingleTableWithFixedValuesEntityPersister will set the column
                 // to the default value for both inserts and updates.
                 m.Insert(false); // This will prevent Hibernate from assigning a value to the column during inserts.

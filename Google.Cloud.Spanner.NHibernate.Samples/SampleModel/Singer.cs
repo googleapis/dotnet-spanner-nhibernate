@@ -47,9 +47,19 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public SingerMapping()
         {
             Table("Singers");
-            Property(x => x.FirstName);
-            Property(x => x.LastName);
-            Property(x => x.FullName, mapper => mapper.Generated(PropertyGeneration.Always));
+            Property(x => x.FirstName, m => m.Length(200));
+            Property(x => x.LastName, m =>
+            {
+                m.Length(200);
+                m.NotNullable(true);
+            });
+            Property(x => x.FullName, m =>
+            {
+                m.Length(400);
+                m.NotNullable(true);
+                m.Generated(PropertyGeneration.Always);
+                m.Index("Idx_Singers_FullName");
+            });
             Property(x => x.BirthDate);
             Property(x => x.Picture);
             Bag(x => x.Albums, c =>
