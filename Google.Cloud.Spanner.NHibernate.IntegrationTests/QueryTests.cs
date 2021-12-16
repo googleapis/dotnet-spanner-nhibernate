@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
-using Google.Cloud.Spanner.V1;
 using NHibernate.Criterion;
 using NHibernate.Linq;
 using NHibernate.SqlCommand;
@@ -26,7 +25,6 @@ using Xunit;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 {
-    [Collection(nameof(NonParallelTestCollection))]
     public class QueryTests : IClassFixture<SpannerSampleFixture>
     {
         private readonly SpannerSampleFixture _fixture;
