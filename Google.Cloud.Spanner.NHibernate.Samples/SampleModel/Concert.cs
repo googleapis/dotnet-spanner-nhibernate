@@ -36,11 +36,15 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public ConcertMapping()
         {
             Table("Concerts");
-            ManyToOne(x => x.Venue);
+            ManyToOne(x => x.Venue, m => m.Column("VenueId"));
             Property(x => x.StartTime);
             Property(x => x.Title);
-            ManyToOne(x => x.Singer);
-            Bag(x => x.Performances, c => { }, r => r.OneToMany());
+            ManyToOne(x => x.Singer, m => m.Column("SingerId"));
+            Bag(x => x.Performances, c =>
+            {
+                c.Inverse(true);
+                c.Key(k => k.Column("ConcertId"));
+            }, r => r.OneToMany());
         }
     }
 }

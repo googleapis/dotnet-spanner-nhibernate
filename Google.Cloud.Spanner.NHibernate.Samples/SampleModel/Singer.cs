@@ -39,7 +39,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
 
         public virtual IList<Album> Albums { get; set; }
         public virtual IList<Concert> Concerts { get; set; }
-        public virtual IList<Performance> Performances { get; set; }
+        public virtual IList<BandMembership> BandMemberships { get; set; }
     }
 
     public class SingerMapping : VersionedEntityMapping<Singer>
@@ -52,9 +52,32 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
             Property(x => x.FullName, mapper => mapper.Generated(PropertyGeneration.Always));
             Property(x => x.BirthDate);
             Property(x => x.Picture);
-            Bag(x => x.Albums, c => { }, r => r.OneToMany());
-            Bag(x => x.Concerts, c => { }, r => r.OneToMany());
-            Bag(x => x.Performances, c => { }, r => r.OneToMany());
+            Bag(x => x.Albums, c =>
+            {
+                // Always mark the collection end of a one-to-many relationship as Inverse(true).
+                // This will ensure that NHibernate will always first insert the parent record (the Singer)
+                // before the child record (the Album). This reduces the number of DML statements that are
+                // needed for a one-to-many relationship significantly.
+                c.Inverse(true);
+                c.Key(k => k.Column("SingerId"));
+            }, r => r.OneToMany());
+            Bag(x => x.Concerts, c =>
+            {
+                c.Inverse(true);
+                c.Key(k => k.Column("SingerId"));
+            }, r => r.OneToMany());
+            Bag(x => x.BandMemberships,
+                collectionMapping =>
+                {
+                    // Always set the one-to-many side of a collection mapping to Inverse(true).
+                    // This prevents NHibernate from trying to delete and re-insert all elements in a collection when
+                    // the collection is modified. This requires that the many-to-one side of the mapping always sets
+                    // a value for the parent entity. That is, BandMember.Singer must always be set when a new
+                    // BandMembership is created.
+                    collectionMapping.Inverse(true);
+                    collectionMapping.Key(key => key.Column("SingerId"));
+                },
+                r => r.OneToMany());
         }
     }
 }

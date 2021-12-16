@@ -41,6 +41,8 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
             });
             var mapper = new ModelMapper();
             mapper.AddMapping<AlbumMapping>();
+            mapper.AddMapping<BandMapping>();
+            mapper.AddMapping<BandMembershipMapping>();
             mapper.AddMapping<ConcertMapping>();
             mapper.AddMapping<PerformanceMapping>();
             mapper.AddMapping<SingerMapping>();

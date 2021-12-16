@@ -37,7 +37,11 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
             Property(x => x.Active);
             Property(x => x.Capacity);
             Property(x => x.Ratings);
-            Bag(x => x.Concerts, c => { }, r => r.OneToMany());
+            Bag(x => x.Concerts, c =>
+            {
+                c.Inverse(true);
+                c.Key(k => k.Column("VenueId"));
+            }, r => r.OneToMany());
         }
     }
 }

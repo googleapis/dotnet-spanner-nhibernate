@@ -38,6 +38,8 @@ CREATE TABLE Albums (
   CONSTRAINT FK_Albums_Singers FOREIGN KEY (SingerId) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
 
+CREATE INDEX Idx_Albums_Title ON Albums (Title);
+
 CREATE TABLE Tracks (
   Id              STRING(36) NOT NULL,
   TrackNumber     INT64 NOT NULL,
@@ -57,6 +59,8 @@ CREATE TABLE Venues (
   Code      STRING(10) NOT NULL,
   Name      STRING(100),
   Active    BOOL NOT NULL,
+  Capacity  INT64,
+  Ratings   ARRAY<FLOAT64>,
   Version   INT64 NOT NULL,
   CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
   LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
@@ -87,4 +91,25 @@ CREATE TABLE Performances (
   LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
   CONSTRAINT FK_Performances_Concerts FOREIGN KEY (ConcertId) REFERENCES Concerts (Id),
   CONSTRAINT FK_Performances_Tracks FOREIGN KEY (AlbumId, TrackNumber) REFERENCES Tracks (Id, TrackNumber),
+) PRIMARY KEY (Id);
+
+CREATE TABLE Bands (
+  Id            STRING(36) NOT NULL,
+  Name          STRING(200) NOT NULL,
+  Version       INT64 NOT NULL,
+  CreatedAt     TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt TIMESTAMP OPTIONS (allow_commit_timestamp=true),
+) PRIMARY KEY (Id);
+
+CREATE TABLE BandMemberships (
+  Id            STRING(36) NOT NULL,
+  BandId        STRING(36) NOT NULL,
+  SingerId      STRING(36) NOT NULL,
+  BeginDate     TIMESTAMP NOT NULL,
+  EndDate       TIMESTAMP,
+  Version       INT64 NOT NULL,
+  CreatedAt     TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt TIMESTAMP OPTIONS (allow_commit_timestamp=true),
+  CONSTRAINT FK_BandMemberships_Bands FOREIGN KEY (BandId) REFERENCES Bands (Id),
+  CONSTRAINT FK_BandMemberships_Singers FOREIGN KEY (SingerId) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
