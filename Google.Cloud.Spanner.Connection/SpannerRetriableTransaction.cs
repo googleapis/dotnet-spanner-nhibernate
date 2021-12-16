@@ -226,7 +226,7 @@ namespace Google.Cloud.Spanner.Connection
         }
 
         internal void Retry(SpannerException abortedException, int timeoutSeconds = MaxTimeoutSeconds)
-            => RetryAsync(abortedException, CancellationToken.None, timeoutSeconds).WaitWithUnwrappedExceptions();
+            => Task.Run(() => RetryAsync(abortedException, CancellationToken.None, timeoutSeconds)).WaitWithUnwrappedExceptions();
 
         internal async Task RetryAsync(SpannerException abortedException, CancellationToken cancellationToken, int timeoutSeconds = MaxTimeoutSeconds)
         {
@@ -303,6 +303,6 @@ namespace Google.Cloud.Spanner.Connection
         }
 
         /// <inheritdoc />
-        public override void Commit() => CommitAsync(CancellationToken.None).WaitWithUnwrappedExceptions();
+        public override void Commit() => Task.Run(() => CommitAsync(CancellationToken.None)).WaitWithUnwrappedExceptions();
     }
 }

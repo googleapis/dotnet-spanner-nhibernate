@@ -83,7 +83,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             {
                 builder.Port = int.Parse(SpannerPort);
             }
-            MaybeCreateInstanceAsync().WaitWithUnwrappedExceptions();
+            Task.Run(MaybeCreateInstanceAsync).WaitWithUnwrappedExceptions();
 
             NoDbConnectionString = builder.ConnectionString;
             var databaseBuilder = builder.WithDatabase(SpannerDatabase);

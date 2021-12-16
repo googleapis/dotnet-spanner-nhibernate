@@ -110,17 +110,17 @@ namespace Google.Cloud.Spanner.Connection
         /// <summary>
         /// Wraps a DML command in a Spanner retriable transaction to retry Aborted errors.
         /// </summary>
-        private async Task<int> ExecuteNonQueryWithRetryAsync(SpannerCommand spannerCommand, CancellationToken cancellationToken = default)
+        private Task<int> ExecuteNonQueryWithRetryAsync(SpannerCommand spannerCommand, CancellationToken cancellationToken = default)
         {
             var builder = SpannerCommandTextBuilder.FromCommandText(spannerCommand.CommandText);
             if (builder.SpannerCommandType == SpannerCommandType.Ddl)
             {
-                return await spannerCommand.ExecuteNonQueryAsync(cancellationToken);
+                return spannerCommand.ExecuteNonQueryAsync(cancellationToken);
             }
-            return await _connection.SpannerConnection.RunWithRetriableTransactionAsync(async transaction =>
+            return _connection.SpannerConnection.RunWithRetriableTransactionAsync(transaction =>
             {
                 spannerCommand.Transaction = transaction;
-                return await spannerCommand.ExecuteNonQueryAsync(cancellationToken);
+                return spannerCommand.ExecuteNonQueryAsync(cancellationToken);
             }, cancellationToken);
         }
 

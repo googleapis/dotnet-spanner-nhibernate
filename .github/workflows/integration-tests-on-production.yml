@@ -18,7 +18,7 @@ jobs:
 
   integration-tests-on-prod:
     needs: [check-env]
-    if: needs.check-env.outputs.has-key == 'true'
+    if: needs.check-env.outputs.has-key == 't'
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
