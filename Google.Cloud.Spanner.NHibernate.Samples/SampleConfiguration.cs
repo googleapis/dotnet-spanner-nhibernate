@@ -40,14 +40,20 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
                 db.BatchSize = 100;
             });
             var mapper = new ModelMapper();
-            mapper.AddMapping<TrackMapping>();
+            
+            // The order that mapped classes are added to the configuration is for most tables not important, except for
+            // interleaved tables. Interleaved tables must be added in the order parent-child. In this case, that means
+            // that Album *MUST* be added before Track, as Track is marked as `INTERLEAVE IN PARENT Albums`.
+            mapper.AddMapping<SingerMapping>();
             mapper.AddMapping<AlbumMapping>();
+            mapper.AddMapping<TrackMapping>();
+            
             mapper.AddMapping<BandMapping>();
             mapper.AddMapping<BandMembershipMapping>();
+            
+            mapper.AddMapping<VenueMapping>();
             mapper.AddMapping<ConcertMapping>();
             mapper.AddMapping<PerformanceMapping>();
-            mapper.AddMapping<SingerMapping>();
-            mapper.AddMapping<VenueMapping>();
             
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             Configuration.AddMapping(mapping);

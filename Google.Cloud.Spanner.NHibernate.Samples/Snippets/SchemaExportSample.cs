@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Cloud.Spanner.NHibernate.Samples.SampleModel;
 using NHibernate.Tool.hbm2ddl;
 using System;
 using System.Threading.Tasks;
@@ -37,25 +36,32 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
             
             // The sample runner automatically creates the data model that is required for the entities that are used
             // by the samples in this project. The following query gets the number of tables currently in the database.
+            // The SQL script that is used to create the data model can be found in `SampleModel/SampleDataModel.sql`.
             var cmd = session.Connection.CreateCommand();
             cmd.CommandText =
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG='' AND TABLE_SCHEMA=''";
-            var numberOfTables = (long) await cmd.ExecuteScalarAsync();
+            var numberOfTablesBeforeDropAndRecreate = (long) await cmd.ExecuteScalarAsync();
             
             // Create a SpannerSchemaExporter and use this to drop and re-create the database schema from the entity
-            // model.
+            // model. This should result in the exact same data model as the SQL statements in `SampleDataModel.sql`.
+            // The mapping model must include all metadata for the schema, such as which columns are not-nullable, the
+            // length of STRING columns, etc.
+            // Tables are created in the order that they are added to the mapping. Tables are dropped in the opposite
+            // order. This means that if the model includes interleaved tables, the parent table must be added BEFORE
+            // the child table. See SampleConfiguration.cs for an example.
             var exporter = new SpannerSchemaExport(configuration.Configuration);
-            // This will automatically execute a drop-and-recreate script and write the statements that are executed to
-            // stdout.
-            try
-            {
-                await exporter.CreateAsync(true, true);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
-            }
+            // This will automatically execute a drop-and-recreate script and print the statements that are executed to
+            // the console (StdOut).
+            await exporter.CreateAsync(true, true);
+            
+            cmd.CommandText =
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG='' AND TABLE_SCHEMA=''";
+            var numberOfTablesAfterDropAndRecreate = (long) await cmd.ExecuteScalarAsync();
+            
+            Console.WriteLine();
+            Console.WriteLine("Dropped and recreated the schema based on the NHibernate mapping");
+            Console.WriteLine($"Tables BEFORE drop-and-recreate: {numberOfTablesBeforeDropAndRecreate}");
+            Console.WriteLine($"Tables AFTER drop-and-recreate: {numberOfTablesAfterDropAndRecreate}");
         }
     }
 }

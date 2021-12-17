@@ -44,21 +44,23 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
             }
             Logger.DefaultLogger.Debug($"Ready to run tests");
             ReflectHelper.ClassForName(typeof(SpannerDriver).AssemblyQualifiedName);
-            var nhConfig = new Configuration().DataBaseIntegration(db =>
+            Configuration = new Configuration().DataBaseIntegration(db =>
             {
                 db.Dialect<SpannerDialect>();
                 db.ConnectionString = ConnectionString;
                 db.BatchSize = 100;
             });
             var mapper = new ModelMapper();
-            mapper.AddMapping<AlbumMapping>();
             mapper.AddMapping<SingerMapping>();
+            mapper.AddMapping<AlbumMapping>();
             mapper.AddMapping<TrackMapping>();
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
-            nhConfig.AddMapping(mapping);
+            Configuration.AddMapping(mapping);
             
-            SessionFactory = nhConfig.BuildSessionFactory();
+            SessionFactory = Configuration.BuildSessionFactory();
         }
+        
+        public Configuration Configuration { get; }
         
         public ISessionFactory SessionFactory { get; }
 

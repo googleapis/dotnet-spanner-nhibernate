@@ -27,6 +27,10 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
     /// See <see cref="TrackIdentifier"/> for the definition of the composite primary key for the Tracks table.
     /// See <see cref="Track"/> for the entity definition for the Tracks table.
     /// See <see cref="TrackMapping"/> for the mapping of the Track entity to the Tracks table.
+    ///
+    /// This sample shows how to use an interleaved table that has already been created.
+    /// See <see cref="SchemaExportSample"/> for an example for how to generate a schema from an NHibernate mapping that
+    /// includes interleaved tables.
     /// 
     /// See https://cloud.google.com/spanner/docs/schema-and-data-model#creating-interleaved-tables for more information
     /// on interleaved tables in Cloud Spanner.

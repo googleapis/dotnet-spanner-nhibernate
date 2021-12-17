@@ -86,9 +86,9 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
                         c.Length(36);
                     });
                     albumMapper.UniqueKey("Idx_Tracks_AlbumId_Title");
-                    albumMapper.ForeignKey("INTERLEAVE IN PARENT");
+                    albumMapper.ForeignKey(InterleavedTableForeignKey.InterleaveInParent);
                 });
-                m.Property(id => id.TrackNumber, m => m.NotNullable(true));
+                m.Property(id => id.TrackNumber, propertyMapper => propertyMapper.NotNullable(true));
             });
             Property(x => x.Title, m =>
             {

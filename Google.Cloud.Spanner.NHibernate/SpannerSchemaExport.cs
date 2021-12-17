@@ -24,8 +24,11 @@ using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Array = System.Array;
 using Environment = NHibernate.Cfg.Environment;
 
 namespace Google.Cloud.Spanner.NHibernate
@@ -49,7 +52,7 @@ namespace Google.Cloud.Spanner.NHibernate
         private readonly Dictionary<Column, string> _columnDefaultValues = new Dictionary<Column, string>();
 
         private readonly Configuration _configuration;
-
+        private bool _wasDeduplicated;
 
         public SpannerSchemaExport(Configuration cfg) : this(cfg, cfg.Properties)
         {
@@ -208,11 +211,78 @@ namespace Google.Cloud.Spanner.NHibernate
             }
         }
 
+        private void DeduplicateDropScript()
+        {
+            if (_wasDeduplicated)
+            {
+                return;
+            }
+            _wasDeduplicated = true;
+            var wasInitializedField =
+                typeof(SchemaExport).GetField("wasInitialized", BindingFlags.NonPublic | BindingFlags.Instance);
+            var initializeMethod =
+                typeof(SchemaExport).GetMethod("Initialize", BindingFlags.NonPublic | BindingFlags.Instance);
+            var dropSqlField = typeof(SchemaExport).GetField("dropSQL", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (wasInitializedField != null && initializeMethod != null && dropSqlField != null)
+            {
+                var wasInitialized = wasInitializedField.GetValue(this) as bool?;
+                if (!wasInitialized.GetValueOrDefault(true))
+                {
+                    // Initialize the exporter and then de-duplicate the drop script if there are any interleaved tables
+                    // that are being dropped twice.
+                    initializeMethod.Invoke(this, new object[] { });
+                    if (dropSqlField.GetValue(this) is string[] dropSql)
+                    {
+                        // Reorder the `drop table ...` commands so the tables are dropped in the opposite order of creation.
+                        // This is necessary as any interleaved tables must be created and dropped in opposite orders.
+                        var firstIndexOfDropTable = dropSql.TakeWhile(sql =>
+                            !sql.TrimStart().StartsWith("drop table ", StringComparison.InvariantCultureIgnoreCase)).Count();
+                        var dropTableCount = dropSql.Skip(firstIndexOfDropTable).TakeWhile(sql =>
+                                sql.TrimStart().StartsWith("drop table ", StringComparison.InvariantCultureIgnoreCase))
+                            .Count();
+                        Array.Reverse(dropSql, firstIndexOfDropTable, dropTableCount);
+                        
+                        // Remove duplicate statements (case- and culture invariant)
+                        var updated = false;
+                        for (var firstIndex = 0; firstIndex < dropSql.Length; firstIndex++)
+                        {
+                            for (var secondIndex = firstIndex + 1; secondIndex < dropSql.Length; secondIndex++)
+                            {
+                                if (string.Equals(dropSql[firstIndex]?.Trim(), dropSql[secondIndex]?.Trim(),
+                                        StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    dropSql[secondIndex] = "";
+                                    updated = true;
+                                }
+                            }
+                        }
+                        if (updated)
+                        {
+                            var withoutEmptyCommands = dropSql.Where(sql => !string.IsNullOrWhiteSpace(sql)).ToArray();
+                            dropSqlField.SetValue(this, withoutEmptyCommands);
+                        }
+                    }
+                    
+                    var createSqlField = typeof(SchemaExport).GetField("createSQL", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (createSqlField != null && createSqlField.GetValue(this) is string[] createSql)
+                    {
+                        if (createSql.Any(string.IsNullOrWhiteSpace))
+                        {
+                            var createWithoutEmptyCommands =
+                                createSql.Where(sql => !string.IsNullOrWhiteSpace(sql)).ToArray();
+                            createSqlField.SetValue(this, createWithoutEmptyCommands);
+                        }
+                    }
+                }
+            }
+        }
+
         private void ExecuteWithPrimaryKeysAsComment(Action action)
         {
             try
             {
                 MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
+                DeduplicateDropScript();
                 action.Invoke();
             }
             finally
@@ -226,6 +296,7 @@ namespace Google.Cloud.Spanner.NHibernate
             try
             {
                 MovePrimaryKeysToComment(_configuration, _tableComments, _primaryKeysGenerators, _columnDefaultValues);
+                DeduplicateDropScript();
                 await action.Invoke();
             }
             finally
@@ -273,15 +344,20 @@ namespace Google.Cloud.Spanner.NHibernate
                 }
                 foreach (var fk in mapping.Table.ForeignKeyIterator)
                 {
-                    if (Equals("INTERLEAVE IN PARENT", fk.Name))
+                    if (string.Equals(InterleavedTableForeignKey.InterleaveInParent, fk.Name, StringComparison.InvariantCultureIgnoreCase))
                     {
-                        fk.ReferencedColumns.Add(new Column
+                        var referencedEntity = configuration.GetClassMapping(fk.ReferencedEntityName);
+                        if (referencedEntity != null)
                         {
-                            Name = "DOES NOT EXIST",
-                            Comment = "This column is here to prevent the foreign key from being generated",
-                            IsNullable = true,
-                            Value = new SimpleValue { Table = fk.ReferencedTable },
-                        });
+                            fk.ReferencedColumns.Add(new Column
+                            {
+                                Name = "DOES NOT EXIST",
+                                Comment = "This column is here to prevent the foreign key from being generated",
+                                IsNullable = true,
+                                Value = new InterleaveInParentValue { Table = referencedEntity.Table },
+                            });
+                            mapping.Table.Comment += $", INTERLEAVE IN PARENT {referencedEntity.Table.Name}{(fk.CascadeDeleteEnabled ? " ON DELETE CASCADE" : "")}";
+                        }
                     }
                 }
             }
@@ -321,7 +397,29 @@ namespace Google.Cloud.Spanner.NHibernate
                         col.DefaultValue = columnDefaultValues[col];
                     }
                 }
+                foreach (var fk in mapping.Table.ForeignKeyIterator)
+                {
+                    if (string.Equals(InterleavedTableForeignKey.InterleaveInParent, fk.Name, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        for (var i = fk.ReferencedColumns.Count - 1; i >= 0; i--)
+                        {
+                            if (fk.ReferencedColumns[i].Value is InterleaveInParentValue)
+                            {
+                                fk.ReferencedColumns.RemoveAt(i);
+                            }
+                        }
+                    }
+                }
             }
         }
+        
+        /// <summary>
+        /// Marker class to easy recognize referenced columns that have only been added to prevent the generation of a
+        /// foreign key constraint.
+        /// </summary>
+        private sealed class InterleaveInParentValue : SimpleValue
+        {
+        }
     }
+
 }

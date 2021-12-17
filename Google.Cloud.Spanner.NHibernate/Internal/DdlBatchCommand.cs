@@ -23,6 +23,14 @@ using System.Threading.Tasks;
 
 namespace Google.Cloud.Spanner.NHibernate.Internal
 {
+    internal sealed class DdlBatchException : Exception
+    {
+        internal DdlBatchException(Exception innerException, LinkedList<string> statements) :
+            base($"{innerException.Message}\n\nFailed to execute statements:\n{string.Join(";\n", statements)}", innerException)
+        {
+        }
+    }
+    
     internal sealed class DdlBatchCommand : SpannerRetriableCommand
     {
         private readonly LinkedList<string> _statements = new LinkedList<string>();
@@ -62,7 +70,7 @@ namespace Google.Cloud.Spanner.NHibernate.Internal
                 }
                 catch (Exception e)
                 {
-                    spannerConnection.ExecutionException = e;
+                    spannerConnection.ExecutionException = new DdlBatchException(e, _statements);
                     throw;
                 }
             }

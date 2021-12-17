@@ -33,22 +33,5 @@ namespace Google.Cloud.Spanner.NHibernate
         public override string IdentityColumnString => "NOT NULL";
 
         public override string GetTableComment(string comment) => $" {comment}";
-
-        public override string GetAddForeignKeyConstraintString(string constraintName, string[] foreignKey,
-            string referencedTable, string[] primaryKey, bool referencesPrimaryKey) =>
-            Equals("INTERLEAVE IN PARENT", constraintName)
-                ? ""
-                : base.GetAddForeignKeyConstraintString(constraintName, foreignKey, referencedTable, primaryKey,
-                    referencesPrimaryKey);
-
-        public override string GetIfExistsDropConstraint(string catalog, string schema, string table, string name) =>
-            Equals("INTERLEAVE IN PARENT", name)
-                ? "/* This statement is skipped as it is a many-to-one relationship that is defined by an INTERLEAVE IN PARENT relationship"
-                : base.GetIfExistsDropConstraint(catalog, schema, table, name);
-
-        public override string GetIfExistsDropConstraintEnd(string catalog, string schema, string table, string name) =>
-            Equals("INTERLEAVE IN PARENT", name)
-                ? "*/"
-                : base.GetIfExistsDropConstraintEnd(catalog, schema, table, name);
     }
 }
