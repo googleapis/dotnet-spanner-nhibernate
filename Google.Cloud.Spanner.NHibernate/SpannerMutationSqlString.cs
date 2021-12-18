@@ -14,15 +14,23 @@
 
 using Google.Cloud.Spanner.Data;
 using NHibernate.SqlCommand;
-using NHibernate.SqlTypes;
 using System.Collections.Generic;
-using System.Data;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
     /// <summary>
     /// SqlString implementation that adds additional information to the Sql command
     /// so the command can also (potentially) be executed as a mutation on Spanner.
+    /// 
+    /// This also includes any SELECT statement that might be needed to execute an
+    /// optimistic concurrency check, as mutations cannot include a WHERE clause.
+    /// Executing a SELECT statement that includes a `WHERE Version=@version` in
+    /// the transaction guarantees that the version has not changed, and the row is
+    /// locked for the remainder of the transaction, meaning that we know that the
+    /// condition will also be true when the transaction is committed. The SELECT
+    /// statement will only be executed if the command is executed as a mutation.
+    /// If the command is executed as a DML statement, the version check is
+    /// included in the WHERE clause of the DML statement. 
     /// </summary>
     public class SpannerMutationSqlString : SqlString
     {
