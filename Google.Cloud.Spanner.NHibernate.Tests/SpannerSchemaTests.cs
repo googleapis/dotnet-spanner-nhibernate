@@ -15,7 +15,6 @@
 using Google.Api.Gax;
 using Google.Cloud.Spanner.Admin.Database.V1;
 using Google.Cloud.Spanner.Connection.MockServer;
-using Google.Cloud.Spanner.NHibernate.Internal;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
 using NHibernate.Cfg;
 using NHibernate.Mapping.ByCode;
@@ -35,6 +34,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         private readonly NHibernateMockServerFixture _fixture;
         
         private Configuration Configuration { get; }
+        
+        private Configuration InterleavedTableConfiguration { get; }
 
         public SpannerSchemaTests(NHibernateMockServerFixture fixture)
         {
@@ -55,6 +56,19 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             mapper.AddMapping<TrackMapping>();
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             Configuration.AddMapping(mapping);
+            
+            InterleavedTableConfiguration = new Configuration().DataBaseIntegration(db =>
+            {
+                db.Dialect<SpannerDialect>();
+                db.ConnectionString = _fixture.ConnectionString;
+                db.ConnectionProvider<TestConnectionProvider>();
+            });
+            var interleavedTableMapper = new ModelMapper();
+            interleavedTableMapper.AddMapping<InvoiceMapping>();
+            interleavedTableMapper.AddMapping<InvoiceLineMapping>();
+            interleavedTableMapper.AddMapping<InvoiceLineNoteMapping>();
+            var interleavedTableMapping = interleavedTableMapper.CompileMappingForAllExplicitlyAddedEntities();
+            InterleavedTableConfiguration.AddMapping(interleavedTableMapping);
         }
 
         private static void AssertEqual(string expected, string actual) =>
@@ -86,6 +100,18 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             exporter.Create(writer, false);
             var ddl = writer.ToString();
             var expected = GetExpectedDefaultCreateDdl();
+            AssertEqual(expected, ddl);
+        }
+        
+        [Fact]
+        public void SpannerExporterCanGenerateInterleavedTableModel()
+        {
+            var exporter = new SpannerSchemaExport(InterleavedTableConfiguration);
+            exporter.SetDelimiter(";");
+            var writer = new StringWriter();
+            exporter.Create(writer, false);
+            var ddl = writer.ToString();
+            var expected = GetExpectedInterleavedTableDdl();
             AssertEqual(expected, ddl);
         }
 
@@ -483,10 +509,10 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     statement => AssertEqual("DROP INDEX Idx_Singers_FullName", statement),
                     statement => AssertEqual("alter table Album  drop constraint FK_8373D1C5", statement),
                     statement => AssertEqual("alter table Track  drop constraint FK_1F357587", statement),
-                    statement => AssertEqual("drop table Singer", statement),
-                    statement => AssertEqual("drop table Album", statement),
-                    statement => AssertEqual("drop table TableWithAllColumnTypes", statement),
                     statement => AssertEqual("drop table Track", statement),
+                    statement => AssertEqual("drop table TableWithAllColumnTypes", statement),
+                    statement => AssertEqual("drop table Album", statement),
+                    statement => AssertEqual("drop table Singer", statement),
                     statement => AssertEqual("create table Singer (SingerId INT64 NOT NULL, FirstName STRING(MAX), LastName STRING(MAX), FullName STRING(MAX), BirthDate DATE, Picture BYTES(MAX)) primary key (SingerId)", statement),
                     statement => AssertEqual("create table Album (AlbumId INT64 NOT NULL, SingerId INT64, Title STRING(MAX), ReleaseDate DATE) primary key (AlbumId)", statement),
                     statement => AssertEqual("create table TableWithAllColumnTypes (ColInt64 INT64 NOT NULL, ColFloat64 FLOAT64, ColNumeric NUMERIC, ColBool BOOL, ColString STRING(100), ColStringMax STRING(MAX), ColBytes BYTES(100), ColBytesMax BYTES(MAX), ColDate DATE, ColTimestamp TIMESTAMP, ColJson JSON, ColCommitTs TIMESTAMP OPTIONS (allow_commit_timestamp=true), ColInt64Array ARRAY<INT64>, ColFloat64Array ARRAY<FLOAT64>, ColNumericArray ARRAY<NUMERIC>, ColBoolArray ARRAY<BOOL>, ColStringArray ARRAY<STRING(100)>, ColStringMaxArray ARRAY<STRING(MAX)>, ColBytesArray ARRAY<BYTES(100)>, ColBytesMaxArray ARRAY<BYTES(MAX)>, ColDateArray ARRAY<DATE>, ColTimestampArray ARRAY<TIMESTAMP>, ColJsonArray ARRAY<JSON>, ColComputed STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED, ASC STRING(MAX)) primary key (ColInt64)", statement),
@@ -526,10 +552,10 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     statement => AssertEqual("DROP INDEX Idx_Singers_FullName", statement),
                     statement => AssertEqual("alter table Album  drop constraint FK_8373D1C5", statement),
                     statement => AssertEqual("alter table Track  drop constraint FK_1F357587", statement),
-                    statement => AssertEqual("drop table Singer", statement),
-                    statement => AssertEqual("drop table Album", statement),
+                    statement => AssertEqual("drop table Track", statement),
                     statement => AssertEqual("drop table TableWithAllColumnTypes", statement),
-                    statement => AssertEqual("drop table Track", statement)
+                    statement => AssertEqual("drop table Album", statement),
+                    statement => AssertEqual("drop table Singer", statement)
                 );
             });
         }
@@ -548,13 +574,13 @@ alter table Album  drop constraint FK_8373D1C5
 alter table Track  drop constraint FK_1F357587
 ;
 
-    drop table Singer;
-
-    drop table Album;
+    drop table Track;
 
     drop table TableWithAllColumnTypes;
 
-    drop table Track;
+    drop table Album;
+
+    drop table Singer;
 ";
 
         private string GetExpectedSpannerCreateDdl() =>
@@ -571,13 +597,13 @@ alter table Album  drop constraint FK_8373D1C5
 alter table Track  drop constraint FK_1F357587
 ;
 
-    drop table Singer;
-
-    drop table Album;
+    drop table Track;
 
     drop table TableWithAllColumnTypes;
 
-    drop table Track;
+    drop table Album;
+
+    drop table Singer;
 
     create table Singer (
         SingerId INT64 NOT NULL,
@@ -648,8 +674,6 @@ alter table Track  drop constraint FK_1F357587
         add constraint FK_1F357587 
         foreign key (AlbumId) 
         references Album (AlbumId);
-
-    ;
 
     create unique index Idx_Albums_Title on Album (SingerId, Title);
 ";
@@ -740,6 +764,51 @@ alter table Track  drop constraint FK_1F357587
         add constraint FK_1F357587 
         foreign key (AlbumId) 
         references Album (AlbumId);
+";
+
+        private string GetExpectedInterleavedTableDdl() =>
+            @"
+    drop table InvoiceLineNotes;
+
+    drop table InvoiceLines;
+
+    drop table Invoices;
+
+    create table Invoices (
+        Id STRING(MAX) NOT NULL,
+       Version INT64 not null,
+       CreatedAt TIMESTAMP,
+       LastUpdatedAt TIMESTAMP,
+       Customer STRING(MAX) not null
+    ) primary key (
+        Id
+    );
+
+    create table InvoiceLines (
+        Id STRING(MAX) not null,
+       LineNumber INT64 NOT NULL,
+       Version INT64 not null,
+       Product STRING(MAX) not null,
+       CreatedAt TIMESTAMP,
+       LastUpdatedAt TIMESTAMP
+    ) primary key (
+        Id,
+       LineNumber
+    ), INTERLEAVE IN PARENT Invoices;
+
+    create table InvoiceLineNotes (
+        Id STRING(36) not null,
+       LineNumber INT64 not null,
+       NoteNumber INT64 NOT NULL,
+       Version INT64 not null,
+       Note STRING(MAX) not null,
+       CreatedAt TIMESTAMP,
+       LastUpdatedAt TIMESTAMP
+    ) primary key (
+        Id,
+       LineNumber,
+       NoteNumber
+    ), INTERLEAVE IN PARENT InvoiceLines;
 ";
     }
 }

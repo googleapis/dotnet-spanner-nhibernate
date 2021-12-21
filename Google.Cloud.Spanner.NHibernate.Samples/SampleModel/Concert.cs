@@ -26,8 +26,8 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         /// them from DATE columns that by default are mapped to <see cref="SpannerDate"/>.
         /// </summary>
         public virtual DateTime StartTime { get; set; }
-        public virtual string Title { get; set; }
         public virtual Singer Singer { get; set; }
+        public virtual string Title { get; set; }
         public virtual IList<Performance> Performances { get; set; }
     }
 
@@ -36,10 +36,28 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public ConcertMapping()
         {
             Table("Concerts");
-            ManyToOne(x => x.Venue, m => m.Column("VenueId"));
-            Property(x => x.StartTime);
-            Property(x => x.Title);
-            ManyToOne(x => x.Singer, m => m.Column("SingerId"));
+            ManyToOne(x => x.Venue, m =>
+            {
+                m.Column(c =>
+                {
+                    c.Name("VenueId");
+                    c.NotNullable(true);
+                    c.Length(36);
+                });
+                m.ForeignKey("FK_Concerts_Venues");
+            });
+            Property(x => x.StartTime, m => m.NotNullable(true));
+            ManyToOne(x => x.Singer, m =>
+            {
+                m.Column(c =>
+                {
+                    c.Name("SingerId");
+                    c.NotNullable(true);
+                    c.Length(36);
+                });
+                m.ForeignKey("FK_Concerts_Singers");
+            });
+            Property(x => x.Title, m => m.Length(200));
             Bag(x => x.Performances, c =>
             {
                 c.Inverse(true);

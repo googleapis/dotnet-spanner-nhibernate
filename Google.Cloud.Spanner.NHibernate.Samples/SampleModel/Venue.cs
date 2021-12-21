@@ -32,9 +32,13 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public VenueMapping()
         {
             Table("Venues");
-            Property(x => x.Code);
-            Property(x => x.Name);
-            Property(x => x.Active);
+            Property(x => x.Code, m =>
+            {
+                m.NotNullable(true);
+                m.Length(10);
+            });
+            Property(x => x.Name, m => m.Length(100));
+            Property(x => x.Active, m => m.NotNullable(true));
             Property(x => x.Capacity);
             Property(x => x.Ratings);
             Bag(x => x.Concerts, c =>

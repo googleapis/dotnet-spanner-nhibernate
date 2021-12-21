@@ -50,7 +50,6 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
 
         public virtual TrackIdentifier TrackIdentifier { get; set; }
         public virtual string Title { get; set; }
-        public virtual Singer Singer => TrackIdentifier?.Album?.Singer;
         public virtual Album Album => TrackIdentifier?.Album;
     }
 
@@ -60,15 +59,34 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
         {
             Persister<SpannerSingleTableEntityPersister>();
             Table("Tracks");
-            ComponentAsId(x => x.TrackIdentifier, m =>
+            ComponentAsId(x => x.TrackIdentifier, idMapper =>
             {
-                m.ManyToOne(a => a.Album, mapping => mapping.Columns(
-                    c1 => c1.Name("SingerId"),
-                    c2 => c2.Name("AlbumId")
-                ));
-                m.Property(a => a.TrackId);
+                idMapper.ManyToOne(a => a.Album, manyToOneMapper =>
+                {
+                    manyToOneMapper.Columns(c =>
+                    {
+                        c.Name("SingerId");
+                        c.NotNullable(true);
+                        c.Length(36);
+                    }, c =>
+                    {
+                        c.Name("AlbumId");
+                        c.NotNullable(true);
+                        c.Length(36);
+                    });
+                    manyToOneMapper.ForeignKey(InterleavedTableForeignKey.InterleaveInParent);
+                });
+                idMapper.Property(a => a.TrackId, m =>
+                {
+                    m.Length(36);
+                    m.NotNullable(true);
+                });
             });
-            Property(x => x.Title);
+            Property(x => x.Title, m =>
+            {
+                m.NotNullable(true);
+                m.Length(200);
+            });
         }
     }
 }

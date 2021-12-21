@@ -13,13 +13,12 @@
 // limitations under the License.
 
 using NHibernate.Mapping;
-using System;
 
 namespace Google.Cloud.Spanner.NHibernate.Internal
 {
     internal class IndexAsAuxiliaryObject : SimpleAuxiliaryDatabaseObject
     {
-        internal IndexAsAuxiliaryObject(string name) : base(String.Empty, $"DROP INDEX {name}")
+        internal IndexAsAuxiliaryObject(string name) : base(string.Empty, $"DROP INDEX {name}")
         {
         }
     }

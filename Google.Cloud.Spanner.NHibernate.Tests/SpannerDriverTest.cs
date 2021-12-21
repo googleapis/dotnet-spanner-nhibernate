@@ -1342,7 +1342,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             var insertInvoiceSql =
                 "INSERT INTO Invoices (Version, LastUpdatedAt, Customer, CreatedAt, Id) VALUES (@p0, @p1, @p2, PENDING_COMMIT_TIMESTAMP(), @p3)";
             var insertInvoiceLineSql =
-                "INSERT INTO InvoiceLines (Version, LastUpdatedAt, Product, CreatedAt, Id, LineNumber) VALUES (@p0, @p1, @p2, PENDING_COMMIT_TIMESTAMP(), @p3, @p4)";
+                "INSERT INTO InvoiceLines (Version, Product, LastUpdatedAt, CreatedAt, Id, LineNumber) VALUES (@p0, @p1, @p2, PENDING_COMMIT_TIMESTAMP(), @p3, @p4)";
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertInvoiceSql, StatementResult.CreateUpdateCount(1L));
             _fixture.SpannerMock.AddOrUpdateStatementResult(insertInvoiceLineSql, StatementResult.CreateUpdateCount(1L));
             
@@ -1384,8 +1384,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     Assert.Equal(insertInvoiceLineSql, statement.Sql);
                     Assert.Collection(statement.Params.Fields,
                         param => Assert.Equal("1", param.Value.StringValue),
-                        param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
                         param => Assert.Equal("Product 1", param.Value.StringValue),
+                        param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
                         param => Assert.Equal(invoice.Id, param.Value.StringValue),
                         param => Assert.Equal("1", param.Value.StringValue)
                     );
@@ -1395,8 +1395,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     Assert.Equal(insertInvoiceLineSql, statement.Sql);
                     Assert.Collection(statement.Params.Fields,
                         param => Assert.Equal("1", param.Value.StringValue),
-                        param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
                         param => Assert.Equal("Product 2", param.Value.StringValue),
+                        param => Assert.Equal(Value.KindOneofCase.NullValue, param.Value.KindCase),
                         param => Assert.Equal(invoice.Id, param.Value.StringValue),
                         param => Assert.Equal("2", param.Value.StringValue)
                     );

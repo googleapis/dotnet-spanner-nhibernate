@@ -38,9 +38,27 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public BandMembershipMapping()
         {
             Table("BandMemberships");
-            ManyToOne(x => x.Singer, m => m.Column("SingerId"));
-            ManyToOne(x => x.Band, m => m.Column("BandId"));
-            Property(x => x.BeginDate);
+            ManyToOne(x => x.Singer, m =>
+            {
+                m.Column(c =>
+                {
+                    c.Name("SingerId");
+                    c.NotNullable(true);
+                    c.Length(36);
+                });
+                m.ForeignKey("FK_BandMemberships_Bands");
+            });
+            ManyToOne(x => x.Band, m =>
+            {
+                m.Column(c =>
+                {
+                    c.Name("BandId");
+                    c.NotNullable(true);
+                    c.Length(36);
+                });
+                m.ForeignKey("FK_BandMemberships_Singers");
+            });
+            Property(x => x.BeginDate, m => m.NotNullable(true));
             Property(x => x.EndDate);
         }
     }
