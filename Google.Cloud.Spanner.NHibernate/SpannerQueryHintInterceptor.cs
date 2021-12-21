@@ -103,7 +103,7 @@ namespace Google.Cloud.Spanner.NHibernate
             return sql;
         }
 
-        internal static StringBuilder AppendTableHintsString(StringBuilder builder, Dictionary<string, string> hints)
+        internal static StringBuilder AppendTableHintsString(StringBuilder builder, IDictionary<string, string> hints)
         {
             foreach (var hint in hints)
             {
@@ -132,7 +132,7 @@ namespace Google.Cloud.Spanner.NHibernate
             return sql;
         }
 
-        internal static StringBuilder AppendJoinHintsString(StringBuilder builder, Dictionary<string, string> hints)
+        internal static StringBuilder AppendJoinHintsString(StringBuilder builder, IDictionary<string, string> hints)
         {
             foreach (var hint in hints)
             {

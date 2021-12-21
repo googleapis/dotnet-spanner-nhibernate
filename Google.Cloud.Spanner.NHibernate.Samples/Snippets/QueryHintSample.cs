@@ -72,7 +72,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
                 .Query<Singer>()
                 // Table hints must be specified using the name of the table (and not the name of the entity).
                 // So in this case 'Singers' and not 'Singer'.
-                .SetTableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                .SetHints(Hints.TableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"))
                 .OrderBy(s => s.FullName)
                 .ToListAsync();
             Console.WriteLine("Singers ordered by FullName using FORCE_INDEX table hint:");
@@ -88,7 +88,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
                 .Select(a => a.Singer)
                 // Join hints must be specified using the right-hand table name of the join operation,
                 // and not the entity name or the alias in the query.
-                .SetJoinHint("Singers", "@{JOIN_METHOD=APPLY_JOIN}")
+                .SetHints(Hints.JoinHint("Singers", "@{JOIN_METHOD=APPLY_JOIN}"))
                 .OrderBy(s => s.LastName)
                 .ToListAsync();
             Console.WriteLine("Singers ordered by LastName with at least one Album using APPLY_JOIN join hint:");
@@ -101,7 +101,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
             // Example for adding a statement hint to a Criteria query.
             var singersUsingAdditionalParallelism = await session
                 .CreateCriteria(typeof(Singer))
-                .SetStatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}")
+                .SetHints(Hints.StatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}"))
                 .AddOrder(Order.Desc("FullName"))
                 .ListAsync<Singer>();
             Console.WriteLine("Singers ordered by FullName DESC using a statement hint:");
@@ -114,21 +114,17 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
             // Example for adding a statement, table and a join hint to a HQL query.
             var singersUsingAdditionalParallelismAndJoinAndTableHint = await session
                 .CreateQuery("select s from Singer s left outer join s.Albums as a order by s.FullName, s.Id, a.Title")
-                .SetStatementAndTableAndJoinHints(
-                    "@{USE_ADDITIONAL_PARALLELISM=TRUE}",
-                    new Dictionary<string, string>
-                    {
-                        // Table hints must be specified using the table name, and not the entity name or the alias
-                        // in the query.
-                        {"Singers","@{FORCE_INDEX=Idx_Singers_FullName}"},
-                        {"Albums","@{FORCE_INDEX=Idx_Albums_Title}"},
-                    },
-                    new Dictionary<string, string>
-                    {
-                        // Join hints must be specified using the right-hand table name of the join operation,
-                        // and not the entity name or the alias in the query.
-                        {"Albums","@{JOIN_METHOD=HASH_JOIN}"},
-                    })
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}")
+                    // Table hints must be specified using the table name, and not the entity name or the alias
+                    // in the query.
+                    .SetTableHint("Singers","@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Albums","@{FORCE_INDEX=Idx_Albums_Title}")
+                    // Join hints must be specified using the right-hand table name of the join operation,
+                    // and not the entity name or the alias in the query.
+                    .SetJoinHint("Albums","@{JOIN_METHOD=HASH_JOIN}")
+                    .Build())
                 .ListAsync<Singer>();
             Console.WriteLine("Singers order by FullName using both a statement hint and table hints:");
             foreach (var singer in singersUsingAdditionalParallelismAndJoinAndTableHint)
