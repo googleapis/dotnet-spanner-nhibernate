@@ -55,7 +55,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
             var updater = new SpannerSchemaUpdate(configuration.Configuration);
             // This will automatically execute an update script and print the statements that are executed to
             // the console (StdOut).
-            await updater.ExecuteAsync(true, true);
+            await updater.ExecuteAsync(true /*useStdOut*/, true /*doUpdate*/);
             
             // Get the new table count. The updater should create two new tables plus two foreign key constraints
             // between the Contracts and Singers/Managers tables.
