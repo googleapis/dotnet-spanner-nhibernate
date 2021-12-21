@@ -19,7 +19,6 @@ using Xunit;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 {
-    [Collection(nameof(NonParallelTestCollection))]
     public class SchemaTests : IClassFixture<SpannerSampleFixture>
     {
         private readonly SpannerSampleFixture _fixture;

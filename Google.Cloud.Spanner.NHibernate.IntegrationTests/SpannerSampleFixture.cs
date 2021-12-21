@@ -120,11 +120,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         private void CreateTables()
         {
             var dirPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            // We must use a slightly edited sample data model for the emulator, as the emulator does not support:
-            // 1. JSON data type.
-            // 2. Check constraints.
-            // 3. Computed columns that are not the last column in the table.
-            var sampleModel = IsEmulator ? "SampleDataModel - Emulator.sql" : "SampleDataModel.sql";
+            const string sampleModel = "SampleDataModel.sql";
             var fileName = Path.Combine(dirPath, sampleModel);
             var script = File.ReadAllText(fileName);
             var statements = script.Split(";");

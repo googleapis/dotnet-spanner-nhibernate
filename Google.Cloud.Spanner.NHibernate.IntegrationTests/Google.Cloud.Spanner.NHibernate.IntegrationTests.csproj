@@ -27,10 +27,6 @@
       <Content Include="SampleDataModel.sql">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>
-      <None Remove="SampleDataModel - Emulator.sql" />
-      <Content Include="SampleDataModel - Emulator.sql">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </Content>
     </ItemGroup>
 
 </Project>
