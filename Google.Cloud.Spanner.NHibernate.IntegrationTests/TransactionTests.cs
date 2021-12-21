@@ -14,8 +14,8 @@
 
 using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
+using Grpc.Core;
 using NHibernate;
-using NHibernate.Criterion;
 using NHibernate.Exceptions;
 using NHibernate.Linq;
 using System;
@@ -26,7 +26,6 @@ using Xunit;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 {
-    [Collection(nameof(NonParallelTestCollection))]
     public class TransactionTests : IClassFixture<SpannerSampleFixture>
     {
         private readonly SpannerSampleFixture _fixture;
@@ -364,7 +363,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                     // transactions will abort.
                     InsertRandomSinger(disableInternalRetries).Wait();
                 }
-                catch (AggregateException e) when (e.InnerException is SpannerException se && se.ErrorCode == ErrorCode.Aborted)
+                catch (AggregateException e) when (e.GetBaseException().GetBaseException() is RpcException se && se.StatusCode == StatusCode.Aborted)
                 {
                     lock (aborted)
                     {
@@ -376,7 +375,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 }
             });
             Assert.True(
-                disableInternalRetries == (aborted.Count > 0),
+                disableInternalRetries == aborted.Count > 0,
                 $"Unexpected aborted count {aborted.Count} for disableInternalRetries={disableInternalRetries}. First aborted error: {aborted.FirstOrDefault()?.Message ?? "<none>"}"
             );
         }
@@ -445,7 +444,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 // will cause a large number of the transactions to be aborted.
                 var existing = await session
                     .Query<Singer>()
-                    .Where(v => v.LastName.IsLike(prefix, MatchMode.Start))
+                    .Where(v => v.LastName.StartsWith(prefix))
                     .OrderBy(v => v.LastName)
                     .FirstOrDefaultAsync();
 
