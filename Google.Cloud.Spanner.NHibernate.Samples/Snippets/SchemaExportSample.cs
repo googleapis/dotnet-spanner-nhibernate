@@ -52,7 +52,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
             var exporter = new SpannerSchemaExport(configuration.Configuration);
             // This will automatically execute a drop-and-recreate script and print the statements that are executed to
             // the console (StdOut).
-            await exporter.CreateAsync(true, true);
+            await exporter.CreateAsync(true /*useStdOut*/, true /*execute*/);
             
             cmd.CommandText =
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG='' AND TABLE_SCHEMA=''";
