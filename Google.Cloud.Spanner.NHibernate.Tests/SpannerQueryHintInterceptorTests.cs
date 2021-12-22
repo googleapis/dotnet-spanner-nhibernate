@@ -34,10 +34,10 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         [InlineData("SELECT * FROM Singers WHERE FullName LIKE @p0", "SELECT * FROM Singers WHERE FullName LIKE @p0")]
         [InlineData("/*some random comment*/SELECT * FROM Singers WHERE FullName LIKE @p0", "/*some random comment*/SELECT * FROM Singers WHERE FullName LIKE @p0")]
         [InlineData("/* NHIBERNATE_HINTS:\n*/SELECT * FROM Singers WHERE FullName LIKE @p0", "SELECT * FROM Singers WHERE FullName LIKE @p0")]
-        [InlineData("/* NHIBERNATE_HINTS:\nTABLE_HINT: `Singers`@{FORCE_INDEX=Idx_Singers_FullName}*/SELECT * FROM Singers WHERE FullName LIKE @p0", "SELECT * FROM Singers@{FORCE_INDEX=Idx_Singers_FullName} WHERE FullName LIKE @p0")]
-        [InlineData("/* NHIBERNATE_HINTS:\nTABLE_HINT: `Singers`@{FORCE_INDEX=Idx_Singers_FullName}\nTABLE_HINT: `Albums`@{FORCE_INDEX=Idx_Albums_Title}*/SELECT * FROM Singers LEFT OUTER JOIN Albums ON Albums.SingerId=Singers.SingerId WHERE FullName LIKE @p0", "SELECT * FROM Singers@{FORCE_INDEX=Idx_Singers_FullName} LEFT OUTER JOIN Albums@{FORCE_INDEX=Idx_Albums_Title} ON Albums.SingerId=Singers.SingerId WHERE FullName LIKE @p0")]
-        [InlineData("/* NHIBERNATE_HINTS:\nTABLE_HINT: `Singers`@{FORCE_INDEX=Idx_Singers_FullName}\nTABLE_HINT: `Albums`@{FORCE_INDEX=Idx_Albums_Title}\nTABLE_HINT: `Tracks`@{FORCE_INDEX=Idx_Tracks_Title}*/SELECT * FROM Singers LEFT OUTER JOIN Albums ON Albums.SingerId=Singers.SingerId JOIN Tracks ON Tracks.AlbumId=Albums.AlbumId WHERE FullName LIKE @p0", "SELECT * FROM Singers@{FORCE_INDEX=Idx_Singers_FullName} LEFT OUTER JOIN Albums@{FORCE_INDEX=Idx_Albums_Title} ON Albums.SingerId=Singers.SingerId JOIN Tracks@{FORCE_INDEX=Idx_Tracks_Title} ON Tracks.AlbumId=Albums.AlbumId WHERE FullName LIKE @p0")]
-        [InlineData("/* NHIBERNATE_HINTS:\nTABLE_HINT: `Singer`@{FORCE_INDEX=Idx_Singers_FullName}*/SELECT * FROM Singers WHERE FullName LIKE @p0", "SELECT * FROM Singers WHERE FullName LIKE @p0")]
+        [InlineData("/* NHIBERNATE_HINTS:\nTABLE_HINT: `Singers`@{FORCE_INDEX=Idx_Singers_FullName} */SELECT * FROM Singers WHERE FullName LIKE @p0", "SELECT * FROM Singers @{FORCE_INDEX=Idx_Singers_FullName} WHERE FullName LIKE @p0")]
+        [InlineData("/* NHIBERNATE_HINTS:\nTABLE_HINT: `Singers`@{FORCE_INDEX=Idx_Singers_FullName} \nTABLE_HINT: `Albums`@{FORCE_INDEX=Idx_Albums_Title} */SELECT * FROM Singers LEFT OUTER JOIN Albums ON Albums.SingerId=Singers.SingerId WHERE FullName LIKE @p0", "SELECT * FROM Singers @{FORCE_INDEX=Idx_Singers_FullName} LEFT OUTER JOIN Albums @{FORCE_INDEX=Idx_Albums_Title} ON Albums.SingerId=Singers.SingerId WHERE FullName LIKE @p0")]
+        [InlineData("/* NHIBERNATE_HINTS:\nTABLE_HINT: `Singers`@{FORCE_INDEX=Idx_Singers_FullName} \nTABLE_HINT: `Albums`@{FORCE_INDEX=Idx_Albums_Title} \nTABLE_HINT: `Tracks`@{FORCE_INDEX=Idx_Tracks_Title} */SELECT * FROM Singers LEFT OUTER JOIN Albums ON Albums.SingerId=Singers.SingerId JOIN Tracks ON Tracks.AlbumId=Albums.AlbumId WHERE FullName LIKE @p0", "SELECT * FROM Singers @{FORCE_INDEX=Idx_Singers_FullName} LEFT OUTER JOIN Albums @{FORCE_INDEX=Idx_Albums_Title} ON Albums.SingerId=Singers.SingerId JOIN Tracks @{FORCE_INDEX=Idx_Tracks_Title} ON Tracks.AlbumId=Albums.AlbumId WHERE FullName LIKE @p0")]
+        [InlineData("/* NHIBERNATE_HINTS:\nTABLE_HINT: `Singer`@{FORCE_INDEX=Idx_Singers_FullName} */SELECT * FROM Singers WHERE FullName LIKE @p0", "SELECT * FROM Singers WHERE FullName LIKE @p0")]
         [Theory]
         public void TableHints(string input, string output)
         {
@@ -45,7 +45,21 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             Assert.Equal(output, interceptor.OnPrepareStatement(new SqlString(input)).ToString());
         }
 
-        [InlineData("/* NHIBERNATE_HINTS:\nSTATEMENT_HINT: @{OPTIMIZER_VERSION=1}\nSTATEMENT_HINT: @{USE_ADDITIONAL_PARALLELISM=TRUE}\nTABLE_HINT: `Singers`@{FORCE_INDEX=Idx_Singers_FullName}\nTABLE_HINT: `Albums`@{FORCE_INDEX=Idx_Albums_Title}\nTABLE_HINT: `Tracks`@{FORCE_INDEX=Idx_Tracks_Title}*/SELECT * FROM Singers LEFT OUTER JOIN Albums ON Albums.SingerId=Singers.SingerId JOIN Tracks ON Tracks.AlbumId=Albums.AlbumId WHERE FullName LIKE @p0", "@{USE_ADDITIONAL_PARALLELISM=TRUE}@{OPTIMIZER_VERSION=1}SELECT * FROM Singers@{FORCE_INDEX=Idx_Singers_FullName} LEFT OUTER JOIN Albums@{FORCE_INDEX=Idx_Albums_Title} ON Albums.SingerId=Singers.SingerId JOIN Tracks@{FORCE_INDEX=Idx_Tracks_Title} ON Tracks.AlbumId=Albums.AlbumId WHERE FullName LIKE @p0")]
+        [InlineData("/* NHIBERNATE_HINTS:\n" +
+                    "STATEMENT_HINT: @{OPTIMIZER_VERSION=1}\n" +
+                    "STATEMENT_HINT: @{USE_ADDITIONAL_PARALLELISM=TRUE}\n" +
+                    "TABLE_HINT: `Singers`@{FORCE_INDEX=Idx_Singers_FullName} \n" +
+                    "TABLE_HINT: `Albums`@{FORCE_INDEX=Idx_Albums_Title} \n" +
+                    "TABLE_HINT: `Tracks`@{FORCE_INDEX=Idx_Tracks_Title} */" +
+                    "SELECT * FROM Singers " +
+                    "LEFT OUTER JOIN Albums ON Albums.SingerId=Singers.SingerId " +
+                    "JOIN Tracks ON Tracks.AlbumId=Albums.AlbumId " +
+                    "WHERE FullName LIKE @p0",
+            "@{USE_ADDITIONAL_PARALLELISM=TRUE}@{OPTIMIZER_VERSION=1}SELECT * " +
+            "FROM Singers @{FORCE_INDEX=Idx_Singers_FullName} " +
+            "LEFT OUTER JOIN Albums @{FORCE_INDEX=Idx_Albums_Title} ON Albums.SingerId=Singers.SingerId " +
+            "JOIN Tracks @{FORCE_INDEX=Idx_Tracks_Title} ON Tracks.AlbumId=Albums.AlbumId " +
+            "WHERE FullName LIKE @p0")]
         [Theory]
         public void StatementAndTableHints(string input, string output)
         {

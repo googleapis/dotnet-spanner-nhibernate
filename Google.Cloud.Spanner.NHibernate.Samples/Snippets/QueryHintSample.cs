@@ -31,12 +31,12 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
     /// 2. The <see cref="SpannerQueryHintInterceptor"/> must be included in either the NHibernate
     ///    configuration or session.
     ///
-    /// The driver includes a number of extension methods that will automatically generated the
+    /// The driver includes a number of extension methods that will automatically generate the
     /// required comments. It is strongly recommended to use these extension methods when adding
     /// hints to a query.
     ///
     /// See https://cloud.google.com/spanner/docs/query-syntax#table-hints for more information
-    /// on possible table and statement hints for Cloud Spanner.
+    /// on possible table, join and statement hints for Cloud Spanner.
     /// 
     /// Run from the command line with `dotnet run QueryHint`
     /// </summary>
@@ -64,15 +64,15 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
                 ? configuration.SessionFactory.OpenSession()
                 : configuration.SessionFactory.WithOptions().Interceptor(new SpannerQueryHintInterceptor()).OpenSession();
         
-            // The Spanner driver contains an extension method that can be used to set both statement and table hints
-            // for Linq, Criteria and HQL queries.
+            // The Spanner driver contains extension methods that can be used to set both statement, table and join
+            // hints for Linq, Criteria and HQL queries.
             
             // Example for adding a table hint to a Linq query.
             var singersOrderedByFullName = await session
                 .Query<Singer>()
                 // Table hints must be specified using the name of the table (and not the name of the entity).
                 // So in this case 'Singers' and not 'Singer'.
-                .SetTableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                .SetHints(Hints.TableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}"))
                 .OrderBy(s => s.FullName)
                 .ToListAsync();
             Console.WriteLine("Singers ordered by FullName using FORCE_INDEX table hint:");
@@ -81,11 +81,27 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
                 Console.WriteLine($"\t{singer.FullName}");
             }
             Console.WriteLine();
+            
+            // Example for adding a join hint to a Linq query.
+            var singersFromAlbums = await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                // Join hints must be specified using the right-hand table name of the join operation,
+                // and not the entity name or the alias in the query.
+                .SetHints(Hints.JoinHint("Singers", "@{JOIN_METHOD=APPLY_JOIN}"))
+                .OrderBy(s => s.LastName)
+                .ToListAsync();
+            Console.WriteLine("Singers ordered by LastName with at least one Album using APPLY_JOIN join hint:");
+            foreach (var singer in singersFromAlbums)
+            {
+                Console.WriteLine($"\t{singer.FullName}");
+            }
+            Console.WriteLine();
 
             // Example for adding a statement hint to a Criteria query.
             var singersUsingAdditionalParallelism = await session
                 .CreateCriteria(typeof(Singer))
-                .SetStatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}")
+                .SetHints(Hints.StatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}"))
                 .AddOrder(Order.Desc("FullName"))
                 .ListAsync<Singer>();
             Console.WriteLine("Singers ordered by FullName DESC using a statement hint:");
@@ -95,22 +111,23 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
             }
             Console.WriteLine();
             
-            // from Album as album left outer join album.Singer as singer where singer.LastName = :lastName
-            // Example for adding both a statement and a table hint to a HQL query.
-            var singersUsingAdditionalParallelismAndTableHint = await session
+            // Example for adding a statement, table and a join hint to a HQL query.
+            var singersUsingAdditionalParallelismAndJoinAndTableHint = await session
                 .CreateQuery("select s from Singer s left outer join s.Albums as a order by s.FullName, s.Id, a.Title")
-                .SetStatementAndTableHints(
-                    "@{USE_ADDITIONAL_PARALLELISM=TRUE}",
-                    new Dictionary<string, string>
-                    {
-                        // Table hints must be specified using the table name, and not the entity name or the alias
-                        // in the query.
-                        {"Singers","@{FORCE_INDEX=Idx_Singers_FullName}"},
-                        {"Albums","@{FORCE_INDEX=Idx_Albums_Title}"},
-                    })
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}")
+                    // Table hints must be specified using the table name, and not the entity name or the alias
+                    // in the query.
+                    .SetTableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Albums", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    // Join hints must be specified using the right-hand table name of the join operation,
+                    // and not the entity name or the alias in the query.
+                    .SetJoinHint("Albums", "@{JOIN_METHOD=HASH_JOIN}")
+                    .Build())
                 .ListAsync<Singer>();
             Console.WriteLine("Singers order by FullName using both a statement hint and table hints:");
-            foreach (var singer in singersUsingAdditionalParallelismAndTableHint)
+            foreach (var singer in singersUsingAdditionalParallelismAndJoinAndTableHint)
             {
                 Console.WriteLine($"\t{singer.FullName}");
             }
@@ -134,11 +151,17 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
                 BirthDate = new SpannerDate(2000, 5, 2),
             });
             await session.FlushAsync();
-            await session.SaveAsync(new Singer
+            var singer = new Singer
             {
                 FirstName = "Mike",
                 LastName = "Nicholson",
                 BirthDate = new SpannerDate(1976, 8, 31),
+            };
+            await session.SaveAsync(singer);
+            await session.SaveAsync(new Album
+            {
+                Singer = singer,
+                Title = "Hot Jam",
             });
             await session.FlushAsync();
         }
