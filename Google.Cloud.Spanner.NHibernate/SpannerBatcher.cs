@@ -13,11 +13,15 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection;
+using Google.Cloud.Spanner.Data;
 using NHibernate;
 using NHibernate.AdoNet;
 using NHibernate.Exceptions;
+using NHibernate.SqlCommand;
+using NHibernate.SqlTypes;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 using System.Linq;
 using System.Threading;
@@ -35,6 +39,9 @@ namespace Google.Cloud.Spanner.NHibernate
         private int _totalExpectedRowsAffected;
         private LinkedList<SpannerRetriableCommand> _currentBatch;
         private int _currentBatchStatementCount;
+        private bool _containsMutations;
+        private bool _containsDmlStatements;
+        private bool _preparingBatchCommand;
         
         public SpannerBatcher(ConnectionManager connectionManager, IInterceptor interceptor) : base(connectionManager, interceptor)
         {
@@ -87,14 +94,14 @@ namespace Google.Cloud.Spanner.NHibernate
         {
             var dmlCommands = new List<SpannerRetriableCommand>(_currentBatch.Count);
             var mutationCommands = new List<SpannerRetriableCommand>(_currentBatch.Count);
+            var transactionMutationUsage = (ps.Transaction as SpannerRetriableTransaction)?.GetMutationUsage()
+                                           ?? MutationUsage.Unspecified;
             foreach (var cmd in _currentBatch)
             {
                 cmd.Connection = ps.Connection;
                 cmd.Transaction = ps.Transaction;
                 if (cmd is SpannerDmlOrMutationCommand dmlOrMutationCommand)
                 {
-                    var transactionMutationUsage = (ps.Transaction as SpannerRetriableTransaction)?.GetMutationUsage()
-                                                   ?? MutationUsage.Unspecified;
                     if (transactionMutationUsage == MutationUsage.Unspecified && MutationUsage == MutationUsage.Always
                         || ps.Transaction == null && MutationUsage == MutationUsage.ImplicitTransactions
                         || transactionMutationUsage == MutationUsage.Always)
@@ -111,18 +118,22 @@ namespace Google.Cloud.Spanner.NHibernate
                             mutationCommand.Parameters[i].Value ??= cmd.Parameters[i].Value;
                         }
                         mutationCommands.Add(dmlOrMutationCommand.MutationCommand);
+                        _containsMutations = true;
                     }
                     else
                     {
                         // A SpannerDmlOrMutationCommand will default to DML.
                         dmlCommands.Add(dmlOrMutationCommand);
+                        _containsDmlStatements = true;
                     }
                 }
                 else
                 {
                     dmlCommands.Add(cmd);
+                    _containsDmlStatements = true;
                 }
             }
+            CheckMutationUsage(ps);
             return new Tuple<List<SpannerRetriableCommand>, List<SpannerRetriableCommand>>(dmlCommands, mutationCommands);
         }
 
@@ -286,6 +297,71 @@ namespace Google.Cloud.Spanner.NHibernate
             if (_currentBatchStatementCount >= _batchSize)
             {
                 await DoExecuteBatchAsync(batchUpdate, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        protected override void OnPreparedCommand()
+        {
+            if (!_preparingBatchCommand)
+            {
+                _containsDmlStatements = true;
+                CheckMutationUsage(CurrentCommand);
+            }
+            base.OnPreparedCommand();
+        }
+
+        public override DbCommand PrepareBatchCommand(CommandType type, SqlString sql, SqlType[] parameterTypes)
+        {
+            _preparingBatchCommand = true;
+            try
+            {
+                return base.PrepareBatchCommand(type, sql, parameterTypes);
+            }
+            finally
+            {
+                _preparingBatchCommand = false;
+            }
+        }
+
+        public override Task<DbCommand> PrepareBatchCommandAsync(CommandType type, SqlString sql,
+            SqlType[] parameterTypes, CancellationToken cancellationToken)
+        {
+            _preparingBatchCommand = true;
+            try
+            {
+                return base.PrepareBatchCommandAsync(type, sql, parameterTypes, cancellationToken);
+            }
+            finally
+            {
+                _preparingBatchCommand = false;
+            }
+        }
+        
+        protected override Task OnPreparedCommandAsync(CancellationToken cancellationToken)
+        {
+            if (!_preparingBatchCommand)
+            {
+                _containsDmlStatements = true;
+                CheckMutationUsage(CurrentCommand);
+            }
+            return base.OnPreparedCommandAsync(cancellationToken);
+        }
+
+        private void CheckMutationUsage(DbCommand cmd)
+        {
+            var transactionMutationUsage = (cmd?.Transaction as SpannerRetriableTransaction)?.GetMutationUsage()
+                                           ?? MutationUsage;
+            if (_containsMutations && _containsDmlStatements)
+            {
+                throw new HibernateException(new SpannerException(ErrorCode.FailedPrecondition,
+                    "The batch contains both Mutations and DML statements. Mixing both in one batch is not supported. " +
+                    "This is probably caused by at least one entity that has a collection that is managed by NHibernate"));
+            }
+            if (_containsDmlStatements && transactionMutationUsage == MutationUsage.Always)
+            {
+                throw new HibernateException(new SpannerException(ErrorCode.FailedPrecondition,
+                    "The batch contains DML statements while MutationUsage.Always has been specified. " +
+                    "This is probably caused by at least one entity that has a collection that is managed by NHibernate"));
             }
         }
     }
