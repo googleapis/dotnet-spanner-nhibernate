@@ -70,7 +70,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             
             // Drop a table and then execute a SchemaUpdate to recreate it.
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
-            var cmd = connection.CreateDdlCommand("DROP TABLE Performances");
+            var cmd = connection.CreateDdlCommand("DROP TABLE AlbumsWithVersion");
             await cmd.ExecuteNonQueryAsync();
             var updater = new SpannerSchemaUpdate(_fixture.Configuration);
             await updater.ExecuteAsync(false, true);
