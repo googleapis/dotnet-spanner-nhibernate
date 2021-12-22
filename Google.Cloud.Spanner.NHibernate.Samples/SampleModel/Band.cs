@@ -28,7 +28,11 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public BandMapping()
         {
             Table("Bands");
-            Property(x => x.Name);
+            Property(x => x.Name, m =>
+            {
+                m.NotNullable(true);
+                m.Length(200);
+            });
             Bag(x => x.BandMemberships,
                 collectionMapping =>
                 {

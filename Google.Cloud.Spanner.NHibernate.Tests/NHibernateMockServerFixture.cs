@@ -50,6 +50,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             
             mapper.AddMapping<InvoiceMapping>();
             mapper.AddMapping<InvoiceLineMapping>();
+            mapper.AddMapping<InvoiceLineNoteMapping>();
             
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             Configuration.AddMapping(mapping);

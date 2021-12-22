@@ -28,29 +28,29 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
         [Fact]
         public void CanDropAndRecreateSchema()
         {
-            var initialSchema = GetCurrentSchema();
+            var initialSchema = GetCurrentSchema(_fixture);
             
             var exporter = new SpannerSchemaExport(_fixture.Configuration);
             exporter.Execute(false, true, false);
             
-            VerifySchemaEquality(initialSchema);
+            VerifySchemaEquality(initialSchema, _fixture);
         }
 
         [Fact]
         public async Task CanDropAndRecreateSchemaAsync()
         {
-            var initialSchema = GetCurrentSchema();
+            var initialSchema = GetCurrentSchema(_fixture);
             
             var exporter = new SpannerSchemaExport(_fixture.Configuration);
             await exporter.ExecuteAsync(false, true, false);
             
-            VerifySchemaEquality(initialSchema);
+            VerifySchemaEquality(initialSchema, _fixture);
         }
 
         [Fact]
         public void CanAddMissingTable()
         {
-            var initialSchema = GetCurrentSchema();
+            var initialSchema = GetCurrentSchema(_fixture);
             
             // Drop a table and then execute a SchemaUpdate to recreate it.
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
@@ -60,13 +60,13 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             updater.Execute(false, true);
             
             Assert.Empty(updater.Exceptions);
-            VerifySchemaEquality(initialSchema);
+            VerifySchemaEquality(initialSchema, _fixture);
         }
 
         [Fact]
         public async Task CanAddMissingTableAsync()
         {
-            var initialSchema = GetCurrentSchema();
+            var initialSchema = GetCurrentSchema(_fixture);
             
             // Drop a table and then execute a SchemaUpdate to recreate it.
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
@@ -76,13 +76,13 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             await updater.ExecuteAsync(false, true);
             
             Assert.Empty(updater.Exceptions);
-            VerifySchemaEquality(initialSchema);
+            VerifySchemaEquality(initialSchema, _fixture);
         }
 
         [Fact]
         public void CanAddMissingColumn()
         {
-            var initialSchema = GetCurrentSchema();
+            var initialSchema = GetCurrentSchema(_fixture);
             // Drop a table and then execute a SchemaUpdate to recreate it.
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
             var cmd = connection.CreateDdlCommand("DROP TABLE Performances");
@@ -91,10 +91,10 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             updater.Execute(false, true);
             
             Assert.Empty(updater.Exceptions);
-            VerifySchemaEquality(initialSchema);
+            VerifySchemaEquality(initialSchema, _fixture);
         }
 
-        struct Schema
+        public struct Schema
         {
             public DataTable Tables;
             public DataTable Columns;
@@ -104,9 +104,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             public DataTable ReferentialConstraints;
         }
 
-        private Schema GetCurrentSchema()
+        public static Schema GetCurrentSchema(SpannerFixtureBase fixture)
         {
-            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
+            using var connection = new SpannerRetriableConnection(fixture.GetConnection());
             var schema = new Schema
             {
                 Tables = connection.GetSchema("Tables"),
@@ -120,10 +120,10 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             return schema;
         }
 
-        private void VerifySchemaEquality(Schema initialSchema)
+        internal static void VerifySchemaEquality(Schema initialSchema, SpannerFixtureBase fixture)
         {
-            using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
-            var schema = GetCurrentSchema();
+            using var connection = new SpannerRetriableConnection(fixture.GetConnection());
+            var schema = GetCurrentSchema(fixture);
             
             Assert.Equal(initialSchema.Tables.Rows.Count, schema.Tables.Rows.Count);
             for (var row = 0; row < initialSchema.Tables.Rows.Count; row++)
