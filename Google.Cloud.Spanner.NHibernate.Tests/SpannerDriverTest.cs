@@ -1089,7 +1089,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .Query<Singer>()
-                .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                .SetHints(Hints.StatementHint("@{OPTIMIZER_VERSION=1}"))
                 .Where(s => s.LastName.Equals("Peterson"))
                 .ToListAsync();
             
@@ -1101,12 +1101,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseTableHint()
         {
             var sql =
-                "select singer0_.SingerId as singerid1_0_, singer0_.FirstName as firstname2_0_, singer0_.LastName as lastname3_0_, singer0_.FullName as fullname4_0_, singer0_.BirthDate as birthdate5_0_, singer0_.Picture as picture6_0_ from Singer@{FORCE_INDEX=Idx_Singers_FullName}  singer0_ where singer0_.LastName=@p0";
+                "select singer0_.SingerId as singerid1_0_, singer0_.FirstName as firstname2_0_, singer0_.LastName as lastname3_0_, singer0_.FullName as fullname4_0_, singer0_.BirthDate as birthdate5_0_, singer0_.Picture as picture6_0_ " +
+                "from Singer @{FORCE_INDEX=Idx_Singers_FullName} singer0_ " +
+                "where singer0_.LastName=@p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .Query<Singer>()
-                .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                .SetHints(Hints.TableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"))
                 .Where(s => s.LastName.Equals("Peterson"))
                 .ToListAsync();
             
@@ -1118,17 +1120,66 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseTableHintOnJoin()
         {
             var sql =
-                "select singer1_.SingerId as singerid1_0_, singer1_.FirstName as firstname2_0_, singer1_.LastName as lastname3_0_, singer1_.FullName as fullname4_0_, singer1_.BirthDate as birthdate5_0_, singer1_.Picture as picture6_0_ from Album@{FORCE_INDEX=Idx_Albums_Title} album0_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId where singer1_.LastName=@p0";
+                "select singer1_.SingerId as singerid1_0_, singer1_.FirstName as firstname2_0_, singer1_.LastName as lastname3_0_, singer1_.FullName as fullname4_0_, singer1_.BirthDate as birthdate5_0_, singer1_.Picture as picture6_0_ " +
+                "from Album @{FORCE_INDEX=Idx_Albums_Title} album0_ " +
+                "left outer join Singer @{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .Query<Album>()
                 .Select(a => a.Singer)
-                .SetTableHints(new Dictionary<string, string>
-                {
-                    {"Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"},
-                    {"Album", "@{FORCE_INDEX=Idx_Albums_Title}"}
-                })
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    .Build()
+                )
+                .Where(s => s.LastName.Equals("Peterson"))
+                .ToListAsync();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseJoinHint()
+        {
+            var sql =
+                "select singer1_.SingerId as singerid1_0_, singer1_.FirstName as firstname2_0_, singer1_.LastName as lastname3_0_, singer1_.FullName as fullname4_0_, singer1_.BirthDate as birthdate5_0_, singer1_.Picture as picture6_0_ from Album album0_ left outer join @{JOIN_METHOD=HASH_JOIN} Singer singer1_ on album0_.SingerId=singer1_.SingerId where singer1_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                .SetHints(Hints.JoinHint("Singer", "@{JOIN_METHOD=HASH_JOIN}"))
+                .Where(s => s.LastName.Equals("Peterson"))
+                .ToListAsync();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseJoinHints()
+        {
+            var sql =
+                "select singer2_.SingerId as singerid1_0_, singer2_.FirstName as firstname2_0_, singer2_.LastName as lastname3_0_, singer2_.FullName as fullname4_0_, singer2_.BirthDate as birthdate5_0_, singer2_.Picture as picture6_0_ " +
+                "from Track track0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Album album1_ on track0_.AlbumId=album1_.AlbumId " +
+                "left outer join @{JOIN_METHOD=HASH_JOIN} Singer singer2_ on album1_.SingerId=singer2_.SingerId " +
+                "where singer2_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .Query<Track>()
+                .Select(t => t.Album)
+                .Select(a => a.Singer)
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=HASH_JOIN}")
+                    .SetJoinHint("Album", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .Build())
                 .Where(s => s.LastName.Equals("Peterson"))
                 .ToListAsync();
             
@@ -1140,17 +1191,99 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseStatementAndTableHints()
         {
             var sql =
-                "@{OPTIMIZER_VERSION=1}select singer1_.SingerId as singerid1_0_, singer1_.FirstName as firstname2_0_, singer1_.LastName as lastname3_0_, singer1_.FullName as fullname4_0_, singer1_.BirthDate as birthdate5_0_, singer1_.Picture as picture6_0_ from Album@{FORCE_INDEX=Idx_Albums_Title} album0_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId where singer1_.LastName=@p0";
+                "@{OPTIMIZER_VERSION=1} select singer1_.SingerId as singerid1_0_, singer1_.FirstName as firstname2_0_, singer1_.LastName as lastname3_0_, singer1_.FullName as fullname4_0_, singer1_.BirthDate as birthdate5_0_, singer1_.Picture as picture6_0_ " +
+                "from Album @{FORCE_INDEX=Idx_Albums_Title} album0_ " +
+                "left outer join Singer @{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .Query<Album>()
                 .Select(a => a.Singer)
-                .SetStatementAndTableHints("@{OPTIMIZER_VERSION=1}", new Dictionary<string, string>
-                {
-                    {"Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"},
-                    {"Album", "@{FORCE_INDEX=Idx_Albums_Title}"}
-                })
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    .Build())
+                .Where(s => s.LastName.Equals("Peterson"))
+                .ToListAsync();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndJoinHints()
+        {
+            var sql =
+                "@{OPTIMIZER_VERSION=1} select singer1_.SingerId as singerid1_0_, singer1_.FirstName as firstname2_0_, singer1_.LastName as lastname3_0_, singer1_.FullName as fullname4_0_, singer1_.BirthDate as birthdate5_0_, singer1_.Picture as picture6_0_ " +
+                "from Album album0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .Build())
+                .Where(s => s.LastName.Equals("Peterson"))
+                .ToListAsync();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseTableAndJoinHints()
+        {
+            var sql =
+                "select singer1_.SingerId as singerid1_0_, singer1_.FirstName as firstname2_0_, singer1_.LastName as lastname3_0_, singer1_.FullName as fullname4_0_, singer1_.BirthDate as birthdate5_0_, singer1_.Picture as picture6_0_ " +
+                "from Album @{FORCE_INDEX=Idx_Albums_Title} album0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer @{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .Build())
+                .Where(s => s.LastName.Equals("Peterson"))
+                .ToListAsync();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndTableAndJoinHints()
+        {
+            var sql =
+                "@{OPTIMIZER_VERSION=1} select singer1_.SingerId as singerid1_0_, singer1_.FirstName as firstname2_0_, singer1_.LastName as lastname3_0_, singer1_.FullName as fullname4_0_, singer1_.BirthDate as birthdate5_0_, singer1_.Picture as picture6_0_ " +
+                "from Album @{FORCE_INDEX=Idx_Albums_Title} album0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer @{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .Query<Album>()
+                .Select(a => a.Singer)
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .Build())
                 .Where(s => s.LastName.Equals("Peterson"))
                 .ToListAsync();
             
@@ -1167,7 +1300,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .CreateQuery("from Singer where LastName = :lastName")
-                .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                .SetHints(Hints.StatementHint("@{OPTIMIZER_VERSION=1}"))
                 .SetParameter("lastName", "Peterson")
                 .ListAsync<Singer>();
             
@@ -1179,12 +1312,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseTableHintWithHql()
         {
             var sql =
-                "select singer0_.SingerId as singerid1_0_, singer0_.FirstName as firstname2_0_, singer0_.LastName as lastname3_0_, singer0_.FullName as fullname4_0_, singer0_.BirthDate as birthdate5_0_, singer0_.Picture as picture6_0_ from Singer@{FORCE_INDEX=Idx_Singers_FullName}  singer0_ where singer0_.LastName=@p0";
+                "select singer0_.SingerId as singerid1_0_, singer0_.FirstName as firstname2_0_, singer0_.LastName as lastname3_0_, singer0_.FullName as fullname4_0_, singer0_.BirthDate as birthdate5_0_, singer0_.Picture as picture6_0_ " +
+                "from Singer @{FORCE_INDEX=Idx_Singers_FullName} singer0_ " +
+                "where singer0_.LastName=@p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .CreateQuery("from Singer where LastName = :lastName")
-                .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                .SetHints(Hints.TableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"))
                 .SetParameter("lastName", "Peterson")
                 .ListAsync<Singer>();
             
@@ -1196,16 +1331,64 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseTableHintOnJoinWithHql()
         {
             var sql =
-                "select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ from Album@{FORCE_INDEX=Idx_Albums_Title} album0_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId where singer1_.LastName=@p0";
+                "select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ " +
+                "from Album @{FORCE_INDEX=Idx_Albums_Title} album0_ " +
+                "left outer join Singer @{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .CreateQuery("from Album as album left outer join album.Singer as singer where singer.LastName = :lastName")
-                .SetTableHints(new Dictionary<string, string>
-                {
-                    {"Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"},
-                    {"Album", "@{FORCE_INDEX=Idx_Albums_Title}"}
-                })
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    .Build())
+                .SetParameter("lastName", "Peterson")
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseJoinHintWithHql()
+        {
+            var sql =
+                "select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ " +
+                "from Album album0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateQuery("from Album as album left outer join album.Singer as singer where singer.LastName = :lastName")
+                .SetHints(Hints.JoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}"))
+                .SetParameter("lastName", "Peterson")
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseJoinHintsWithHql()
+        {
+            var sql =
+                "select track0_.TrackId as trackid1_3_0_, album1_.AlbumId as albumid1_1_1_, singer2_.SingerId as singerid1_0_2_, track0_.Title as title2_3_0_, track0_.AlbumId as albumid3_3_0_, album1_.SingerId as singerid2_1_1_, album1_.Title as title3_1_1_, album1_.ReleaseDate as releasedate4_1_1_, singer2_.FirstName as firstname2_0_2_, singer2_.LastName as lastname3_0_2_, singer2_.FullName as fullname4_0_2_, singer2_.BirthDate as birthdate5_0_2_, singer2_.Picture as picture6_0_2_ " +
+                "from Track track0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Album album1_ on track0_.AlbumId=album1_.AlbumId " +
+                "left outer join @{JOIN_METHOD=HASH_JOIN} Singer singer2_ on album1_.SingerId=singer2_.SingerId " +
+                "where singer2_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateQuery("from Track track left outer join track.Album as album left outer join album.Singer as singer where singer.LastName = :lastName")
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=HASH_JOIN}")
+                    .SetJoinHint("Album", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .Build())
                 .SetParameter("lastName", "Peterson")
                 .ListAsync<Album>();
             
@@ -1217,16 +1400,99 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseStatementAndTableHintsWithHql()
         {
             var sql =
-                "@{OPTIMIZER_VERSION=1}select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ from Album@{FORCE_INDEX=Idx_Albums_Title} album0_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId where singer1_.LastName=@p0";
+                "@{OPTIMIZER_VERSION=1} select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ " +
+                "from Album @{FORCE_INDEX=Idx_Albums_Title} album0_ " +
+                "left outer join Singer @{FORCE_INDEX=Idx_Singers_FullName} singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .CreateQuery("from Album as album left outer join album.Singer as singer where singer.LastName = :lastName")
-                .SetStatementAndTableHints("@{OPTIMIZER_VERSION=1}", new Dictionary<string, string>
-                {
-                    {"Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"},
-                    {"Album", "@{FORCE_INDEX=Idx_Albums_Title}"}
-                })
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    .Build())
+                .SetParameter("lastName", "Peterson")
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndJoinHintsWithHql()
+        {
+            var sql =
+                "@{OPTIMIZER_VERSION=1} select album0_.AlbumId as albumid1_1_0_, singer1_.SingerId as singerid1_0_1_, album0_.SingerId as singerid2_1_0_, album0_.Title as title3_1_0_, album0_.ReleaseDate as releasedate4_1_0_, singer1_.FirstName as firstname2_0_1_, singer1_.LastName as lastname3_0_1_, singer1_.FullName as fullname4_0_1_, singer1_.BirthDate as birthdate5_0_1_, singer1_.Picture as picture6_0_1_ " +
+                "from Album album0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer singer1_ on album0_.SingerId=singer1_.SingerId " +
+                "where singer1_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateQuery("from Album as album left outer join album.Singer as singer where singer.LastName = :lastName")
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .Build())
+                .SetParameter("lastName", "Peterson")
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseTableAndJoinHintsWithHql()
+        {
+            var sql =
+                "select track0_.TrackId as trackid1_3_0_, album1_.AlbumId as albumid1_1_1_, singer2_.SingerId as singerid1_0_2_, track0_.Title as title2_3_0_, track0_.AlbumId as albumid3_3_0_, album1_.SingerId as singerid2_1_1_, album1_.Title as title3_1_1_, album1_.ReleaseDate as releasedate4_1_1_, singer2_.FirstName as firstname2_0_2_, singer2_.LastName as lastname3_0_2_, singer2_.FullName as fullname4_0_2_, singer2_.BirthDate as birthdate5_0_2_, singer2_.Picture as picture6_0_2_ " +
+                "from Track @{FORCE_INDEX=Idx_Track_Title} track0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Album album1_ on track0_.AlbumId=album1_.AlbumId " +
+                "left outer join @{JOIN_METHOD=HASH_JOIN} Singer @{FORCE_INDEX=Idx_Singer_FullName} singer2_ on album1_.SingerId=singer2_.SingerId " +
+                "where singer2_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateQuery("from Track track left outer join track.Album as album left outer join album.Singer as singer where singer.LastName = :lastName")
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singer_FullName}")
+                    .SetTableHint("Track", "@{FORCE_INDEX=Idx_Track_Title}")
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=HASH_JOIN}")
+                    .SetJoinHint("Album", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .Build())
+                .SetParameter("lastName", "Peterson")
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndTableAndJoinHintsWithHql()
+        {
+            var sql =
+                "@{OPTIMIZER_VERSION=1} select track0_.TrackId as trackid1_3_0_, album1_.AlbumId as albumid1_1_1_, singer2_.SingerId as singerid1_0_2_, track0_.Title as title2_3_0_, track0_.AlbumId as albumid3_3_0_, album1_.SingerId as singerid2_1_1_, album1_.Title as title3_1_1_, album1_.ReleaseDate as releasedate4_1_1_, singer2_.FirstName as firstname2_0_2_, singer2_.LastName as lastname3_0_2_, singer2_.FullName as fullname4_0_2_, singer2_.BirthDate as birthdate5_0_2_, singer2_.Picture as picture6_0_2_ " +
+                "from Track @{FORCE_INDEX=Idx_Track_Title} track0_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Album album1_ on track0_.AlbumId=album1_.AlbumId " +
+                "left outer join @{JOIN_METHOD=HASH_JOIN} Singer @{FORCE_INDEX=Idx_Singer_FullName} singer2_ on album1_.SingerId=singer2_.SingerId " +
+                "where singer2_.LastName=@p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateQuery("from Track track left outer join track.Album as album left outer join album.Singer as singer where singer.LastName = :lastName")
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singer_FullName}")
+                    .SetTableHint("Track", "@{FORCE_INDEX=Idx_Track_Title}")
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=HASH_JOIN}")
+                    .SetJoinHint("Album", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .Build())
                 .SetParameter("lastName", "Peterson")
                 .ListAsync<Album>();
             
@@ -1244,7 +1510,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             await session
                 .CreateCriteria(typeof(Singer))
                 .Add(Restrictions.Eq("LastName", "Peterson"))
-                .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                .SetHints(Hints.StatementHint("@{OPTIMIZER_VERSION=1}"))
                 .ListAsync<Singer>();
             
             var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
@@ -1255,14 +1521,15 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseTableHintWithCriteria()
         {
             var sql =
-                "/* criteria query */ SELECT this_.SingerId as singerid1_0_0_, this_.FirstName as firstname2_0_0_, this_.LastName as lastname3_0_0_, this_.FullName as fullname4_0_0_, this_.BirthDate as birthdate5_0_0_, this_.Picture as picture6_0_0_ "
-                    + "FROM Singer@{FORCE_INDEX=Idx_Singers_FullName}  this_ WHERE this_.LastName = @p0";
+                "/* criteria query */ SELECT this_.SingerId as singerid1_0_0_, this_.FirstName as firstname2_0_0_, this_.LastName as lastname3_0_0_, this_.FullName as fullname4_0_0_, this_.BirthDate as birthdate5_0_0_, this_.Picture as picture6_0_0_ " +
+                "FROM Singer @{FORCE_INDEX=Idx_Singers_FullName} this_ " +
+                "WHERE this_.LastName = @p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .CreateCriteria(typeof(Singer))
                 .Add(Restrictions.Eq("LastName", "Peterson"))
-                .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                .SetHints(Hints.TableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"))
                 .ListAsync<Singer>();
             
             var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
@@ -1273,18 +1540,69 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseTableHintOnJoinWithCriteria()
         {
             var sql =
-                "/* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.SingerId as singerid2_1_1_, this_.Title as title3_1_1_, this_.ReleaseDate as releasedate4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ FROM Album@{FORCE_INDEX=Idx_Albums_Title} this_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on this_.SingerId=singer1_.SingerId WHERE singer1_.LastName = @p0";
+                "/* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.SingerId as singerid2_1_1_, this_.Title as title3_1_1_, this_.ReleaseDate as releasedate4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ " +
+                "FROM Album @{FORCE_INDEX=Idx_Albums_Title} this_ " +
+                "left outer join Singer @{FORCE_INDEX=Idx_Singers_FullName} singer1_ on this_.SingerId=singer1_.SingerId " +
+                "WHERE singer1_.LastName = @p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .CreateCriteria(typeof(Album))
                 .CreateAlias("Singer", "singer", JoinType.LeftOuterJoin)
                 .Add(Restrictions.Eq("singer.LastName", "Peterson"))
-                .SetTableHints(new Dictionary<string, string>
-                {
-                    {"Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"},
-                    {"Album", "@{FORCE_INDEX=Idx_Albums_Title}"}
-                })
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    .Build())
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseJoinHintWithCriteria()
+        {
+            var sql =
+                "/* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.SingerId as singerid2_1_1_, this_.Title as title3_1_1_, this_.ReleaseDate as releasedate4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ " +
+                "FROM Album this_ " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer singer1_ on this_.SingerId=singer1_.SingerId " +
+                "WHERE singer1_.LastName = @p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateCriteria(typeof(Album))
+                .CreateAlias("Singer", "singer", JoinType.LeftOuterJoin)
+                .Add(Restrictions.Eq("singer.LastName", "Peterson"))
+                .SetHints(Hints.JoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}"))
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseJoinHintsWithCriteria()
+        {
+            var sql =
+                "/* criteria query */ SELECT this_.TrackId as trackid1_3_2_, this_.Title as title2_3_2_, this_.AlbumId as albumid3_3_2_, album1_.AlbumId as albumid1_1_0_, album1_.SingerId as singerid2_1_0_, album1_.Title as title3_1_0_, album1_.ReleaseDate as releasedate4_1_0_, singer2_.SingerId as singerid1_0_1_, singer2_.FirstName as firstname2_0_1_, singer2_.LastName as lastname3_0_1_, singer2_.FullName as fullname4_0_1_, singer2_.BirthDate as birthdate5_0_1_, singer2_.Picture as picture6_0_1_ " +
+                "FROM Track this_ " +
+                "left outer join @{JOIN_METHOD=HASH_JOIN} Album album1_ on this_.AlbumId=album1_.AlbumId " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer singer2_ on album1_.SingerId=singer2_.SingerId " +
+                "WHERE singer2_.LastName = @p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateCriteria(typeof(Track))
+                .CreateAlias("Album", "album", JoinType.LeftOuterJoin)
+                .CreateAlias("album.Singer", "singer", JoinType.LeftOuterJoin)
+                .Add(Restrictions.Eq("singer.LastName", "Peterson"))
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .SetJoinHint("Album", "@{JOIN_METHOD=HASH_JOIN}")
+                    .Build())
                 .ListAsync<Album>();
             
             var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
@@ -1295,18 +1613,81 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         public async Task CanUseStatementAndTableHintsWithCriteria()
         {
             var sql =
-                "@{OPTIMIZER_VERSION=1}/* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.SingerId as singerid2_1_1_, this_.Title as title3_1_1_, this_.ReleaseDate as releasedate4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ FROM Album@{FORCE_INDEX=Idx_Albums_Title} this_ left outer join Singer@{FORCE_INDEX=Idx_Singers_FullName} singer1_ on this_.SingerId=singer1_.SingerId WHERE singer1_.LastName = @p0";
+                "@{OPTIMIZER_VERSION=1} /* criteria query */ SELECT this_.AlbumId as albumid1_1_1_, this_.SingerId as singerid2_1_1_, this_.Title as title3_1_1_, this_.ReleaseDate as releasedate4_1_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ " +
+                "FROM Album @{FORCE_INDEX=Idx_Albums_Title} this_ " +
+                "left outer join Singer @{FORCE_INDEX=Idx_Singers_FullName} singer1_ on this_.SingerId=singer1_.SingerId " +
+                "WHERE singer1_.LastName = @p0";
             AddEmptySingerResult(sql);
             using var session = _fixture.SessionFactoryWithComments.OpenSession();
             await session
                 .CreateCriteria(typeof(Album))
                 .CreateAlias("Singer", "singer", JoinType.LeftOuterJoin)
                 .Add(Restrictions.Eq("singer.LastName", "Peterson"))
-                .SetStatementAndTableHints("@{OPTIMIZER_VERSION=1}", new Dictionary<string, string>
-                {
-                    {"Singer", "@{FORCE_INDEX=Idx_Singers_FullName}"},
-                    {"Album", "@{FORCE_INDEX=Idx_Albums_Title}"}
-                })
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                    .SetTableHint("Singer", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Albums_Title}")
+                    .Build())
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseTableAndJoinHintsWithCriteria()
+        {
+            var sql =
+                "/* criteria query */ SELECT this_.TrackId as trackid1_3_2_, this_.Title as title2_3_2_, this_.AlbumId as albumid3_3_2_, album1_.AlbumId as albumid1_1_0_, album1_.SingerId as singerid2_1_0_, album1_.Title as title3_1_0_, album1_.ReleaseDate as releasedate4_1_0_, singer2_.SingerId as singerid1_0_1_, singer2_.FirstName as firstname2_0_1_, singer2_.LastName as lastname3_0_1_, singer2_.FullName as fullname4_0_1_, singer2_.BirthDate as birthdate5_0_1_, singer2_.Picture as picture6_0_1_ " +
+                "FROM Track @{FORCE_INDEX=Idx_Track_Title} this_ " +
+                "left outer join @{JOIN_METHOD=HASH_JOIN} Album @{FORCE_INDEX=Idx_Album_Title} album1_ on this_.AlbumId=album1_.AlbumId " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer singer2_ on album1_.SingerId=singer2_.SingerId " +
+                "WHERE singer2_.LastName = @p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateCriteria(typeof(Track))
+                .CreateAlias("Album", "album", JoinType.LeftOuterJoin)
+                .CreateAlias("album.Singer", "singer", JoinType.LeftOuterJoin)
+                .Add(Restrictions.Eq("singer.LastName", "Peterson"))
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetTableHint("Track", "@{FORCE_INDEX=Idx_Track_Title}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Album_Title}")
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .SetJoinHint("Album", "@{JOIN_METHOD=HASH_JOIN}")
+                    .Build())
+                .ListAsync<Album>();
+            
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests, request => Assert.Equal(sql, request.Sql));
+        }
+
+        [Fact]
+        public async Task CanUseStatementAndTableAndJoinHintsWithCriteria()
+        {
+            var sql =
+                "@{OPTIMIZER_VERSION=1} /* criteria query */ SELECT this_.TrackId as trackid1_3_2_, this_.Title as title2_3_2_, this_.AlbumId as albumid3_3_2_, album1_.AlbumId as albumid1_1_0_, album1_.SingerId as singerid2_1_0_, album1_.Title as title3_1_0_, album1_.ReleaseDate as releasedate4_1_0_, singer2_.SingerId as singerid1_0_1_, singer2_.FirstName as firstname2_0_1_, singer2_.LastName as lastname3_0_1_, singer2_.FullName as fullname4_0_1_, singer2_.BirthDate as birthdate5_0_1_, singer2_.Picture as picture6_0_1_ " +
+                "FROM Track @{FORCE_INDEX=Idx_Track_Title} this_ " +
+                "left outer join @{JOIN_METHOD=HASH_JOIN} Album @{FORCE_INDEX=Idx_Album_Title} album1_ on this_.AlbumId=album1_.AlbumId " +
+                "left outer join @{JOIN_METHOD=APPLY_JOIN} Singer singer2_ on album1_.SingerId=singer2_.SingerId " +
+                "WHERE singer2_.LastName = @p0";
+            AddEmptySingerResult(sql);
+            using var session = _fixture.SessionFactoryWithComments.OpenSession();
+            await session
+                .CreateCriteria(typeof(Track))
+                .CreateAlias("Album", "album", JoinType.LeftOuterJoin)
+                .CreateAlias("album.Singer", "singer", JoinType.LeftOuterJoin)
+                .Add(Restrictions.Eq("singer.LastName", "Peterson"))
+                .SetHints(Hints
+                    .NewBuilder()
+                    .SetStatementHint("@{OPTIMIZER_VERSION=1}")
+                    .SetTableHint("Track", "@{FORCE_INDEX=Idx_Track_Title}")
+                    .SetTableHint("Album", "@{FORCE_INDEX=Idx_Album_Title}")
+                    .SetJoinHint("Singer", "@{JOIN_METHOD=APPLY_JOIN}")
+                    .SetJoinHint("Album", "@{JOIN_METHOD=HASH_JOIN}")
+                    .Build())
                 .ListAsync<Album>();
             
             var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();

@@ -13,11 +13,8 @@
 // limitations under the License.
 
 using Google.Api.Gax;
-using NHibernate;
 using NHibernate.Linq;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
@@ -29,84 +26,16 @@ namespace Google.Cloud.Spanner.NHibernate
     public static class IQueryableExtensions
     {
         /// <summary>
-        /// Sets the statement hint to prepend to the given query.
-        /// See https://cloud.google.com/spanner/docs/reference/standard-sql/query-syntax#statement_hints for more
-        /// information on statement hints.
-        /// 
-        /// Calling this method will override any other hint(s) that may already have been set on the query.
+        /// Sets the hints to use for this query.
         /// </summary>
-        /// <param name="query">The query to set the statement hint on</param>
-        /// <param name="hint">The statement hint to use for the query, e.g. @{OPTIMIZER_VERSION=1}</param>
+        /// <param name="query">The query to set the hints on</param>
+        /// <param name="hints">The hints to set</param>
         /// <typeparam name="T"></typeparam>
-        /// <returns></returns>
-        public static IQueryable<T> SetStatementHint<T>(this IQueryable<T> query, string hint)
+        /// <returns>The query with the hints</returns>
+        public static IQueryable<T> SetHints<T>(this IQueryable<T> query, Hints hints)
         {
-            GaxPreconditions.CheckNotNull(query, nameof(query));
-            GaxPreconditions.CheckNotNullOrEmpty(hint, nameof(hint));
-            return query.WithOptions(o =>
-                o.SetComment(CreateStatementHintString(hint)));
-        }
-
-        private static string CreateStatementHintString(string hint) =>
-            $"{SpannerQueryHintInterceptor.SpannerQueryHintsPrefix}{SpannerQueryHintInterceptor.SpannerStatementHintPrefix}{hint}";
-        
-        /// <summary>
-        /// Sets the table hint to use for the given query.
-        /// See https://cloud.google.com/spanner/docs/reference/standard-sql/query-syntax#table_hints for more
-        /// information on table hints.
-        /// 
-        /// Calling this method will override any other hint(s) that may already have been set on the query.
-        /// </summary>
-        /// <param name="query">The query to set the table hint on</param>
-        /// <param name="table">The unquoted table name to apply the hint to</param>
-        /// <param name="hint">The hint to add to the table, e.g. @{FORCE_INDEX=index_name}</param>
-        /// <typeparam name="T"></typeparam>
-        /// <returns>The query including the table hint</returns>
-        public static IQueryable<T> SetTableHint<T>(this IQueryable<T> query, string table, string hint)
-        {
-            GaxPreconditions.CheckNotNull(query, nameof(query));
-            return query.WithOptions(o =>
-                o.SetComment($"{SpannerQueryHintInterceptor.SpannerQueryHintsPrefix}{SpannerQueryHintInterceptor.SpannerTableHintPrefix}`{table}`{hint}"));
-        }
-        
-        /// <summary>
-        /// Sets the table hints to use for the given query.
-        /// Calling this method will override any other hint(s) that may already have been set on the query.
-        /// </summary>
-        /// <param name="query">The query to set the table hints on</param>
-        /// <param name="hints">
-        /// A dictionary containing the hints to use. The key of each entry should be the unquoted name of the table.
-        /// The value should be the hint to add to the table, e.g. @{FORCE_INDEX=index_name}
-        /// </param>
-        /// <typeparam name="T"></typeparam>
-        /// <returns>The query including the table hints</returns>
-        public static IQueryable<T> SetTableHints<T>(this IQueryable<T> query, Dictionary<string, string> hints)
-        {
-            GaxPreconditions.CheckNotNull(query, nameof(query));
             GaxPreconditions.CheckNotNull(hints, nameof(hints));
-            var builder = new StringBuilder($"{SpannerQueryHintInterceptor.SpannerQueryHintsPrefix}");
-            return query.WithOptions(o => o.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, hints)));
-        }
-
-        /// <summary>
-        /// Sets the statement and table hints to use for the given query.
-        /// Calling this method will override any other hint(s) that may already have been set on the query.
-        /// </summary>
-        /// <param name="query">The query to set the statement and table hints on</param>
-        /// <param name="statementHint">The statement hint to use for the query, e.g. @{OPTIMIZER_VERSION=1}</param>
-        /// <param name="tableHints">
-        /// A dictionary containing the hints to use. The key of each entry should be the unquoted name of the table.
-        /// The value should be the hint to add to the table, e.g. @{FORCE_INDEX=index_name}
-        /// </param>
-        /// <typeparam name="T"></typeparam>
-        /// <returns>The query including the statement and table hints</returns>
-        public static IQueryable<T> SetStatementAndTableHints<T>(this IQueryable<T> query, string statementHint, Dictionary<string, string> tableHints)
-        {
-            GaxPreconditions.CheckNotNull(query, nameof(query));
-            GaxPreconditions.CheckNotNullOrEmpty(statementHint, nameof(statementHint));
-            GaxPreconditions.CheckNotNull(tableHints, nameof(tableHints));
-            var builder = new StringBuilder(CreateStatementHintString(statementHint)).Append('\n');
-            return query.WithOptions(o => o.SetComment(SpannerQueryHintInterceptor.AppendTableHintsString(builder, tableHints)));
+            return query.WithOptions(o => o.SetComment(hints.CommentString));
         }
     }
 }
