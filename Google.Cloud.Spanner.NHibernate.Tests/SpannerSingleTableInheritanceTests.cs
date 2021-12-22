@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using TypeCode = Google.Cloud.Spanner.V1.TypeCode;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests
 {
@@ -216,6 +217,10 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         {
             var getSql = GetStudentSqlWithComments();
             AddGetStudentResult(getSql);
+            var checkVersionSql = "SELECT 1 AS C FROM Persons WHERE Id = @p0 AND Version = @p1";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(checkVersionSql, StatementResult.CreateResultSet(
+                new []{new Tuple<TypeCode, string>(TypeCode.Int64, "C")},
+                new []{ new object[] {1L}}));
             
             using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.Always);
             using var transaction = session.BeginTransaction();
@@ -224,12 +229,21 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             await transaction.CommitAsync();
 
             var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
-            // TODO: This collection should also include a SELECT statement to check (and lock) the version of the row.
-            Assert.Collection(requests, request =>
-            {
-                Assert.Equal(getSql, request.Sql);
-                Assert.Collection(request.Params.Fields, param => Assert.Equal("1", param.Value.StringValue));
-            });
+            Assert.Collection(requests,
+                request =>
+                {
+                    Assert.Equal(getSql, request.Sql);
+                    Assert.Collection(request.Params.Fields, param => Assert.Equal("1", param.Value.StringValue));
+                },
+                request =>
+                {
+                    Assert.Equal(checkVersionSql, request.Sql);
+                    Assert.Collection(request.Params.Fields,
+                        param => Assert.Equal("1", param.Value.StringValue), // Id
+                        param => Assert.Equal("10", param.Value.StringValue) // Version
+                    );
+                }
+            );
             var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
             Assert.Collection(commits, commit =>
             {
@@ -258,6 +272,10 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         {
             var getSql = GetStudentSqlWithComments();
             AddGetStudentResult(getSql);
+            var checkVersionSql = "SELECT 1 AS C FROM Persons WHERE Id = @p0 AND Version = @p1";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(checkVersionSql, StatementResult.CreateResultSet(
+                new []{new Tuple<TypeCode, string>(TypeCode.Int64, "C")},
+                new []{ new object[] {1L}}));
             
             using var session = _fixture.SessionFactoryUsingMutations.OpenSession().SetBatchMutationUsage(MutationUsage.Always);
             using var transaction = session.BeginTransaction();
@@ -266,12 +284,21 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             await transaction.CommitAsync();
 
             var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
-            // TODO: This collection should also include a SELECT statement to check (and lock) the version of the row.
-            Assert.Collection(requests, request =>
-            {
-                Assert.Equal(getSql, request.Sql);
-                Assert.Collection(request.Params.Fields, param => Assert.Equal("1", param.Value.StringValue));
-            });
+            Assert.Collection(requests,
+                request =>
+                {
+                    Assert.Equal(getSql, request.Sql);
+                    Assert.Collection(request.Params.Fields, param => Assert.Equal("1", param.Value.StringValue));
+                },
+                request =>
+                {
+                    Assert.Equal(checkVersionSql, request.Sql);
+                    Assert.Collection(request.Params.Fields,
+                        param => Assert.Equal("1", param.Value.StringValue), // Id
+                        param => Assert.Equal("10", param.Value.StringValue) // Version
+                    );
+                }
+            );
             var commits = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
             Assert.Collection(commits, commit =>
             {
