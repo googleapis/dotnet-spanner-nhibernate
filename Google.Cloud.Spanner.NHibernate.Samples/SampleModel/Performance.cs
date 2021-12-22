@@ -29,12 +29,31 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public PerformanceMapping()
         {
             Table("Performances");
-            ManyToOne(x => x.Concert, m => m.Column("ConcertId"));
+            ManyToOne(x => x.Concert, m =>
+            {
+                m.Column(c =>
+                {
+                    c.Name("ConcertId");
+                    c.NotNullable(true);
+                    c.Length(36);
+                });
+                m.ForeignKey("FK_Performances_Concerts");
+            });
             ManyToOne(x => x.Track, m =>
             {
                 m.Columns(
-                    c => c.Name("AlbumId"),
-                    c => c.Name("TrackNumber"));
+                    c =>
+                    {
+                        c.Name("AlbumId");
+                        c.NotNullable(true);
+                        c.Length(36);
+                    },
+                    c =>
+                    {
+                        c.Name("TrackNumber");
+                        c.NotNullable(true);
+                    });
+                m.ForeignKey("FK_Performances_Tracks");
             });
             Property(x => x.StartTime);
             Property(x => x.Rating);

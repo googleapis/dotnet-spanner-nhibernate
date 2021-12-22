@@ -30,9 +30,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
         public virtual string ColStringMax { get; set; }
         public virtual byte[] ColBytes { get; set; }
         public virtual byte[] ColBytesMax { get; set; }
+        public virtual SpannerJson ColJson { get; set; }
         public virtual SpannerDate ColDate { get; set; }
         public virtual DateTime? ColTimestamp { get; set; }
-        public virtual SpannerJson ColJson { get; set; }
         public virtual DateTime? ColCommitTs { get; set; }
         public virtual SpannerInt64Array ColInt64Array { get; set; }
         public virtual SpannerFloat64Array ColFloat64Array { get; set; }
@@ -42,9 +42,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
         public virtual SpannerStringArray ColStringMaxArray { get; set; }
         public virtual SpannerBytesArray ColBytesArray { get; set; }
         public virtual SpannerBytesArray ColBytesMaxArray { get; set; }
+        public virtual SpannerJsonArray ColJsonArray { get; set; }
         public virtual SpannerDateArray ColDateArray { get; set; }
         public virtual SpannerTimestampArray ColTimestampArray { get; set; }
-        public virtual SpannerJsonArray ColJsonArray { get; set; }
         public virtual string ColComputed { get; set; }
         public virtual string ColASC { get; set; }
 
@@ -96,13 +96,13 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Property(x => x.ColStringMax);
             Property(x => x.ColBytes, m => m.Length(100));
             Property(x => x.ColBytesMax);
+            Property(x => x.ColJson);
             Property(x => x.ColDate, m => m.Index("IDX_TableWithAllColumnTypes_ColDate_ColCommitTs"));
             Property(x => x.ColTimestamp);
-            //Property(x => x.ColJson);
             Property(x => x.ColCommitTs, m =>
             {
                 // This ensures that `OPTIONS (allow_commit_timestamp=true)` is added to the column definition.
-                m.Column(c => c.SqlType(SpannerCommitTimestampSqlType.Instance));
+                m.Column(c => c.SqlType(SpannerCommitTimestampSqlType.NullableInstance));
                 // The following ensures that the SpannerSingleTableWithFixedValuesEntityPersister will set the column
                 // to the default value for both inserts and updates.
                 m.Insert(false); // This will prevent Hibernate from assigning a value to the column during inserts.
@@ -120,9 +120,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Property(x => x.ColStringMaxArray);
             Property(x => x.ColBytesArray, m => m.Length(100));
             Property(x => x.ColBytesMaxArray);
+            Property(x => x.ColJsonArray);
             Property(x => x.ColDateArray);
             Property(x => x.ColTimestampArray);
-            //Property(x => x.ColJsonArray);
             Property(x => x.ColComputed, mapper =>
             {
                 mapper.Generated(PropertyGeneration.Always);

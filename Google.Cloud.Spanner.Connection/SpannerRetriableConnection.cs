@@ -140,7 +140,20 @@ namespace Google.Cloud.Spanner.Connection
         /// <returns>A new read/write transaction with internal retries enabled.</returns>
         /// <exception cref="NotSupportedException"/>
         public new SpannerRetriableTransaction BeginTransaction(IsolationLevel isolationLevel)
-            => BeginTransactionAsync(isolationLevel).ResultWithUnwrappedExceptions();
+        {
+            if (isolationLevel != IsolationLevel.Unspecified
+                && isolationLevel != IsolationLevel.Serializable)
+            {
+                throw new NotSupportedException(
+                    $"Cloud Spanner only supports isolation levels {IsolationLevel.Serializable} and {IsolationLevel.Unspecified}.");
+            }
+            var spannerTransaction = SpannerConnection.BeginTransaction();
+            return new SpannerRetriableTransaction(
+                this,
+                spannerTransaction,
+                SystemClock.Instance,
+                SystemScheduler.Instance);
+        }
 
         /// <inheritdoc/>
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)

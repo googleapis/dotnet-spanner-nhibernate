@@ -103,7 +103,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
                 mapper.Update(false);
                 mapper.Column(c =>
                 {
-                    c.SqlType(SpannerCommitTimestampSqlType.Instance);
+                    c.SqlType(SpannerCommitTimestampSqlType.NullableInstance);
                     c.Default("PENDING_COMMIT_TIMESTAMP()");
                 });
             });

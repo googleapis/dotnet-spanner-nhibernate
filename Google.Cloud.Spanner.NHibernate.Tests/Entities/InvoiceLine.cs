@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
 {
@@ -50,6 +51,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
         public virtual long LineNumber => InvoiceLineIdentifier?.LineNumber ?? 0L;
 
         public virtual string Product { get; set; }
+        
+        public virtual IList<InvoiceLineNote> InvoiceLineNotes { get; set; }
     }
 
     public class InvoiceLineMapping : AbstractBaseEntityMapping<InvoiceLine>
@@ -59,10 +62,26 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             Table("InvoiceLines");
             ComponentAsId(x => x.InvoiceLineIdentifier, m =>
             {
-                m.ManyToOne(id => id.Invoice, mapping => mapping.Column("Id"));
-                m.Property(id => id.LineNumber);
+                m.ManyToOne(id => id.Invoice, mapping =>
+                {
+                    mapping.Column("Id");
+                    mapping.NotNullable(true);
+                    mapping.ForeignKey(InterleavedTableForeignKey.InterleaveInParent);
+                });
+                m.Property(id => id.LineNumber, mapping => mapping.NotNullable(true));
             });
-            Property(x => x.Product);
+            Property(x => x.Product, m => m.NotNullable(true));
+            Bag(x => x.InvoiceLineNotes, m =>
+            {
+                // Make sure to set Inverse(true) to prevent NHibernate from trying to break the association between
+                // an Invoice and an InvoiceLine by setting InvoiceLine.Id = NULL.
+                m.Inverse(true);
+                m.Key(k =>
+                {
+                    k.Columns(c => c.Name("Id"), c => c.Name("LineNumber"));
+                });
+                m.OrderBy(x => x.NoteNumber);
+            }, r => r.OneToMany());
         }
     }
 }

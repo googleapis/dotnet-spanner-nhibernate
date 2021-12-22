@@ -28,7 +28,6 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
         public virtual string FirstName { get; set; }
         public virtual string LastName { get; set; }
         public virtual IList<Album> Albums { get; set; }
-        public virtual IList<Track> Tracks { get; set; }
     }
 
     public class SingerMapping : ClassMapping<Singer>
@@ -37,18 +36,21 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
         {
             Persister<SpannerSingleTableEntityPersister>();
             Table("Singers");
-            Id(x => x.SingerId, m => m.Generator(new UUIDHexGeneratorDef()));
-            Property(x => x.FirstName);
-            Property(x => x.LastName);
+            Id(x => x.SingerId, m =>
+            {
+                m.Generator(new UUIDHexGeneratorDef());
+                m.Length(36);
+            });
+            Property(x => x.FirstName, m => m.Length(200));
+            Property(x => x.LastName, m =>
+            {
+                m.Length(200);
+                m.NotNullable(true);
+            });
             Bag(x => x.Albums, c =>
             {
                 // Make sure to set Inverse(true) to prevent NHibernate from trying to break the association between
                 // a Singer and an Album by setting Album.SingerId = NULL.
-                c.Inverse(true);
-                c.Key(k => k.Column("SingerId"));
-            }, r => r.OneToMany());
-            Bag(x => x.Tracks, c =>
-            {
                 c.Inverse(true);
                 c.Key(k => k.Column("SingerId"));
             }, r => r.OneToMany());
