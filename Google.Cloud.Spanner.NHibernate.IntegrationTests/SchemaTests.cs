@@ -19,7 +19,6 @@ using Xunit;
 
 namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
 {
-    [Collection(nameof(NonParallelTestCollection))]
     public class SchemaTests : IClassFixture<SpannerSampleFixture>
     {
         private readonly SpannerSampleFixture _fixture;
@@ -71,7 +70,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             
             // Drop a table and then execute a SchemaUpdate to recreate it.
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
-            var cmd = connection.CreateDdlCommand("DROP TABLE AlbumsWithVersion");
+            var cmd = connection.CreateDdlCommand("DROP TABLE Performances");
             await cmd.ExecuteNonQueryAsync();
             var updater = new SpannerSchemaUpdate(_fixture.Configuration);
             await updater.ExecuteAsync(false, true);
@@ -80,10 +79,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             VerifySchemaEquality(initialSchema, _fixture);
         }
 
-        [SkippableFact]
+        [Fact]
         public void CanAddMissingColumn()
         {
-            Skip.If(true, "Test is a duplicate of CanAddMissingTable. This should drop a column instead.");
             var initialSchema = GetCurrentSchema(_fixture);
             // Drop a table and then execute a SchemaUpdate to recreate it.
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
