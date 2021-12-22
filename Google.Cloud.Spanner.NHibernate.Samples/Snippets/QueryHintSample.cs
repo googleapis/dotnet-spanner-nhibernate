@@ -119,11 +119,11 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
                     .SetStatementHint("@{USE_ADDITIONAL_PARALLELISM=TRUE}")
                     // Table hints must be specified using the table name, and not the entity name or the alias
                     // in the query.
-                    .SetTableHint("Singers","@{FORCE_INDEX=Idx_Singers_FullName}")
-                    .SetTableHint("Albums","@{FORCE_INDEX=Idx_Albums_Title}")
+                    .SetTableHint("Singers", "@{FORCE_INDEX=Idx_Singers_FullName}")
+                    .SetTableHint("Albums", "@{FORCE_INDEX=Idx_Albums_Title}")
                     // Join hints must be specified using the right-hand table name of the join operation,
                     // and not the entity name or the alias in the query.
-                    .SetJoinHint("Albums","@{JOIN_METHOD=HASH_JOIN}")
+                    .SetJoinHint("Albums", "@{JOIN_METHOD=HASH_JOIN}")
                     .Build())
                 .ListAsync<Singer>();
             Console.WriteLine("Singers order by FullName using both a statement hint and table hints:");
