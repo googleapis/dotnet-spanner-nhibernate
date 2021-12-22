@@ -79,9 +79,10 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             VerifySchemaEquality(initialSchema, _fixture);
         }
 
-        [Fact]
+        [SkippableFact]
         public void CanAddMissingColumn()
         {
+            Skip.If(true, "Test is a duplicate of CanAddMissingTable. This should drop a column instead.");
             var initialSchema = GetCurrentSchema(_fixture);
             // Drop a table and then execute a SchemaUpdate to recreate it.
             using var connection = new SpannerRetriableConnection(_fixture.GetConnection());
