@@ -209,6 +209,8 @@ namespace Google.Cloud.Spanner.NHibernate
         {
             _totalExpectedRowsAffected = 0;
             _currentBatchStatementCount = 0;
+            _containsDmlStatements = false;
+            _containsMutations = false;
             _currentBatch = new LinkedList<SpannerRetriableCommand>();
         }
 

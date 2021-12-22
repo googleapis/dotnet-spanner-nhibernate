@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using NHibernate.Mapping;
 using NHibernate.Mapping.ByCode;
 using NHibernate.Mapping.ByCode.Conformist;
 using System.Collections.Generic;
@@ -58,7 +57,10 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
                 m.UniqueKey("Idx_Albums_Title");
             });
             Property(x => x.ReleaseDate);
-            Bag(x => x.Tracks, c => { }, r => r.OneToMany());
+            Bag(x => x.Tracks, c =>
+            {
+                c.Inverse(true);
+            }, r => r.OneToMany());
         }
     }
 }

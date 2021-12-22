@@ -124,8 +124,8 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
                 m.Column(c =>
                 {
                     // Cloud Spanner currently does not support default values for columns. This mapping is therefore
-                    // picked up by the SpannerEntityPersister, which will assign the value to the column when a new
-                    // record is inserted.
+                    // picked up by the SpannerEntityPersister, which will assign the value to the column when a
+                    // record is updated.
                     c.Default("PENDING_COMMIT_TIMESTAMP()");
                     // This ensures that `OPTIONS (allow_commit_timestamp=true)` is added to the column definition when
                     // the data model is generated from SpannerSchemaExport or SpannerSchemaUpdate.
