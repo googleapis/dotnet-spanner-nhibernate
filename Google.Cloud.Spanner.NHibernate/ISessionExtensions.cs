@@ -94,6 +94,8 @@ namespace Google.Cloud.Spanner.NHibernate
             var transaction = session.BeginTransaction();
             var dbTransaction = transaction.GetDbTransaction();
             dbTransaction.SetMutationUsage(mutationUsage);
+            var batcher = (SpannerBatcher) ((SessionImpl) session).Batcher;
+            batcher.MutationUsage = mutationUsage;
             return transaction;
         }
 
