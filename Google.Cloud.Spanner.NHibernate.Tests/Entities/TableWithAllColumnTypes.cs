@@ -79,6 +79,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests.Entities
             }
             return false;
         }
+
+        public override int GetHashCode() => ColInt64.GetHashCode();
     }
 
     public class TableWithAllColumnTypesMapping : ClassMapping<TableWithAllColumnTypes>
