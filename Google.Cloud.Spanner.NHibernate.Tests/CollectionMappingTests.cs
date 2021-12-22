@@ -413,7 +413,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         }
 
         private string GetBandSql() =>
-            "SELECT band0_.BandId as bandid1_9_0_, band0_.Name as name2_9_0_ FROM Band band0_ WHERE band0_.BandId=@p0";
+            "SELECT band0_.BandId as bandid1_10_0_, band0_.Name as name2_10_0_ FROM Band band0_ WHERE band0_.BandId=@p0";
 
         private string AddBandResult(string sql, Band band) =>
             AddBandResults(sql, new List<object[]>
@@ -426,14 +426,14 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
                 new List<Tuple<TypeCode, string>>
                 {
-                    Tuple.Create(TypeCode.Int64, "bandid1_9_0_"),
-                    Tuple.Create(TypeCode.String, "name2_9_0_"),
+                    Tuple.Create(TypeCode.Int64, "bandid1_10_0_"),
+                    Tuple.Create(TypeCode.String, "name2_10_0_"),
                 }, rows));
             return sql;
         }
 
         private static string GetBandMembersSql() =>
-            "SELECT members0_.band_key as band1_10_1_, members0_.elt as elt2_10_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ " +
+            "SELECT members0_.band_key as band1_11_1_, members0_.elt as elt2_11_1_, singer1_.SingerId as singerid1_0_0_, singer1_.FirstName as firstname2_0_0_, singer1_.LastName as lastname3_0_0_, singer1_.FullName as fullname4_0_0_, singer1_.BirthDate as birthdate5_0_0_, singer1_.Picture as picture6_0_0_ " +
             "FROM Members members0_ " +
             "left outer join Singer singer1_ on members0_.elt=singer1_.SingerId " +
             "WHERE members0_.band_key=@p0";
@@ -447,8 +447,8 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
                 new List<Tuple<TypeCode, string>>
                 {
-                    Tuple.Create(TypeCode.Int64, "band1_10_1_"),
-                    Tuple.Create(TypeCode.Int64, "elt2_10_1_"), // `elt` is the default name for the child (element)
+                    Tuple.Create(TypeCode.Int64, "band1_11_1_"),
+                    Tuple.Create(TypeCode.Int64, "elt2_11_1_"), // `elt` is the default name for the child (element)
                     Tuple.Create(TypeCode.Int64, "singerid1_0_0_"),
                     Tuple.Create(TypeCode.String, "firstname2_0_0_"),
                     Tuple.Create(TypeCode.String, "lastname3_0_0_"),
