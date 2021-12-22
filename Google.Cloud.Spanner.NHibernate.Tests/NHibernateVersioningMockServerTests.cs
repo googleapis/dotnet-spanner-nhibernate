@@ -151,6 +151,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     {
                         session.Save(singer);
                         transaction.Commit();
+                        await Task.CompletedTask;
                     }
                 }
             }
@@ -311,6 +312,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         singer.LastName = "Allison - Peterson";
                         // This will now succeed because a result is found by the version check.
                         transaction.Commit();
+                        await Task.CompletedTask;
                     }
                 }
             }
@@ -397,6 +399,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                         session.Delete(singer);
                         // This will fail because no result is found by the check version SELECT statement.
                         Assert.Throws<StaleStateException>(() => transaction.Commit());
+                        await Task.CompletedTask;
                     }
                 }
             }
