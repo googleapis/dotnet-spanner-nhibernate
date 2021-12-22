@@ -14,27 +14,27 @@
 */
 
 CREATE TABLE Singers (
-  Id        STRING(36) NOT NULL,
-  FirstName STRING(200),
-  LastName  STRING(200) NOT NULL,
-  FullName  STRING(400) NOT NULL AS (COALESCE(FirstName || ' ', '') || LastName) STORED,
-  BirthDate DATE,
-  Picture   BYTES(MAX),
-  Version   INT64 NOT NULL,
-  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
-  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
+  Id            STRING(36) NOT NULL,
+  FirstName     STRING(200),
+  LastName      STRING(200) NOT NULL,
+  FullName      STRING(400) NOT NULL AS (COALESCE(FirstName || ' ', '') || LastName) STORED,
+  BirthDate     DATE,
+  Picture       BYTES(MAX),
+  Version       INT64 NOT NULL,
+  CreatedAt     TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt TIMESTAMP OPTIONS (allow_commit_timestamp=true),
 ) PRIMARY KEY (Id);
 
 CREATE INDEX Idx_Singers_FullName ON Singers (FullName);
 
 CREATE TABLE Albums (
-  Id          STRING(36) NOT NULL,
-  SingerId    STRING(36) NOT NULL,
-  Title       STRING(100) NOT NULL,
-  ReleaseDate DATE,
-  Version     INT64 NOT NULL,
-  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
-  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
+  Id            STRING(36) NOT NULL,
+  SingerId      STRING(36) NOT NULL,
+  Title         STRING(100) NOT NULL,
+  ReleaseDate   DATE,
+  Version       INT64 NOT NULL,
+  CreatedAt     TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt TIMESTAMP OPTIONS (allow_commit_timestamp=true),
   CONSTRAINT FK_Albums_Singers FOREIGN KEY (SingerId) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);
 
@@ -48,33 +48,33 @@ CREATE TABLE Tracks (
   LyricsLanguages ARRAY<STRING(2)>,
   Lyrics          ARRAY<STRING(MAX)>,
   Version         INT64 NOT NULL,
-  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
-  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
+  CreatedAt       TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt   TIMESTAMP OPTIONS (allow_commit_timestamp=true),
 ) PRIMARY KEY (Id, TrackNumber), INTERLEAVE IN PARENT Albums;
 
 CREATE UNIQUE INDEX Idx_Tracks_AlbumId_Title ON Tracks (Id, Title);
 
 CREATE TABLE Venues (
-  Id        STRING(36) NOT NULL,
-  Code      STRING(10) NOT NULL,
-  Name      STRING(100),
-  Active    BOOL NOT NULL,
-  Capacity  INT64,
-  Ratings   ARRAY<FLOAT64>,
-  Version   INT64 NOT NULL,
-  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
-  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
+  Id            STRING(36) NOT NULL,
+  Code          STRING(10) NOT NULL,
+  Name          STRING(100),
+  Active        BOOL NOT NULL,
+  Capacity      INT64,
+  Ratings       ARRAY<FLOAT64>,
+  Version       INT64 NOT NULL,
+  CreatedAt     TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt TIMESTAMP OPTIONS (allow_commit_timestamp=true),
 ) PRIMARY KEY (Id);
 
 CREATE TABLE Concerts (
-  Id        STRING(36) NOT NULL,
-  VenueId   STRING(36) NOT NULL,
-  StartTime TIMESTAMP NOT NULL,
-  SingerId  STRING(36) NOT NULL,
-  Title     STRING(200),
-  Version   INT64 NOT NULL,
-  CreatedAt        TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
-  LastUpdatedAt    TIMESTAMP OPTIONS (allow_commit_timestamp=true),
+  Id            STRING(36) NOT NULL,
+  VenueId       STRING(36) NOT NULL,
+  StartTime     TIMESTAMP NOT NULL,
+  SingerId      STRING(36) NOT NULL,
+  Title         STRING(200),
+  Version       INT64 NOT NULL,
+  CreatedAt     TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  LastUpdatedAt TIMESTAMP OPTIONS (allow_commit_timestamp=true),
   CONSTRAINT FK_Concerts_Venues FOREIGN KEY (VenueId) REFERENCES Venues (Id),
   CONSTRAINT FK_Concerts_Singers FOREIGN KEY (SingerId) REFERENCES Singers (Id),
 ) PRIMARY KEY (Id);

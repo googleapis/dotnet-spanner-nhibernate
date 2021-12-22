@@ -24,6 +24,17 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
 
         public InterleavedTableTests(SpannerInterleavedTableFixture fixture) => _fixture = fixture;
 
+        [Fact]
+        public void CanDropAndRecreateSchema()
+        {
+            var initialSchema = SchemaTests.GetCurrentSchema(_fixture);
+            
+            var exporter = new SpannerSchemaExport(_fixture.Configuration);
+            exporter.Execute(false, true, false);
+            
+            SchemaTests.VerifySchemaEquality(initialSchema, _fixture);
+        }
+
         [InlineData(MutationUsage.Never)]
         [InlineData(MutationUsage.Always)]
         [Theory]
@@ -78,7 +89,6 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
             
             Assert.Collection(singer.Albums, album => Assert.Equal("My first album", album.Title));
             Assert.Collection(album.Tracks, track => Assert.Equal("My first track", track.Title));
-            Assert.Collection(singer.Tracks, track => Assert.Equal("My first track", track.Title));
         }
 
         [InlineData(MutationUsage.Never)]

@@ -37,8 +37,22 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
         public AlbumMapping()
         {
             Table("Albums");
-            ManyToOne(x => x.Singer, m => m.Column("SingerId"));
-            Property(x => x.Title);
+            ManyToOne(x => x.Singer, m =>
+            {
+                m.Column(c =>
+                {
+                    c.Name("SingerId");
+                    c.NotNullable(true);
+                    c.Length(36);
+                });
+                m.ForeignKey("FK_Albums_Singers");
+            });
+            Property(x => x.Title, m =>
+            {
+                m.NotNullable(true);
+                m.Length(100);
+                m.Index("Idx_Albums_Title");
+            });
             Property(x => x.ReleaseDate);
             Bag(x => x.Tracks,
                 collectionMapping =>

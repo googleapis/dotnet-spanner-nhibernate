@@ -58,12 +58,29 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
         {
             Persister<SpannerSingleTableEntityPersister>();
             Table("Albums");
-            ComponentAsId(x => x.AlbumIdentifier, m =>
+            ComponentAsId(x => x.AlbumIdentifier, idMapper =>
             {
-                m.ManyToOne(a => a.Singer, m => m.Column("SingerId"));
-                m.Property(a => a.AlbumId);
+                idMapper.ManyToOne(a => a.Singer, manyToOneMapper =>
+                {
+                    manyToOneMapper.Column(c =>
+                    {
+                        c.Name("SingerId");
+                        c.NotNullable(true);
+                        c.Length(36);
+                    });
+                    manyToOneMapper.ForeignKey(InterleavedTableForeignKey.InterleaveInParent);
+                });
+                idMapper.Property(a => a.AlbumId, m =>
+                {
+                    m.Length(36);
+                    m.NotNullable(true);
+                });
             });
-            Property(x => x.Title);
+            Property(x => x.Title, m =>
+            {
+                m.Length(100);
+                m.NotNullable(true);
+            });
             Bag(x => x.Tracks,
                 c =>
                 {
