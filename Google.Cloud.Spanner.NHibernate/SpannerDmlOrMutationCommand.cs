@@ -27,21 +27,34 @@ namespace Google.Cloud.Spanner.NHibernate
     public class SpannerDmlOrMutationCommand : SpannerRetriableCommand
     {
         public SpannerRetriableCommand MutationCommand { get; }
+        
+        public SpannerRetriableCommand CheckVersionCommand { get; }
+        
+        public int WhereParamsStartIndex { get; }
 
-        public SpannerDmlOrMutationCommand(SpannerCommand dmlCommand, SpannerRetriableCommand mutationCommand) : base(dmlCommand)
+        public SpannerDmlOrMutationCommand(SpannerCommand dmlCommand, SpannerRetriableCommand mutationCommand, SpannerRetriableCommand checkVersionCommand = null, int whereParamsStartIndex = -1) :
+            base(dmlCommand)
         {
             MutationCommand = mutationCommand;
+            CheckVersionCommand = checkVersionCommand;
+            WhereParamsStartIndex = whereParamsStartIndex;
         }
 
         public override object Clone()
         {
             var dmlCommand = (SpannerRetriableCommand) base.Clone();
             var mutationCommand = (SpannerRetriableCommand) MutationCommand.Clone();
-            var clone = new SpannerDmlOrMutationCommand(dmlCommand.SpannerCommand, mutationCommand);
+            var checkVersionCommand = (SpannerRetriableCommand)CheckVersionCommand?.Clone();
+            var clone = new SpannerDmlOrMutationCommand(dmlCommand.SpannerCommand, mutationCommand, checkVersionCommand, WhereParamsStartIndex);
             clone.Connection = dmlCommand.Connection;
             clone.Transaction = dmlCommand.Transaction;
             mutationCommand.Connection = dmlCommand.Connection;
             mutationCommand.Transaction = dmlCommand.Transaction;
+            if (checkVersionCommand != null)
+            {
+                checkVersionCommand.Connection = dmlCommand.Connection;
+                checkVersionCommand.Transaction = dmlCommand.Transaction;
+            }
 
             return clone;
         }

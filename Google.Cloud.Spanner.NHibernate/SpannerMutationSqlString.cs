@@ -14,9 +14,7 @@
 
 using Google.Cloud.Spanner.Data;
 using NHibernate.SqlCommand;
-using NHibernate.SqlTypes;
 using System.Collections.Generic;
-using System.Data;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
@@ -31,24 +29,29 @@ namespace Google.Cloud.Spanner.NHibernate
         public string Table { get; }
         public string[] Columns { get; }
         public List<SpannerParameter> AdditionalParameters { get; } = new List<SpannerParameter>();
+        public SqlString CheckVersionText { get; }
         public string[] WhereColumns { get; }
         public int WhereParamsStartIndex { get; }
+        public bool IsVersioned { get; }
 
         public SpannerMutationSqlString(SqlString dmlSqlString, string operation, string table, string[] columns) : base(dmlSqlString)
         {
             Operation = operation;
             Table = table;
             Columns = columns;
+            CheckVersionText = null;
             WhereColumns = new string[] { };
         }
 
-        public SpannerMutationSqlString(SqlString dmlSqlString, string operation, string table, string[] columns, string[] whereColumns, int whereParamsStartIndex) : base(dmlSqlString)
+        public SpannerMutationSqlString(SqlString dmlSqlString, string operation, string table, string[] columns, SqlString checkVersionText, string[] whereColumns, int whereParamsStartIndex, bool isVersioned) : base(dmlSqlString)
         {
             Operation = operation;
             Table = table;
             Columns = columns;
+            CheckVersionText = checkVersionText;
             WhereColumns = whereColumns;
             WhereParamsStartIndex = whereParamsStartIndex;
+            IsVersioned = isVersioned;
         }
     }
 }
