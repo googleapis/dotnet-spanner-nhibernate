@@ -31,6 +31,7 @@ namespace Google.Cloud.Spanner.NHibernate
         public SpannerDialect()
         {
 			DefaultProperties[Environment.ConnectionDriver] = typeof(SpannerDriver).AssemblyQualifiedName;
+			DefaultProperties[Environment.BatchSize] = "100";
 
 			RegisterDateTimeTypeMappings();
 			RegisterColumnType(DbType.AnsiStringFixedLength, "STRING(MAX)");

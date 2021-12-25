@@ -56,7 +56,6 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             {
                 db.Dialect<SpannerDialect>();
                 db.ConnectionString = ConnectionString;
-                db.BatchSize = 100;
             });
             var mapper = new ModelMapper();
             mapper.AddMapping<AlbumMapping>();
