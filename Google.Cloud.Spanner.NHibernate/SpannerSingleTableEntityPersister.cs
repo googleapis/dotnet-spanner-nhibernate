@@ -146,7 +146,9 @@ namespace Google.Cloud.Spanner.NHibernate
                 }
                 spannerMutationSqlString = new SpannerMutationSqlString(dmlSqlString,
                     spannerMutationSqlString.Operation, spannerMutationSqlString.Table,
-                    spannerMutationSqlString.Columns, spannerMutationSqlString.WhereColumns, spannerMutationSqlString.WhereParamsStartIndex);
+                    spannerMutationSqlString.Columns, spannerMutationSqlString.CheckVersionText,
+                    spannerMutationSqlString.WhereColumns, spannerMutationSqlString.WhereParamsStartIndex,
+                    spannerMutationSqlString.IsVersioned);
                 foreach (var col in _defaultUpdateValues.Keys)
                 {
                     var spannerParameter = CreateSpannerParameter(col, _defaultUpdateValues[col]);
@@ -184,7 +186,7 @@ namespace Google.Cloud.Spanner.NHibernate
 	        bool[] includeProperty, int j, object oldVersion, object obj, SqlCommandInfo sql,
 	        ISessionImplementor session)
         {
-	        sql = AddUpdateColumnInformation(sql, GetTableName(j));
+	        sql = AddUpdateColumnInformation(sql, j);
 	        base.UpdateOrInsert(id, fields, oldFields, rowId, includeProperty, j, oldVersion, obj, sql, session);
         }
 
@@ -192,7 +194,7 @@ namespace Google.Cloud.Spanner.NHibernate
 	        bool[] includeProperty, int j, object oldVersion, object obj, SqlCommandInfo sql,
 	        ISessionImplementor session, CancellationToken cancellationToken)
         {
-	        sql = AddUpdateColumnInformation(sql, GetTableName(j));
+	        sql = AddUpdateColumnInformation(sql, j);
 	        return base.UpdateOrInsertAsync(id, fields, oldFields, rowId, includeProperty, j, oldVersion, obj, sql,
 		        session, cancellationToken);
         }
@@ -236,10 +238,13 @@ namespace Google.Cloud.Spanner.NHibernate
 	        return new SqlCommandInfo(spannerMutationSqlString, sql.ParameterTypes);
         }
 
-        protected virtual SqlCommandInfo AddUpdateColumnInformation(SqlCommandInfo sql, string table)
+        protected virtual SqlCommandInfo AddUpdateColumnInformation(SqlCommandInfo sql, int j)
         {
+	        var table = GetTableName(j);
 	        var columns = new List<string>();
-	        var whereClause = new SqlStringBuilder();
+	        var isVersioned = j == 0 && IsVersioned &&
+	                          EntityMetamodel.OptimisticLockMode == Versioning.OptimisticLock.Version;
+	        var checkVersionBuilder = new SqlStringBuilder().Add($"SELECT 1 AS C FROM {table}");
 	        var whereColumns = new List<string>();
 	        var inWhereClause = false;
 	        foreach (var part in sql.Text)
@@ -264,7 +269,14 @@ namespace Google.Cloud.Spanner.NHibernate
 				        }
 				        whereColumns.Add(column);
 			        }
-			        whereClause.Add(part.ToString());
+			        if (content.Equals("?"))
+			        {
+				        checkVersionBuilder.AddParameter();
+			        }
+			        else
+			        {
+				        checkVersionBuilder.Add(part.ToString());
+			        }
 		        }
 		        else
 		        {
@@ -274,25 +286,44 @@ namespace Google.Cloud.Spanner.NHibernate
 			        }
 		        }
 	        }
-	        var sqlString = new SpannerMutationSqlString(sql.Text, "UPDATE", table, columns.ToArray(), whereColumns.ToArray(), 0);
+	        // The columns that are added to the mutation command also include the key columns.
+	        // The WHERE parameters therefore start at the number of columns minus the number of key columns.
+	        var whereParamsStartIndex = columns.Count - GetKeyColumns(j).Length;
+	        var sqlString = new SpannerMutationSqlString(sql.Text, "UPDATE", table, columns.ToArray(), checkVersionBuilder.ToSqlString(), whereColumns.ToArray(), whereParamsStartIndex, isVersioned);
 	        return AppendUpdateString(new SqlCommandInfo(sqlString, sql.ParameterTypes));
         }
         
         private SqlCommandInfo AddDeleteColumnInformation(SqlCommandInfo sql, int j)
         {
+	        var keyColumns = GetKeyColumns(j);
 	        var columns = new List<string>();
+	        var checkVersionBuilder = new SqlStringBuilder().Add($"SELECT 1 AS C FROM {GetTableName(j)}");
 	        var whereColumns = new List<string>();
 	        // add the primary key
-	        foreach (var col in GetKeyColumns(j))
+	        var first = true;
+	        foreach (var col in keyColumns)
 	        {
 		        columns.Add(col);
 		        whereColumns.Add(col);
+		        if (first)
+		        {
+			        checkVersionBuilder = checkVersionBuilder.Add(" WHERE ");
+			        first = false;
+		        }
+		        else
+		        {
+			        checkVersionBuilder = checkVersionBuilder.Add(" AND ");
+		        }
+		        checkVersionBuilder.Add(col + " = ").AddParameter();
 	        }
-	        if (j == 0 && IsVersioned && EntityMetamodel.OptimisticLockMode == Versioning.OptimisticLock.Version)
+	        var isVersioned = j == 0 && IsVersioned &&
+	                          EntityMetamodel.OptimisticLockMode == Versioning.OptimisticLock.Version;
+	        if (isVersioned)
 	        {
 		        whereColumns.Add(VersionColumnName);
+		        checkVersionBuilder.Add(" AND " + VersionColumnName + " = ").AddParameter();
 	        }
-	        var sqlString = new SpannerMutationSqlString(sql.Text, "DELETE", GetTableName(j), columns.ToArray(), whereColumns.ToArray(), columns.Count);
+	        var sqlString = new SpannerMutationSqlString(sql.Text, "DELETE", GetTableName(j), columns.ToArray(), checkVersionBuilder.ToSqlString(), whereColumns.ToArray(), 0, isVersioned);
 	        return new SqlCommandInfo(sqlString, sql.ParameterTypes);
         }
 
