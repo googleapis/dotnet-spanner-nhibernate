@@ -48,7 +48,6 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
             {
                 db.Dialect<SpannerDialect>();
                 db.ConnectionString = ConnectionString;
-                db.BatchSize = 100;
             });
             var mapper = new ModelMapper();
             mapper.AddMapping<SingerMapping>();

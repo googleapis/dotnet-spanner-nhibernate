@@ -33,7 +33,6 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             {
                 db.Dialect<SpannerDialect>();
                 db.ConnectionString = ConnectionString;
-                db.BatchSize = 100;
                 db.ConnectionProvider<TestConnectionProvider>();
             });
             var mapper = new ModelMapper();

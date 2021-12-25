@@ -1,12 +1,17 @@
 # Cloud Spanner Dialect for NHibernate
 [Google Cloud Spanner](https://cloud.google.com/spanner/docs/) dialect and driver for [NHibernate](https://nhibernate.info/).
 
+__NOTE: This project is still in DEVELOPMENT. It may make breaking changes without prior notice and should not yet be used for production purposes.__
+
 All supported features have been tested and verified to work with the test configurations. There may be
 configurations and/or data model variations that have not  yet been covered by the tests and that show
 unexpected behavior. Please report any problems that you might encounter by
 [creating a new issue](https://github.com/googleapis/dotnet-spanner-nhibernate/issues/new/choose).
 
 # Getting started
+Add a reference to the Google.Cloud.Spanner.NHibernate project.
+TODO: Add a reference to the nuget package.
+
 Set the Cloud Spanner NHibernate Dialect and a valid Cloud Spanner connection string in your NHibernate
 configuration to connect to a Cloud Spanner database using NHibernate:
 
@@ -15,7 +20,6 @@ Configuration = new Configuration().DataBaseIntegration(db =>
 {
     db.Dialect<SpannerDialect>();
     db.ConnectionString = "Data Source=projects/MY-PROJECT/instances/MY-INSTANCE/databases/MY-DATABASE";
-    db.BatchSize = 100;
 });
 ```
 
@@ -272,7 +276,7 @@ public class TrackIdentifier
 
 ## Commit Timestamps
 Cloud Spanner can write the [commit timestamp of a transaction](https://cloud.google.com/spanner/docs/commit-timestamp)
-to a column in a table. This can be used to keep track of a the creation and/or last update time of a row.
+to a column in a table. This can be used to keep track of the creation and/or last update time of a row.
 
 Use the `SpannerCommitTimestampSqlType` to indicate that the data type of a column should include the option to
 set the value to the commit timestamp of the transaction. Set the default value of the column to `PENDING_COMMIT_TIMESTAMP()`
@@ -286,7 +290,7 @@ Example:
 Persister<SpannerSingleTableEntityPersister>();
 Property(x => x.CreatedAt, m =>
 {
-    // The following prevents that NHibernate assigns a value to this property when the entity is inserted.
+    // The following prevents NHibernate from assigning a value to this property when the entity is updated.
     // This might seem counter-intuitive, as we want this value to be filled during inserts. This is however
     // correct, as we don't want NHibernate to assign a value to the column in the INSERT statement, and
     // instead we want the value to be assigned its default value.
@@ -388,10 +392,14 @@ singersWithLastNameYatesFish = session.Query<Singer>().Where(s => s.LastName.Equ
 Cloud Spanner does not support sequences, identity columns, or other value generators in the database that will
 generate a unique value that could be used as a primary key value. Instead, the best option is to use a client
 side Guid generator for a primary key if your table does not contain a natural primary key.
+Always make sure not to use a monotonically increasing value as the first part of the primary key, as this
+will cause all inserts to happen at the end of the key space. Cloud Spanner divides data among servers using
+key ranges, and using a monotonically increasing primary key value will cause one server to receive all
+inserts. See https://cloud.google.com/spanner/docs/schema-design#primary-key-prevent-hotspots for more information.
 
 ## Default Values
 Cloud Spanner does not support default values for columns. The `SpannerSingleTableEntityPersister` is however able
-to simulate this. See the example above for commit timestamps that uses this feature.
+to simulate this. See the example above for commit timestamps that use this feature.
 
 # Performance Recommendations
 NHibernate supports a wide range of different configurations and mappings. Some of these can lead to a large number
@@ -399,10 +407,11 @@ of DML statements being executed when only one entity is updated, or can cause q
 join multiple tables. The following list contains recommendations for how to use NHibernate as efficiently as
 possible with Cloud Spanner.
 
-| Feature              | Recommendation                                                                                                                                                                                                                                               |
-|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Batching             | Set `adonet.batch_size` to enable batching. The recommended value is between 20 and 200. The Cloud Spanner driver will translate ADO.NET batches into Batch DML requests for Cloud Spanner.                                                                  |
-| Dynamic Update       | Set `dynamic-update=true` for all entity mappings. This ensures that NHibernate will only update those columns that have actually been modified.                                                                                                             |
-| Many-to-Many         | Avoid ManyToMany collections. Instead, define an entity for the relationship and define many-to-one / one-to-many mappings for each side. See the [`CollectionMapping`](Google.Cloud.Spanner.NHibernate.Samples/Snippets/CollectionMappingSample.cs) sample. |
-| One-to-Many          | Make sure that OneToMany collections are marked with `Inverse(true)`. See the [`SingerMapping.Albums`](Google.Cloud.Spanner.NHibernate.Samples/SampleModel/Singer.cs) mapping for an example.                                                                |
-| Generated Properties | Disable generated properties when executing transactions using mutations. Also consider disabling generated properties altogether in the NHibernate mapping, and replacing the property generation with a column that is not insertable and updateable.      |
+| Feature              | Recommendation                                                                                                                                                                                                                                                                                                                                |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Transactions         | If possible, avoid using read/write transactions for transactions that only read data. Use a read-only transaction to ensure that all reads use the same consistent view of your data, or execute the read operations without a transaction to let each read see the most recent version of the data at the moment the operation is executed. |
+| Batching             | The Cloud Spanner driver will set `adonet.batch_size` to 100 to enable batching by default. The recommended value is between 20 and 200. The Cloud Spanner driver will translate ADO.NET batches into Batch DML requests for Cloud Spanner. Setting this value to 0 will disable batching and have a negative impact on performance.          |
+| Dynamic Update       | Set `dynamic-update=true` for all entity mappings. This ensures that NHibernate will only update those columns that have actually been modified.                                                                                                                                                                                              |
+| Many-to-Many         | Avoid ManyToMany collections. Instead, define an entity for the relationship and define many-to-one / one-to-many mappings for each side. See the [`CollectionMapping`](Google.Cloud.Spanner.NHibernate.Samples/Snippets/CollectionMappingSample.cs) sample.                                                                                  |
+| One-to-Many          | Make sure that OneToMany collections are marked with `Inverse(true)`. See the [`SingerMapping.Albums`](Google.Cloud.Spanner.NHibernate.Samples/SampleModel/Singer.cs) mapping for an example.                                                                                                                                                 |
+| Generated Properties | Disable generated properties when executing transactions using mutations. Also consider disabling generated properties altogether in the NHibernate mapping, and replacing the property generation with a column that is not insertable and updateable.                                                                                       |

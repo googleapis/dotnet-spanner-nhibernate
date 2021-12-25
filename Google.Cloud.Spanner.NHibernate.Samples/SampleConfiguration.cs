@@ -37,7 +37,6 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
             {
                 db.Dialect<SpannerDialect>();
                 db.ConnectionString = connectionString;
-                db.BatchSize = 100;
             });
             var mapper = new ModelMapper();
             
