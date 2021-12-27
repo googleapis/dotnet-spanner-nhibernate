@@ -333,13 +333,14 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
         public List<Singer> SelectMultipleSingersInReadWriteTransactionSpanner()
         {
             using var connection = CreateConnection();
-            using var transaction = connection.BeginTransaction();
-            using var command = connection.CreateSelectCommand("SELECT * FROM Singers ORDER BY LastName");
-            command.Transaction = transaction;
-            using var reader = command.ExecuteReader();
-            var singers = DataReaderToSingersList(reader);
-            transaction.Commit();
-            return singers;
+            return connection.RunWithRetriableTransaction(transaction =>
+            {
+                using var command = connection.CreateSelectCommand("SELECT * FROM Singers ORDER BY LastName");
+                command.Transaction = transaction;
+                using var reader = command.ExecuteReader();
+                var singers = DataReaderToSingersList(reader);
+                return singers;
+            });
         }
 
         [Benchmark]
