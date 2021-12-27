@@ -213,7 +213,7 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
                     var command = connection.CreateInsertCommand("Albums", new SpannerParameterCollection
                     {
                         new SpannerParameter("Id", SpannerDbType.String, Guid.NewGuid().ToString()),
-                        new SpannerParameter("Title", SpannerDbType.String, $"Album{row}"),
+                        new SpannerParameter("Title", SpannerDbType.String, $"Album{row}{Guid.NewGuid().ToString()}"),
                         new SpannerParameter("ReleaseDate", SpannerDbType.Date, new DateTime(1998, 10, 6)),
                         new SpannerParameter("Singer", SpannerDbType.String, singerId),
                     });
@@ -234,7 +234,7 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
             {
                 session.Save(new Album
                 {
-                    Title = $"Album{row}",
+                    Title = $"Album{row}{Guid.NewGuid().ToString()}",
                     ReleaseDate = new SpannerDate(1998, 10, 6),
                     Singer = singer,
                 });
