@@ -144,7 +144,13 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
         public Singer ReadOneRowNHibernate()
         {
             using var session = _fixture.SessionFactory.OpenSession();
-            return session.Load<Singer>(_singerId);
+            var singer = session.Load<Singer>(_singerId);
+            // Make sure that we are returning an actual Singer instance and not a proxy.
+            if (singer.FullName == null)
+            {
+                throw new InvalidProgramException();
+            }
+            return singer;
         }
 
         [Benchmark]
