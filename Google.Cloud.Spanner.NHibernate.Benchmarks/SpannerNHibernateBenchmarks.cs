@@ -223,6 +223,7 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
                         new SpannerParameter("ReleaseDate", SpannerDbType.Date, new DateTime(1998, 10, 6)),
                         new SpannerParameter("Singer", SpannerDbType.String, singerId),
                     });
+                    command.Transaction = transaction;
                     updateCount += command.ExecuteNonQuery();
                 }
                 return updateCount;
