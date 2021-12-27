@@ -23,6 +23,7 @@ using NHibernate.SqlTypes;
 using System;
 using System.Data;
 using System.Data.Common;
+using System.Linq;
 using System.Threading;
 
 namespace Google.Cloud.Spanner.NHibernate
@@ -70,11 +71,27 @@ namespace Google.Cloud.Spanner.NHibernate
 
         private DbCommand GenerateMutationOrDmlCommand(SpannerRetriableCommand dmlCommand, SpannerMutationSqlString sqlString, SqlType[] parameterTypes)
         {
-            var cmd = new SpannerCommand();
-            cmd.CommandText = sqlString.MutationCommandText;
-            cmd.CommandType = dmlCommand.CommandType;
-            SetMutationCommandParameters(cmd, sqlString, parameterTypes);
-            return new SpannerDmlOrMutationCommand(dmlCommand.SpannerCommand, new SpannerRetriableCommand(cmd));
+            var mutationCommand = new SpannerCommand();
+            mutationCommand.CommandText = sqlString.MutationCommandText;
+            mutationCommand.CommandType = dmlCommand.CommandType;
+            SetMutationCommandParameters(mutationCommand, sqlString, parameterTypes);
+
+            if (!sqlString.IsVersioned)
+            {
+                return new SpannerDmlOrMutationCommand(
+                    dmlCommand.SpannerCommand,
+                    new SpannerRetriableCommand(mutationCommand));
+            }
+
+            var checkVersionParameterTypes = sqlString.WhereParamsStartIndex > 0
+                ? parameterTypes.Skip(sqlString.WhereParamsStartIndex).ToArray()
+                : parameterTypes;
+            var checkVersionCommand = (SpannerRetriableCommand)
+                GenerateCommand(dmlCommand.CommandType, sqlString.CheckVersionText, checkVersionParameterTypes);
+            return new SpannerDmlOrMutationCommand(
+                dmlCommand.SpannerCommand,
+                new SpannerRetriableCommand(mutationCommand),
+                checkVersionCommand, sqlString.WhereParamsStartIndex);
         }
 
         private void SetMutationCommandParameters(DbCommand cmd, SpannerMutationSqlString spannerMutationSqlString, SqlType[] sqlTypes)

@@ -56,7 +56,6 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             {
                 db.Dialect<SpannerDialect>();
                 db.ConnectionString = ConnectionString;
-                db.BatchSize = 100;
             });
             var mapper = new ModelMapper();
             mapper.AddMapping<AlbumMapping>();
@@ -67,12 +66,17 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             mapper.AddMapping<VenueMapping>();
             
             mapper.AddMapping<TableWithAllColumnTypesMapping>();
+            
+            mapper.AddMapping<SingerWithVersionMapping>();
+            mapper.AddMapping<AlbumWithVersionMapping>();
+            
             var mapping = mapper.CompileMappingForAllExplicitlyAddedEntities();
             Configuration.AddMapping(mapping);
             
             // This is needed for support for query hints.
             Configuration.SetInterceptor(new SpannerQueryHintInterceptor());
             Configuration.Properties[Environment.UseSqlComments] = "true";
+            Configuration.Properties[Environment.BatchVersionedData] = "true";
             
             SessionFactory = Configuration.BuildSessionFactory();
 
@@ -81,6 +85,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             // has been committed.
             Configuration.GetClassMapping(typeof(Singer)).GetProperty(nameof(Singer.FullName)).Generation = PropertyGeneration.Never;
             Configuration.GetClassMapping(typeof(TableWithAllColumnTypes)).GetProperty(nameof(TableWithAllColumnTypes.ColComputed)).Generation = PropertyGeneration.Never;
+            Configuration.GetClassMapping(typeof(SingerWithVersion)).GetProperty(nameof(SingerWithVersion.FullName)).Generation = PropertyGeneration.Never;
             SessionFactoryForMutations = Configuration.BuildSessionFactory();
         }
         
@@ -98,6 +103,8 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
                 var cmd = transaction.CreateBatchDmlCommand();
                 foreach (var table in new string[]
                 {
+                    "AlbumsWithVersion",
+                    "SingersWithVersion",
                     "TableWithAllColumnTypes",
                     "Performances",
                     "Concerts",

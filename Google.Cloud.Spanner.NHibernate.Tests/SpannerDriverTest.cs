@@ -27,6 +27,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Xunit;
+using Environment = NHibernate.Cfg.Environment;
 using IsolationLevel = System.Data.IsolationLevel;
 using TypeCode = Google.Cloud.Spanner.V1.TypeCode;
 

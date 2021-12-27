@@ -22,6 +22,7 @@ using Google.Cloud.Spanner.V1;
 using Google.Protobuf.WellKnownTypes;
 using NHibernate;
 using Xunit;
+using TypeCode = Google.Cloud.Spanner.V1.TypeCode;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests
 {
@@ -130,6 +131,339 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                     await transaction.CommitAsync();
                 }
             }
+        }
+
+        [CombinatorialData]
+        [Theory]
+        public async Task VersionNumberIsAutomaticallyGeneratedOnInsertAndUpdateUsingMutations(bool useAsync)
+        {
+            var singer = new SingerWithVersion { SingerId = 50L, FirstName = "Pete", LastName = "Allison" };
+            using (var session = _fixture.SessionFactoryUsingMutations.OpenSession())
+            {
+                using (var transaction = session.BeginTransaction(MutationUsage.Always))
+                {
+                    if (useAsync)
+                    {
+                        await session.SaveAsync(singer);
+                        await transaction.CommitAsync();
+                    }
+                    else
+                    {
+                        session.Save(singer);
+                        transaction.Commit();
+                        await Task.CompletedTask;
+                    }
+                }
+            }
+
+            Assert.Empty(_fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>());
+            Assert.Collection(
+                _fixture.SpannerMock.Requests.OfType<CommitRequest>(),
+                r =>
+                {
+                    Assert.Collection(
+                        r.Mutations,
+                        mutation =>
+                        {
+                            Assert.Equal(Mutation.OperationOneofCase.Insert, mutation.OperationCase);
+                            Assert.Equal("SingerWithVersion", mutation.Insert.Table);
+                            Assert.Collection(
+                                mutation.Insert.Columns,
+                                column => Assert.Equal("Version", column),
+                                column => Assert.Equal("FirstName", column),
+                                column => Assert.Equal("LastName", column),
+                                column => Assert.Equal("SingerId", column)
+                            );
+                            Assert.Collection(
+                                mutation.Insert.Values,
+                                row => Assert.Collection(
+                                    row.Values,
+                                    value => Assert.Equal("1", value.StringValue),
+                                    value => Assert.Equal("Pete", value.StringValue),
+                                    value => Assert.Equal("Allison", value.StringValue),
+                                    value => Assert.Equal("50", value.StringValue)
+                                )
+                            );
+                        }
+                    );
+                });
+
+            _fixture.SpannerMock.Reset();
+            var checkVersionSql = "SELECT 1 AS C FROM SingerWithVersion WHERE SingerId = @p0 AND Version = @p1";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(checkVersionSql, StatementResult.CreateResultSet(
+                new []{new Tuple<TypeCode, string>(TypeCode.Int64, "C")},
+                new []{ new object[] {1L}}));
+            
+            // Update the singer and verify that a SELECT statement that checks the version number is executed.
+            singer.LastName = "Peterson - Allison";
+            using (var session = _fixture.SessionFactoryUsingMutations.OpenSession())
+            {
+                using (var transaction = session.BeginTransaction(MutationUsage.Always))
+                {
+                    await session.SaveOrUpdateAsync(singer);
+                    await transaction.CommitAsync();
+                }
+            }
+
+            Assert.Empty(_fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>());
+            Assert.Collection(_fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>(),
+                request =>
+                {
+                    Assert.Equal(checkVersionSql, request.Sql);
+                    Assert.Collection(request.Params.Fields,
+                        p => Assert.Equal("50", p.Value.StringValue), // SingerId
+                        p => Assert.Equal("1", p.Value.StringValue) // Version
+                    );
+                });
+            Assert.Collection(
+                _fixture.SpannerMock.Requests.OfType<CommitRequest>(),
+                r =>
+                {
+                    Assert.Collection(
+                        r.Mutations,
+                        mutation =>
+                        {
+                            Assert.Equal(Mutation.OperationOneofCase.Update, mutation.OperationCase);
+                            Assert.Equal("SingerWithVersion", mutation.Update.Table);
+                            Assert.Collection(
+                                mutation.Update.Columns,
+                                column => Assert.Equal("Version", column),
+                                column => Assert.Equal("FirstName", column),
+                                column => Assert.Equal("LastName", column),
+                                column => Assert.Equal("SingerId", column)
+                            );
+                            Assert.Collection(
+                                mutation.Update.Values,
+                                row => Assert.Collection(
+                                    row.Values,
+                                    // Verify that the version that is set is 2.
+                                    value => Assert.Equal("2", value.StringValue),
+                                    value => Assert.Equal("Pete", value.StringValue),
+                                    value => Assert.Equal("Peterson - Allison", value.StringValue),
+                                    value => Assert.Equal("50", value.StringValue)
+                                )
+                            );
+                        }
+                    );
+                }
+            );
+        }
+
+        [CombinatorialData]
+        [Theory]
+        public async Task UpdateFailsIfVersionNumberChangedUsingMutations(bool useAsync)
+        {
+            var checkVersionSql = "SELECT 1 AS C FROM SingerWithVersion WHERE SingerId = @p0 AND Version = @p1";
+            // Add an empty result for the version check query.
+            _fixture.SpannerMock.AddOrUpdateStatementResult(checkVersionSql, StatementResult.CreateResultSet(
+                new List<Tuple<TypeCode, string>> {Tuple.Create(TypeCode.Int64, "C")}, new List<object[]>()));
+
+            var selectSql = "/* load Google.Cloud.Spanner.NHibernate.Tests.Entities.SingerWithVersion */ SELECT singerwith0_.SingerId as singerid1_4_0_, singerwith0_.Version as version2_4_0_, singerwith0_.FirstName as firstname3_4_0_, singerwith0_.LastName as lastname4_4_0_ FROM SingerWithVersion singerwith0_ WHERE singerwith0_.SingerId=@p0";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(selectSql, StatementResult.CreateResultSet(new List<Tuple<V1.TypeCode, string>>
+            {
+                Tuple.Create(TypeCode.Int64, "singerid1_4_0_"),
+                Tuple.Create(TypeCode.Int64, "version2_4_0_"),
+                Tuple.Create(TypeCode.String, "firstname3_4_0_"),
+                Tuple.Create(TypeCode.String, "lastname4_4_0_")
+            }, new List<object[]>
+            {
+                new object[]{"50", "1", "Pete", "Allison"}
+            }));
+
+            using (var session = _fixture.SessionFactoryUsingMutations.OpenSession())
+            {
+                using (var transaction = session.BeginTransaction(MutationUsage.Always))
+                {
+                    if (useAsync)
+                    {
+                        var singer = await session.LoadAsync<SingerWithVersion>(50L);
+                        singer.LastName = "Allison - Peterson";
+                        // This will fail because no result is found by the check version SELECT statement.
+                        await Assert.ThrowsAsync<StaleStateException>(() => transaction.CommitAsync());
+                    }
+                    else
+                    {
+                        var singer = session.Load<SingerWithVersion>(50L);
+                        singer.LastName = "Allison - Peterson";
+                        // This will fail because no result is found by the check version SELECT statement.
+                        Assert.Throws<StaleStateException>(() => transaction.Commit());
+                    }
+                }
+            }
+
+            // Update the result of the check version SELECT statement to simulate a resolved version conflict.
+            _fixture.SpannerMock.AddOrUpdateStatementResult(checkVersionSql, StatementResult.CreateResultSet(
+                new []{new Tuple<TypeCode, string>(TypeCode.Int64, "C")},
+                new []{ new object[] {1L}}));
+            using (var session = _fixture.SessionFactoryUsingMutations.OpenSession())
+            {
+                using (var transaction = session.BeginTransaction(MutationUsage.Always))
+                {
+                    if (useAsync)
+                    {
+                        var singer = await session.LoadAsync<SingerWithVersion>(50L);
+                        singer.LastName = "Allison - Peterson";
+                        // This will now succeed because a result is found by the version check.
+                        await transaction.CommitAsync();
+                    }
+                    else
+                    {
+                        var singer = session.Load<SingerWithVersion>(50L);
+                        singer.LastName = "Allison - Peterson";
+                        // This will now succeed because a result is found by the version check.
+                        transaction.Commit();
+                        await Task.CompletedTask;
+                    }
+                }
+            }
+
+            // There are two transaction attempts that execute the same SELECT statements.
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests,
+                request => Assert.Equal(request.Sql, selectSql),
+                request =>
+                {
+                    Assert.Equal(request.Sql, checkVersionSql);
+                    Assert.Collection(request.Params.Fields,
+                        p => Assert.Equal("50", p.Value.StringValue),
+                        p => Assert.Equal("1", p.Value.StringValue)
+                    );
+                },
+                request => Assert.Equal(request.Sql, selectSql),
+                request =>
+                {
+                    Assert.Equal(request.Sql, checkVersionSql);
+                    Assert.Collection(request.Params.Fields,
+                        p => Assert.Equal("50", p.Value.StringValue),
+                        p => Assert.Equal("1", p.Value.StringValue)
+                    );
+                }
+            );
+            // Only one of the two transactions will commit successfully.
+            var commitRequests = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commitRequests, commit =>
+            {
+                Assert.Collection(commit.Mutations, mutation =>
+                {
+                    Assert.Equal(Mutation.OperationOneofCase.Update, mutation.OperationCase);
+                    Assert.Equal("SingerWithVersion", mutation.Update.Table);
+                    Assert.Collection(mutation.Update.Columns,
+                        c => Assert.Equal("Version", c),
+                        c => Assert.Equal("LastName", c),
+                        c => Assert.Equal("SingerId", c)
+                    );
+                    Assert.Collection(mutation.Update.Values, row => Assert.Collection(row.Values,
+                        c => Assert.Equal("2", c.StringValue),
+                        c => Assert.Equal("Allison - Peterson", c.StringValue),
+                        c => Assert.Equal("50", c.StringValue)
+                    ));
+                });
+            });
+        }
+
+        [CombinatorialData]
+        [Theory]
+        public async Task DeleteFailsIfVersionNumberChangedUsingMutations(bool useAsync)
+        {
+            var checkVersionSql = "SELECT 1 AS C FROM SingerWithVersion WHERE SingerId = @p0 AND Version = @p1";
+            // Add an empty result for the version check query.
+            _fixture.SpannerMock.AddOrUpdateStatementResult(checkVersionSql, StatementResult.CreateResultSet(
+                new List<Tuple<TypeCode, string>> {Tuple.Create(TypeCode.Int64, "C")}, new List<object[]>()));
+
+            var selectSql = "/* load Google.Cloud.Spanner.NHibernate.Tests.Entities.SingerWithVersion */ SELECT singerwith0_.SingerId as singerid1_4_0_, singerwith0_.Version as version2_4_0_, singerwith0_.FirstName as firstname3_4_0_, singerwith0_.LastName as lastname4_4_0_ FROM SingerWithVersion singerwith0_ WHERE singerwith0_.SingerId=@p0";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(selectSql, StatementResult.CreateResultSet(new List<Tuple<V1.TypeCode, string>>
+            {
+                Tuple.Create(TypeCode.Int64, "singerid1_4_0_"),
+                Tuple.Create(TypeCode.Int64, "version2_4_0_"),
+                Tuple.Create(TypeCode.String, "firstname3_4_0_"),
+                Tuple.Create(TypeCode.String, "lastname4_4_0_")
+            }, new List<object[]>
+            {
+                new object[]{"50", "1", "Pete", "Allison"}
+            }));
+
+            using (var session = _fixture.SessionFactoryUsingMutations.OpenSession())
+            {
+                using (var transaction = session.BeginTransaction(MutationUsage.Always))
+                {
+                    if (useAsync)
+                    {
+                        var singer = await session.LoadAsync<SingerWithVersion>(50L);
+                        await session.DeleteAsync(singer);
+                        // This will fail because no result is found by the check version SELECT statement.
+                        await Assert.ThrowsAsync<StaleStateException>(() => transaction.CommitAsync());
+                    }
+                    else
+                    {
+                        var singer = session.Load<SingerWithVersion>(50L);
+                        session.Delete(singer);
+                        // This will fail because no result is found by the check version SELECT statement.
+                        Assert.Throws<StaleStateException>(() => transaction.Commit());
+                        await Task.CompletedTask;
+                    }
+                }
+            }
+
+            // Update the result of the check version SELECT statement to simulate a resolved version conflict.
+            _fixture.SpannerMock.AddOrUpdateStatementResult(checkVersionSql, StatementResult.CreateResultSet(
+                new []{new Tuple<TypeCode, string>(TypeCode.Int64, "C")},
+                new []{ new object[] {1L}}));
+            using (var session = _fixture.SessionFactoryUsingMutations.OpenSession())
+            {
+                using (var transaction = session.BeginTransaction(MutationUsage.Always))
+                {
+                    if (useAsync)
+                    {
+                        var singer = await session.LoadAsync<SingerWithVersion>(50L);
+                        await session.DeleteAsync(singer);
+                        // This will now succeed because a result is found by the version check.
+                        await transaction.CommitAsync();
+                    }
+                    else
+                    {
+                        var singer = session.Load<SingerWithVersion>(50L);
+                        session.Delete(singer);
+                        // This will now succeed because a result is found by the version check.
+                        transaction.Commit();
+                    }
+                }
+            }
+
+            // There are two transaction attempts that execute the same SELECT statements.
+            var requests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Collection(requests,
+                request => Assert.Equal(request.Sql, selectSql),
+                request =>
+                {
+                    Assert.Equal(request.Sql, checkVersionSql);
+                    Assert.Collection(request.Params.Fields,
+                        p => Assert.Equal("50", p.Value.StringValue),
+                        p => Assert.Equal("1", p.Value.StringValue)
+                    );
+                },
+                request => Assert.Equal(request.Sql, selectSql),
+                request =>
+                {
+                    Assert.Equal(request.Sql, checkVersionSql);
+                    Assert.Collection(request.Params.Fields,
+                        p => Assert.Equal("50", p.Value.StringValue),
+                        p => Assert.Equal("1", p.Value.StringValue)
+                    );
+                }
+            );
+            // Only one of the two transactions will commit successfully.
+            var commitRequests = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commitRequests, commit =>
+            {
+                Assert.Collection(commit.Mutations, mutation =>
+                {
+                    Assert.Equal(Mutation.OperationOneofCase.Delete, mutation.OperationCase);
+                    Assert.Equal("SingerWithVersion", mutation.Delete.Table);
+                    Assert.Collection(mutation.Delete.KeySet.Keys, key => Assert.Collection(key.Values,
+                        c => Assert.Equal("50", c.StringValue)
+                    ));
+                });
+            });
         }
     }
 }

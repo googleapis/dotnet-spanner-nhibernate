@@ -26,6 +26,7 @@ using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Environment = NHibernate.Cfg.Environment;
 
 namespace Google.Cloud.Spanner.NHibernate
 {
@@ -90,10 +91,11 @@ namespace Google.Cloud.Spanner.NHibernate
             _currentBatchStatementCount++;
         }
 
-        private Tuple<List<SpannerRetriableCommand>, List<SpannerRetriableCommand>> GetDmlAndMutationCommands(DbCommand ps)
+        private Tuple<List<SpannerRetriableCommand>, List<SpannerRetriableCommand>, List<SpannerRetriableCommand>> GetDmlAndMutationCommands(DbCommand ps)
         {
             var dmlCommands = new List<SpannerRetriableCommand>(_currentBatch.Count);
             var mutationCommands = new List<SpannerRetriableCommand>(_currentBatch.Count);
+            var checkVersionCommands = new List<SpannerRetriableCommand>(_currentBatch.Count);
             var transactionMutationUsage = (ps.Transaction as SpannerRetriableTransaction)?.GetMutationUsage()
                                            ?? MutationUsage.Unspecified;
             foreach (var cmd in _currentBatch)
@@ -117,7 +119,20 @@ namespace Google.Cloud.Spanner.NHibernate
                             // for setting the commit timestamp.
                             mutationCommand.Parameters[i].Value ??= cmd.Parameters[i].Value;
                         }
-                        mutationCommands.Add(dmlOrMutationCommand.MutationCommand);
+                        mutationCommands.Add(mutationCommand);
+                        if (dmlOrMutationCommand.CheckVersionCommand != null && dmlOrMutationCommand.WhereParamsStartIndex > -1)
+                        {
+                            var checkVersionCommand = dmlOrMutationCommand.CheckVersionCommand;
+                            for (var i = dmlOrMutationCommand.WhereParamsStartIndex; i < cmd.Parameters.Count; i++)
+                            {
+                                var index = i - dmlOrMutationCommand.WhereParamsStartIndex;
+                                if (index < checkVersionCommand.Parameters.Count)
+                                {
+                                    checkVersionCommand.Parameters[index].Value = cmd.Parameters[i].Value;
+                                }
+                            }
+                            checkVersionCommands.Add(checkVersionCommand);
+                        }
                         _containsMutations = true;
                     }
                     else
@@ -134,7 +149,7 @@ namespace Google.Cloud.Spanner.NHibernate
                 }
             }
             CheckMutationUsage(ps);
-            return new Tuple<List<SpannerRetriableCommand>, List<SpannerRetriableCommand>>(dmlCommands, mutationCommands);
+            return new Tuple<List<SpannerRetriableCommand>, List<SpannerRetriableCommand>, List<SpannerRetriableCommand>>(dmlCommands, mutationCommands, checkVersionCommands);
         }
 
         protected override void DoExecuteBatch(DbCommand ps)
@@ -147,6 +162,7 @@ namespace Google.Cloud.Spanner.NHibernate
                 var dmlAndMutationCommands = GetDmlAndMutationCommands(ps);
                 var dmlCommands = dmlAndMutationCommands.Item1;
                 var mutationCommands = dmlAndMutationCommands.Item2;
+                var checkVersionCommands = dmlAndMutationCommands.Item3;
                 try
                 {
                     if (dmlCommands.Count == 1)
@@ -166,7 +182,7 @@ namespace Google.Cloud.Spanner.NHibernate
                     }
                     if (mutationCommands.Count > 0)
                     {
-                        rowsAffected += DoExecuteMutations(mutationCommands, (SpannerRetriableConnection)ps.Connection,
+                        rowsAffected += DoExecuteMutations(mutationCommands, checkVersionCommands, (SpannerRetriableConnection)ps.Connection,
                             ps.Transaction);
                     }
                 }
@@ -182,13 +198,24 @@ namespace Google.Cloud.Spanner.NHibernate
             }
         }
 
-        private int DoExecuteMutations(List<SpannerRetriableCommand> mutations, SpannerRetriableConnection connection, DbTransaction transaction)
+        private int DoExecuteMutations(List<SpannerRetriableCommand> mutations, List<SpannerRetriableCommand> checkVersionCommands, SpannerRetriableConnection connection, DbTransaction transaction)
         {
             var rowsAffected = 0;
             var ownTransaction = transaction == null;
             if (ownTransaction)
             {
                 transaction = connection.BeginTransaction();
+            }
+            foreach (var checkVersion in checkVersionCommands)
+            {
+                checkVersion.Connection = connection;
+                checkVersion.Transaction = transaction;
+                var version = checkVersion.ExecuteScalar();
+                if (version == null)
+                {
+                    // Simulate that one of the mutations did not update exactly one row.
+                    rowsAffected--;
+                }
             }
             foreach (var mutation in mutations)
             {
@@ -209,8 +236,8 @@ namespace Google.Cloud.Spanner.NHibernate
         {
             _totalExpectedRowsAffected = 0;
             _currentBatchStatementCount = 0;
-            _containsDmlStatements = false;
             _containsMutations = false;
+            _containsDmlStatements = false;
             _currentBatch = new LinkedList<SpannerRetriableCommand>();
         }
 
@@ -225,6 +252,7 @@ namespace Google.Cloud.Spanner.NHibernate
                 var dmlAndMutationCommands = GetDmlAndMutationCommands(ps);
                 var dmlCommands = dmlAndMutationCommands.Item1;
                 var mutationCommands = dmlAndMutationCommands.Item2;
+                var checkVersionCommands = dmlAndMutationCommands.Item3;
                 try
                 {
                     if (dmlCommands.Count == 1)
@@ -244,8 +272,8 @@ namespace Google.Cloud.Spanner.NHibernate
                     }
                     if (mutationCommands.Count > 0)
                     {
-                        rowsAffected += await DoExecuteMutationsAsync(mutationCommands, (SpannerRetriableConnection)ps.Connection,
-                            ps.Transaction, cancellationToken);
+                        rowsAffected += await DoExecuteMutationsAsync(mutationCommands, checkVersionCommands,
+                            (SpannerRetriableConnection)ps.Connection, ps.Transaction, cancellationToken);
                     }
                 }
                 catch (DbException e)
@@ -260,13 +288,26 @@ namespace Google.Cloud.Spanner.NHibernate
             }
         }
 
-        private async Task<int> DoExecuteMutationsAsync(List<SpannerRetriableCommand> mutations, SpannerRetriableConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+        private async Task<int> DoExecuteMutationsAsync(
+            List<SpannerRetriableCommand> mutations, List<SpannerRetriableCommand> checkVersionCommands,
+            SpannerRetriableConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
         {
             var rowsAffected = 0;
             var ownTransaction = transaction == null;
             if (ownTransaction)
             {
                 transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            }
+            foreach (var checkVersion in checkVersionCommands)
+            {
+                checkVersion.Connection = connection;
+                checkVersion.Transaction = transaction;
+                var version = await checkVersion.ExecuteScalarAsync(cancellationToken);
+                if (version == null)
+                {
+                    // Simulate that one of the mutations did not update exactly one row.
+                    rowsAffected--;
+                }
             }
             foreach (var mutation in mutations)
             {
@@ -357,13 +398,17 @@ namespace Google.Cloud.Spanner.NHibernate
             {
                 throw new HibernateException(new SpannerException(ErrorCode.FailedPrecondition,
                     "The batch contains both Mutations and DML statements. Mixing both in one batch is not supported. " +
-                    "This is probably caused by at least one entity that has a collection that is managed by NHibernate"));
+                    "This is probably caused by an entity that does not use the SpannerSingleTableEntityPersister, " +
+                    $"{Environment.BatchVersionedData}=false in the NHibernate configuration " +
+                    "or an entity that has a collection that is managed by NHibernate"));
             }
             if (_containsDmlStatements && transactionMutationUsage == MutationUsage.Always)
             {
                 throw new HibernateException(new SpannerException(ErrorCode.FailedPrecondition,
                     "The batch contains DML statements while MutationUsage.Always has been specified. " +
-                    "This is probably caused by at least one entity that has a collection that is managed by NHibernate"));
+                    "This is probably caused by an entity that does not use the SpannerSingleTableEntityPersister, " +
+                    $"{Environment.BatchVersionedData}=false in the NHibernate configuration " +
+                    "or an entity that has a collection that is managed by NHibernate"));
             }
         }
     }
