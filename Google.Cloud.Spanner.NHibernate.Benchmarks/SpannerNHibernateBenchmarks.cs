@@ -20,10 +20,13 @@ using Google.Cloud.Spanner.Data;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests;
 using Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities;
 using NHibernate;
+using NHibernate.Linq;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Google.Cloud.Spanner.NHibernate.Benchmarks
 {
@@ -361,6 +364,115 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
                 .ToList();
             transaction.Commit();
             return singers;
+        }
+
+        [Benchmark]
+        public long ConcurrentTransactionsSpanner()
+        {
+            const int numTasks = 10;
+            using var connection = CreateConnection();
+            var tasks = new Task[numTasks];
+            for (var i = 0; i < numTasks; i++)
+            {
+                tasks[i] = CreateSingerAndAlbumsSpanner(connection);
+            }
+            Task.WaitAll(tasks, CancellationToken.None);
+            return 0L;
+        }
+
+        [Benchmark]
+        public long ConcurrentTransactionsNHibernate()
+        {
+            const int numTasks = 10;
+            using var session = _fixture.SessionFactoryForMutations.OpenSession();
+            var tasks = new Task[numTasks];
+            for (var i = 0; i < numTasks; i++)
+            {
+                tasks[i] = CreateSingerAndAlbumsNHibernate(session);
+            }
+            Task.WaitAll(tasks, CancellationToken.None);
+            return 0L;
+        }
+
+        private static Task<IReadOnlyList<long>> CreateSingerAndAlbumsSpanner(SpannerConnection connection)
+        {
+            const int rowCount = 20;
+            return connection.RunWithRetriableTransactionAsync(transaction =>
+            {
+                using var selectCommand = connection.CreateSelectCommand(
+                    "SELECT * FROM Singers WHERE NOT LastName=@lastName", new SpannerParameterCollection
+                    {
+                        new SpannerParameter("lastName", SpannerDbType.String, "Test")
+                    });
+                selectCommand.Transaction = transaction;
+                var reader = selectCommand.ExecuteReader();
+                var foundRows = 0;
+                var foundNonNull = 0;
+                while (reader.Read())
+                {
+                    for (var i = 0; i < reader.FieldCount; i++)
+                    {
+                        var val = reader.GetValue(reader.GetOrdinal(reader.GetName(i)));
+                        foundNonNull += val == null ? 0 : 1;
+                    }
+                    foundRows++;
+                }
+                if (foundRows != 100)
+                {
+                    throw new InvalidProgramException($"Found {foundRows} singers, expected 100");
+                }
+                
+                var singerId = Guid.NewGuid().ToString();
+                using var command = connection.CreateDmlCommand("INSERT INTO Singers (Id, FirstName, LastName) VALUES (@id, 'Test', 'Test')", new SpannerParameterCollection
+                {
+                    new SpannerParameter("id", SpannerDbType.String, singerId)
+                });
+                command.Transaction = transaction;
+                command.ExecuteNonQuery();
+                var batchCommand = transaction.CreateBatchDmlCommand();
+                for (var row = 0; row < rowCount; row++)
+                {
+                    batchCommand.Add("INSERT INTO Albums (Id, Title, ReleaseDate, Singer) VALUES (@id, @title, @releaseDate, @singer)", new SpannerParameterCollection
+                    {
+                        new SpannerParameter("Id", SpannerDbType.String, Guid.NewGuid().ToString()),
+                        new SpannerParameter("Title", SpannerDbType.String, $"Album{row}{Guid.NewGuid()}"),
+                        new SpannerParameter("ReleaseDate", SpannerDbType.Date, new DateTime(2000, 10, 6)),
+                        new SpannerParameter("Singer", SpannerDbType.String, singerId),
+                    });
+                }
+                return batchCommand.ExecuteNonQueryAsync();
+            });
+        }
+
+        private static async Task CreateSingerAndAlbumsNHibernate(ISession session)
+        {
+            const int rowCount = 20;
+            using var transaction = session.BeginTransaction();
+            var singers = await session
+                .Query<Singer>()
+                .Where(s => s.LastName != "Test")
+                .ToListAsync();
+            if (singers.Count != 100)
+            {
+                throw new InvalidProgramException($"Found {singers.Count} singers, expected 100");
+            }
+            var singer = new Singer
+            {
+                FirstName = "Test",
+                LastName = "Test"
+            };
+            await session.SaveAsync(singer);
+            for (var row = 0; row < rowCount; row++)
+            {
+                var album = new Album
+                {
+                    Singer = singer,
+                    Title = $"Album{row}{Guid.NewGuid()}",
+                    ReleaseDate = new SpannerDate(2000, 10, 6),
+                };
+                await session.SaveAsync(album);
+            }
+            await transaction.CommitAsync();
         }
     }
 
