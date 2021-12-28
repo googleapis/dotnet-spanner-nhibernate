@@ -370,11 +370,10 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
         public long ConcurrentTransactionsSpanner()
         {
             const int numTasks = 10;
-            using var connection = CreateConnection();
             var tasks = new Task[numTasks];
             for (var i = 0; i < numTasks; i++)
             {
-                tasks[i] = CreateSingerAndAlbumsSpanner(connection);
+                tasks[i] = CreateSingerAndAlbumsSpanner();
             }
             Task.WaitAll(tasks, CancellationToken.None);
             return 0L;
@@ -384,19 +383,19 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
         public long ConcurrentTransactionsNHibernate()
         {
             const int numTasks = 10;
-            using var session = _fixture.SessionFactoryForMutations.OpenSession();
             var tasks = new Task[numTasks];
             for (var i = 0; i < numTasks; i++)
             {
-                tasks[i] = CreateSingerAndAlbumsNHibernate(session);
+                tasks[i] = CreateSingerAndAlbumsNHibernate();
             }
             Task.WaitAll(tasks, CancellationToken.None);
             return 0L;
         }
 
-        private static Task<IReadOnlyList<long>> CreateSingerAndAlbumsSpanner(SpannerConnection connection)
+        private Task<IReadOnlyList<long>> CreateSingerAndAlbumsSpanner()
         {
             const int rowCount = 20;
+            using var connection = CreateConnection();
             return connection.RunWithRetriableTransactionAsync(transaction =>
             {
                 using var selectCommand = connection.CreateSelectCommand(
@@ -444,9 +443,10 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
             });
         }
 
-        private static async Task CreateSingerAndAlbumsNHibernate(ISession session)
+        private async Task CreateSingerAndAlbumsNHibernate()
         {
             const int rowCount = 20;
+            using var session = _fixture.SessionFactoryForMutations.OpenSession();
             using var transaction = session.BeginTransaction();
             var singers = await session
                 .Query<Singer>()
@@ -480,7 +480,11 @@ namespace Google.Cloud.Spanner.NHibernate.Benchmarks
     {
         public static void Main(string[] args)
         {
-            BenchmarkRunner.Run<SpannerNHibernateBenchmarks>(DefaultConfig.Instance.WithOption(ConfigOptions.DisableOptimizationsValidator, true));
+            BenchmarkRunner.Run<SpannerNHibernateBenchmarks>(
+                DefaultConfig
+                    .Instance
+                    .WithOption(ConfigOptions.DisableOptimizationsValidator, true),
+                args);
         }
     }
 }
