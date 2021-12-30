@@ -13,6 +13,8 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection;
+using NHibernate;
+using NHibernate.Tool.hbm2ddl;
 using System.Data;
 using System.Threading.Tasks;
 using Xunit;
@@ -34,6 +36,16 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             exporter.Execute(false, true, false);
             
             VerifySchemaEquality(initialSchema, _fixture);
+
+            var validator = new SchemaValidator(_fixture.Configuration);
+            try
+            {
+                validator.Validate();
+            }
+            catch (SchemaValidationException e)
+            {
+                Assert.Empty(e.ValidationErrors);
+            }
         }
 
         [Fact]
@@ -45,6 +57,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             await exporter.ExecuteAsync(false, true, false);
             
             VerifySchemaEquality(initialSchema, _fixture);
+
+            var validator = new SchemaValidator(_fixture.Configuration);
+            await validator.ValidateAsync();
         }
 
         [Fact]

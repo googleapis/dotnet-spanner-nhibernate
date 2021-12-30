@@ -16,6 +16,7 @@ using Google.Api.Gax;
 using Google.Cloud.Spanner.Admin.Database.V1;
 using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
+using NHibernate;
 using NHibernate.Cfg;
 using NHibernate.Mapping.ByCode;
 using NHibernate.Tool.hbm2ddl;
@@ -349,6 +350,136 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             AssertCreateBatch();
         }
 
+        [Fact]
+        public void SchemaValidatorMissesAllTables()
+        {
+            AddTablesResult(new Table[]{});
+            AddColumnsResult(new Column[] {});
+            
+            var validator = new SchemaValidator(Configuration);
+            var validationException = Assert.Throws<SchemaValidationException>(() => validator.Validate());
+            Assert.Collection(validationException.ValidationErrors,
+                err => Assert.Equal("Missing table: Singer", err),
+                err => Assert.Equal("Missing table: Album", err),
+                err => Assert.Equal("Missing table: TableWithAllColumnTypes", err),
+                err => Assert.Equal("Missing table: Track", err)
+            );
+        }
+
+        [Fact]
+        public void SchemaValidatorMissesOneTable()
+        {
+            AddTablesResult(new []
+            {
+                new Table{ Name = "Singer" },
+                new Table{ Name = "Album" },
+                new Table{ Name = "Track" },
+            });
+            AddColumnsResult(new []
+            {
+                new Column{ TableName = "Singer", Name = "SingerId", OrdinalPosition = 1L, SpannerType = "INT64" },
+                new Column{ TableName = "Singer", Name = "FirstName", OrdinalPosition = 2L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "LastName", OrdinalPosition = 3L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "FullName", OrdinalPosition = 4L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "BirthDate", OrdinalPosition = 5L, SpannerType = "DATE" },
+                new Column{ TableName = "Singer", Name = "Picture", OrdinalPosition = 6L, SpannerType = "BYTES" },
+                new Column{ TableName = "Album", Name = "AlbumId", OrdinalPosition = 1L, SpannerType = "INT64" },
+                new Column{ TableName = "Album", Name = "Title", OrdinalPosition = 2L, SpannerType = "STRING" },
+                new Column{ TableName = "Album", Name = "ReleaseDate", OrdinalPosition = 3L, SpannerType = "DATE" },
+                new Column{ TableName = "Track", Name = "TrackId", OrdinalPosition = 1L, SpannerType = "INT64" },
+                new Column{ TableName = "Track", Name = "Title", OrdinalPosition = 2L, SpannerType = "STRING" },
+            });
+            
+            var validator = new SchemaValidator(Configuration);
+            var validationException = Assert.Throws<SchemaValidationException>(() => validator.Validate());
+            Assert.Collection(validationException.ValidationErrors,
+                err => Assert.Equal("Missing table: TableWithAllColumnTypes", err)
+            );
+        }
+
+        [Fact]
+        public void SchemaValidatorMissesOneColumn()
+        {
+            AddTablesResult(new []
+            {
+                new Table{ Name = "Singer" },
+                new Table{ Name = "Album" },
+                new Table{ Name = "TableWithAllColumnTypes" },
+                new Table{ Name = "Track" },
+            });
+            AddColumnsResult(new []
+            {
+                new Column{ TableName = "Singer", Name = "SingerId", OrdinalPosition = 1L, SpannerType = "INT64" },
+                new Column{ TableName = "Singer", Name = "FirstName", OrdinalPosition = 2L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "LastName", OrdinalPosition = 3L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "FullName", OrdinalPosition = 4L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "BirthDate", OrdinalPosition = 5L, SpannerType = "DATE" },
+                new Column{ TableName = "Singer", Name = "Picture", OrdinalPosition = 6L, SpannerType = "BYTES" },
+                new Column{ TableName = "Album", Name = "AlbumId", OrdinalPosition = 1L, SpannerType = "INT64" },
+                new Column{ TableName = "Album", Name = "Title", OrdinalPosition = 2L, SpannerType = "STRING" },
+                new Column{ TableName = "Album", Name = "ReleaseDate", OrdinalPosition = 3L, SpannerType = "DATE" },
+                new Column{ TableName = "Track", Name = "TrackId", OrdinalPosition = 1L, SpannerType = "INT64" },
+                new Column{ TableName = "Track", Name = "Title", OrdinalPosition = 2L, SpannerType = "STRING" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColInt64", OrdinalPosition = 1L, SpannerType = "INT64" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColFloat64", OrdinalPosition = 2L, SpannerType = "FLOAT64" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColNumeric", OrdinalPosition = 3L, SpannerType = "NUMERIC" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColBool", OrdinalPosition = 4L, SpannerType = "BOOL" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColString", OrdinalPosition = 5L, SpannerType = "STRING" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColStringMax", OrdinalPosition = 6L, SpannerType = "STRING" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColBytes", OrdinalPosition = 7L, SpannerType = "BYTES" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColBytesMax", OrdinalPosition = 8L, SpannerType = "BYTES" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColDate", OrdinalPosition = 9L, SpannerType = "DATE" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColTimestamp", OrdinalPosition = 10L, SpannerType = "TIMESTAMP" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColJson", OrdinalPosition = 11L, SpannerType = "JSON" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColCommitTs", OrdinalPosition = 12L, SpannerType = "TIMESTAMP" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColInt64Array", OrdinalPosition = 13L, SpannerType = "ARRAY<INT64>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColFloat64Array", OrdinalPosition = 14L, SpannerType = "ARRAY<FLOAT64>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColNumericArray", OrdinalPosition = 15L, SpannerType = "ARRAY<NUMERIC>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColBoolArray", OrdinalPosition = 16L, SpannerType = "ARRAY<BOOL>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColStringArray", OrdinalPosition = 17L, SpannerType = "ARRAY<STRING(100)>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColStringMaxArray", OrdinalPosition = 18L, SpannerType = "ARRAY<STRING(MAX)>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColBytesArray", OrdinalPosition = 19L, SpannerType = "ARRAY<BYTES(100)>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColBytesMaxArray", OrdinalPosition = 20L, SpannerType = "ARRAY<BYTES(MAX)>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColDateArray", OrdinalPosition = 21L, SpannerType = "ARRAY<DATE>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColTimestampArray", OrdinalPosition = 22L, SpannerType = "ARRAY<TIMESTAMP>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColJsonArray", OrdinalPosition = 23L, SpannerType = "ARRAY<JSON>" },
+                new Column{ TableName = "TableWithAllColumnTypes", Name = "ColComputed", OrdinalPosition = 24L, SpannerType = "STRING" },
+            });
+            
+            var validator = new SchemaValidator(Configuration);
+            var validationException = Assert.Throws<SchemaValidationException>(() => validator.Validate());
+            Assert.Collection(validationException.ValidationErrors,
+                err => Assert.Equal("Missing column: ASC in TableWithAllColumnTypes", err)
+            );
+        }
+
+        [Fact]
+        public void SchemaValidatorDetectsWrongDataType()
+        {
+            AddTablesResult(new []
+            {
+                new Table{ Name = "Singer" },
+            });
+            AddColumnsResult(new []
+            {
+                new Column{ TableName = "Singer", Name = "SingerId", OrdinalPosition = 1L, SpannerType = "INT64" },
+                new Column{ TableName = "Singer", Name = "FirstName", OrdinalPosition = 2L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "LastName", OrdinalPosition = 3L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "FullName", OrdinalPosition = 4L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "BirthDate", OrdinalPosition = 5L, SpannerType = "STRING" },
+                new Column{ TableName = "Singer", Name = "Picture", OrdinalPosition = 6L, SpannerType = "BYTES" },
+            });
+            
+            var validator = new SchemaValidator(Configuration);
+            var validationException = Assert.Throws<SchemaValidationException>(() => validator.Validate());
+            Assert.Collection(validationException.ValidationErrors,
+                err => Assert.Equal("Wrong column type in Singer for column BirthDate. Found: string, Expected DATE", err),
+                err => Assert.Equal("Missing table: Album", err),
+                err => Assert.Equal("Missing table: TableWithAllColumnTypes", err),
+                err => Assert.Equal("Missing table: Track", err)
+            );
+        }
+
         struct Table
         {
             public string Name;
@@ -359,7 +490,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         private void AddTablesResult(IEnumerable<Table> rows)
         {
             var sql =
-                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, PARENT_TABLE_NAME, ON_DELETE_ACTION, SPANNER_STATE\nFROM INFORMATION_SCHEMA.TABLES\nORDER BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, PARENT_TABLE_NAME, ON_DELETE_ACTION, SPANNER_STATE";
+                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, PARENT_TABLE_NAME, ON_DELETE_ACTION, SPANNER_STATE\nFROM INFORMATION_SCHEMA.TABLES\nWHERE TABLE_NAME=@p2\nORDER BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, PARENT_TABLE_NAME, ON_DELETE_ACTION, SPANNER_STATE";
             _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
                 new List<Tuple<V1.TypeCode, string>>
                 {
@@ -387,7 +518,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         private void AddColumnsResult(IEnumerable<Column> rows)
         {
             var sql =
-                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION, COLUMN_NAME, CAST(COLUMN_DEFAULT AS STRING) AS COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE\nFROM INFORMATION_SCHEMA.COLUMNS\nORDER BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION, COLUMN_NAME, COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE";
+                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION, COLUMN_NAME, CAST(COLUMN_DEFAULT AS STRING) AS COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE\nFROM INFORMATION_SCHEMA.COLUMNS\nWHERE TABLE_NAME=@p2\nORDER BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION, COLUMN_NAME, COLUMN_DEFAULT, DATA_TYPE, IS_NULLABLE, SPANNER_TYPE, IS_GENERATED, GENERATION_EXPRESSION, IS_STORED, SPANNER_STATE";
             _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
                 new List<Tuple<V1.TypeCode, string>>
                 {
@@ -450,7 +581,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
         private void AddIndexesResult(IEnumerable<Index> rows)
         {
             var sql =
-                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, PARENT_TABLE_NAME, IS_UNIQUE, IS_NULL_FILTERED, INDEX_STATE, SPANNER_IS_MANAGED\nFROM INFORMATION_SCHEMA.INDEXES\nORDER BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, PARENT_TABLE_NAME, IS_UNIQUE, IS_NULL_FILTERED, INDEX_STATE, SPANNER_IS_MANAGED";
+                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, PARENT_TABLE_NAME, IS_UNIQUE, IS_NULL_FILTERED, INDEX_STATE, SPANNER_IS_MANAGED\nFROM INFORMATION_SCHEMA.INDEXES\nWHERE TABLE_NAME=@p2\nORDER BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, PARENT_TABLE_NAME, IS_UNIQUE, IS_NULL_FILTERED, INDEX_STATE, SPANNER_IS_MANAGED";
             _fixture.SpannerMock.AddOrUpdateStatementResult(sql, StatementResult.CreateResultSet(
                 new List<Tuple<V1.TypeCode, string>>
                 {
