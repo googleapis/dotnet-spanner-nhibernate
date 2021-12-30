@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using Google.Cloud.Spanner.Connection;
-using NHibernate;
 using NHibernate.Tool.hbm2ddl;
 using System.Data;
 using System.Threading.Tasks;
@@ -37,15 +36,9 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             
             VerifySchemaEquality(initialSchema, _fixture);
 
+            // Verify that the generated schema is also valid according to the built-in schema validator of NHibernate.
             var validator = new SchemaValidator(_fixture.Configuration);
-            try
-            {
-                validator.Validate();
-            }
-            catch (SchemaValidationException e)
-            {
-                Assert.Empty(e.ValidationErrors);
-            }
+            validator.Validate();
         }
 
         [Fact]
@@ -58,6 +51,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             
             VerifySchemaEquality(initialSchema, _fixture);
 
+            // Verify that the generated schema is also valid according to the built-in schema validator of NHibernate.
             var validator = new SchemaValidator(_fixture.Configuration);
             await validator.ValidateAsync();
         }
