@@ -16,12 +16,14 @@ using Google.Cloud.Spanner.Connection.MockServer;
 using Google.Cloud.Spanner.NHibernate.Tests.Entities;
 using Google.Cloud.Spanner.V1;
 using Google.Protobuf.WellKnownTypes;
+using NHibernate.Impl;
 using NHibernate.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using Environment = NHibernate.Cfg.Environment;
 
 namespace Google.Cloud.Spanner.NHibernate.Tests
 {
@@ -316,6 +318,139 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             }, mutation =>
             {
                 Assert.Equal(Mutation.OperationOneofCase.Insert, mutation.OperationCase);
+            });
+        }
+
+        [CombinatorialData]
+        [Theory]
+        public async Task ExceedBatchSizeWithMoreThanOne(bool async)
+        {
+            var insertSql = "INSERT INTO Album (SingerId, Title, ReleaseDate, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
+            var batchSize = ((SessionFactoryImpl)_fixture.SessionFactory).Settings.AdoBatchSize;
+
+            using var session = _fixture.SessionFactory.OpenSession();
+            using var transaction = session.BeginTransaction();
+            // We exceed the batch size with two to ensure we get two BatchDML requests, and not one BatchDML
+            // and one ExecuteSql request.
+            for (var row = 0; row < batchSize + 2; row++)
+            {
+                var album = new Album
+                {
+                    AlbumId = row,
+                    Title = $"Title {row}",
+                };
+                if (async)
+                {
+                    await session.SaveAsync(album);
+                }
+                else
+                {
+                    session.Save(album);
+                }
+            }
+            if (async)
+            {
+                await transaction.CommitAsync();
+            }
+            else
+            {
+                transaction.Commit();
+            }
+
+            var batchRequests = _fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>();
+            // We should have two batch requests, as we exceed the batch size.
+            Assert.Equal(2, batchRequests.Count());
+            var commitRequests = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Single(commitRequests);
+        }
+
+        [CombinatorialData]
+        [Theory]
+        public async Task ExceedBatchSizeWithOne(bool async)
+        {
+            var insertSql = "INSERT INTO Album (SingerId, Title, ReleaseDate, AlbumId) VALUES (@p0, @p1, @p2, @p3)";
+            _fixture.SpannerMock.AddOrUpdateStatementResult(insertSql, StatementResult.CreateUpdateCount(1L));
+            var batchSize = ((SessionFactoryImpl)_fixture.SessionFactory).Settings.AdoBatchSize;
+
+            using var session = _fixture.SessionFactory.OpenSession();
+            using var transaction = session.BeginTransaction();
+            // We exceed the batch size with exactly one to ensure we get one BatchDML request and
+            // one ExecuteSql request.
+            for (var row = 0; row < batchSize + 1; row++)
+            {
+                var album = new Album
+                {
+                    AlbumId = row,
+                    Title = $"Title {row}",
+                };
+                if (async)
+                {
+                    await session.SaveAsync(album);
+                }
+                else
+                {
+                    session.Save(album);
+                }
+            }
+            if (async)
+            {
+                await transaction.CommitAsync();
+            }
+            else
+            {
+                transaction.Commit();
+            }
+
+            var batchRequests = _fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>();
+            Assert.Single(batchRequests);
+            var executeRequests = _fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>();
+            Assert.Single(executeRequests);
+            var commitRequests = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Single(commitRequests);
+        }
+
+        [CombinatorialData]
+        [Theory]
+        public async Task ExceedBatchSizeUsingMutations(bool async)
+        {
+            var batchSize = ((SessionFactoryImpl)_fixture.SessionFactoryUsingMutations).Settings.AdoBatchSize;
+
+            using var session = _fixture.SessionFactoryUsingMutations.OpenSession();
+            using var transaction = session.BeginTransaction(MutationUsage.Always);
+            for (var row = 0; row < batchSize + 1; row++)
+            {
+                var album = new Album
+                {
+                    AlbumId = row,
+                    Title = $"Title {row}",
+                };
+                if (async)
+                {
+                    await session.SaveAsync(album);
+                }
+                else
+                {
+                    session.Save(album);
+                }
+            }
+            if (async)
+            {
+                await transaction.CommitAsync();
+            }
+            else
+            {
+                transaction.Commit();
+            }
+
+            Assert.Empty(_fixture.SpannerMock.Requests.OfType<ExecuteBatchDmlRequest>());
+            Assert.Empty(_fixture.SpannerMock.Requests.OfType<ExecuteSqlRequest>());
+            // Even though the mutations are 'flushed' twice to the transaction, there will only be one
+            // commit request containing all the mutations.
+            var commitRequests = _fixture.SpannerMock.Requests.OfType<CommitRequest>();
+            Assert.Collection(commitRequests, request =>
+            {
+                Assert.Equal(batchSize + 1, request.Mutations.Count);
             });
         }
         
