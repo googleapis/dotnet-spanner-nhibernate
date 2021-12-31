@@ -36,7 +36,8 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
     /// 
     /// See also https://cloud.google.com/spanner/docs/commit-timestamp#dml
     /// 
-    /// Run from the command line with `dotnet run CommitTimestampSample`    /// </summary>
+    /// Run from the command line with `dotnet run CommitTimestampSample`
+    /// </summary>
     public static class CommitTimestampSample
     {
         public static async Task Run(SampleConfiguration configuration)

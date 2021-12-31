@@ -85,6 +85,9 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
                         c.NotNullable(true);
                         c.Length(36);
                     });
+                    // Cloud Spanner does not support unique constraints. The Cloud Spanner Dialect will
+                    // therefore automatically translate unique key constraint definitions to unique indexes.
+                    // Add each column that should be included in a unique index to the unique key definition.
                     albumMapper.UniqueKey("Idx_Tracks_AlbumId_Title");
                     albumMapper.ForeignKey(InterleavedTableForeignKey.InterleaveInParent);
                 });
@@ -94,6 +97,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
             {
                 m.NotNullable(true);
                 m.Length(200);
+                // This will also include the Title column in the Idx_Tracks_AlbumId_Title unique index.
                 m.UniqueKey("Idx_Tracks_AlbumId_Title");
             });
             Property(x => x.Duration);
