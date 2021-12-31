@@ -71,7 +71,6 @@ namespace Google.Cloud.Spanner.NHibernate
                 CheckReaders();
             }
 
-            _currentBatchStatementCount++;
             _totalExpectedRowsAffected += expectation.ExpectedRowCount;
             var batchUpdate = CurrentCommand as SpannerRetriableCommand;
             Prepare(batchUpdate);
