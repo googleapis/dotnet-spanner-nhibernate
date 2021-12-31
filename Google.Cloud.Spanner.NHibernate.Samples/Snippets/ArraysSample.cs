@@ -36,7 +36,8 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.Snippets
     /// <item><see cref="SpannerJsonArray"/></item>
     /// </list>
     /// 
-    /// Run from the command line with `dotnet run ArraysSample`    /// </summary>
+    /// Run from the command line with `dotnet run ArraysSample`
+    /// </summary>
     public static class ArraysSample
     {
         public static async Task Run(SampleConfiguration configuration)
