@@ -277,6 +277,6 @@ namespace Google.Cloud.Spanner.Connection
 
         /// <inheritdoc/>
         public override DataTable GetSchema(string collectionName, string[] restrictionValues) =>
-            new SchemaProvider(this).GetSchema(collectionName);
+            new SchemaProvider(this).GetSchema(collectionName, restrictionValues);
     }
 }

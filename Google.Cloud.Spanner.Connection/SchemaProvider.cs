@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Text;
 using TypeCode = Google.Cloud.Spanner.V1.TypeCode;
 
 namespace Google.Cloud.Spanner.Connection
@@ -27,41 +28,47 @@ namespace Google.Cloud.Spanner.Connection
 		private static readonly List<string> DataTypes =
 			Enum.GetValues(typeof(TypeCode)).Cast<TypeCode>().Select(t => t.ToString()).ToList();
 		private readonly SpannerRetriableConnection _connection;
-		private readonly Dictionary<string, Action<DataTable>> _schemaCollections;
+		private readonly Dictionary<string, Tuple<Action<DataTable, string[]>, int>> _schemaCollections;
+		private static readonly string[] TableRestrictions = { "TABLE_CATALOG", "TABLE_SCHEMA", "TABLE_NAME", "TABLE_TYPE" };
+		private static readonly string[] ColumnRestrictions = { "TABLE_CATALOG", "TABLE_SCHEMA", "TABLE_NAME", "COLUMN_NAME" };
+		private static readonly string[] ViewRestrictions = { "TABLE_CATALOG", "TABLE_SCHEMA", "TABLE_NAME" };
+		private static readonly string[] IndexRestrictions = { "TABLE_CATALOG", "TABLE_SCHEMA", "TABLE_NAME", "INDEX_NAME" };
+		private static readonly string[] IndexColumnRestrictions = { "TABLE_CATALOG", "TABLE_SCHEMA", "TABLE_NAME", "INDEX_NAME", "COLUMN_NAME" };
 		
 		public SchemaProvider(SpannerRetriableConnection connection)
 		{
 			_connection = connection;
-			_schemaCollections = new Dictionary<string, Action<DataTable>>(StringComparer.OrdinalIgnoreCase)
+			_schemaCollections = new Dictionary<string, Tuple<Action<DataTable, string[]>, int>>(StringComparer.OrdinalIgnoreCase)
 			{
-				{ DbMetaDataCollectionNames.MetaDataCollections, FillMetadataCollections },
-				{ DbMetaDataCollectionNames.ReservedWords, FillReservedWords },
-				{ DbMetaDataCollectionNames.DataTypes, FillDataTypes },
-				{ "Columns", FillColumns },
-				{ "ColumnOptions", FillColumnOptions },
-				{ "Indexes", FillIndexes },
-				{ "IndexColumns", FillIndexColumns },
-				{ "KeyColumnUsage", FillKeyColumnUsage },
-				{ "Tables", FillTables },
-				{ "ReferentialConstraints", FillReferentialConstraints },
-				{ "TableConstraints", FillTableConstraints },
-				{ "Views", FillViews },
+				{ DbMetaDataCollectionNames.MetaDataCollections, new Tuple<Action<DataTable, string[]>, int>(FillMetadataCollections, 0) },
+				{ DbMetaDataCollectionNames.ReservedWords, new Tuple<Action<DataTable, string[]>, int>(FillReservedWords, 0) },
+				{ DbMetaDataCollectionNames.DataTypes, new Tuple<Action<DataTable, string[]>, int>(FillDataTypes, 0) },
+				{ DbMetaDataCollectionNames.Restrictions, new Tuple<Action<DataTable, string[]>, int>(FillRestrictions, 0) },
+				{ "Columns", new Tuple<Action<DataTable, string[]>, int>(FillColumns, 4) },
+				{ "ColumnOptions", new Tuple<Action<DataTable, string[]>, int>(FillColumnOptions, 0) },
+				{ "Indexes", new Tuple<Action<DataTable, string[]>, int>(FillIndexes, 4) },
+				{ "IndexColumns", new Tuple<Action<DataTable, string[]>, int>(FillIndexColumns, 5) },
+				{ "KeyColumnUsage", new Tuple<Action<DataTable, string[]>, int>(FillKeyColumnUsage, 0) },
+				{ "Tables", new Tuple<Action<DataTable, string[]>, int>(FillTables, 4) },
+				{ "ReferentialConstraints", new Tuple<Action<DataTable, string[]>, int>(FillReferentialConstraints, 0) },
+				{ "TableConstraints", new Tuple<Action<DataTable, string[]>, int>(FillTableConstraints, 0) },
+				{ "Views", new Tuple<Action<DataTable, string[]>, int>(FillViews, 3) },
 			};
 		}
 
 		public DataTable GetSchema() => GetSchema(DbMetaDataCollectionNames.MetaDataCollections);
 
-		public DataTable GetSchema(string collectionName)
+		public DataTable GetSchema(string collectionName, string[] restrictionValues = null)
 		{
 			GaxPreconditions.CheckNotNull(collectionName, nameof(collectionName));
 			GaxPreconditions.CheckArgument(_schemaCollections.ContainsKey(collectionName), nameof(collectionName), $"Unknown collection name: {collectionName}");
 
 			var dataTable = new DataTable(collectionName);
-			_schemaCollections[collectionName](dataTable);
+			_schemaCollections[collectionName].Item1(dataTable, restrictionValues);
 			return dataTable;
 		}
 
-		private void FillMetadataCollections(DataTable dataTable)
+		private void FillMetadataCollections(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new [] {
 				new DataColumn(DbMetaDataColumnNames.CollectionName, typeof(string)),
@@ -71,7 +78,7 @@ namespace Google.Cloud.Spanner.Connection
 			_ = _schemaCollections.Select(entry => dataTable.Rows.Add(entry.Key, 0, 0));
 		}
 
-		private void FillReservedWords(DataTable dataTable)
+		private void FillReservedWords(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new [] {
 				new DataColumn(DbMetaDataColumnNames.ReservedWord, typeof(string)),
@@ -79,7 +86,7 @@ namespace Google.Cloud.Spanner.Connection
 			_ = Keywords.ReservedKeywords.Select(w => dataTable.Rows.Add(w));
 		}
 
-		private void FillDataTypes(DataTable dataTable)
+		private void FillDataTypes(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new [] {
 				new DataColumn(DbMetaDataColumnNames.DataType, typeof(string)),
@@ -87,7 +94,38 @@ namespace Google.Cloud.Spanner.Connection
 			_ = DataTypes.Select(w => dataTable.Rows.Add(w));
 		}
 
-		private void FillColumns(DataTable dataTable)
+		private void FillRestrictions(DataTable dataTable, string[] restrictionValues = null)
+		{
+			dataTable.Columns.AddRange(new []
+			{
+				new DataColumn("CollectionName", typeof(string)),
+				new DataColumn("RestrictionName", typeof(string)),
+				new DataColumn("RestrictionDefault", typeof(string)),
+				new DataColumn("RestrictionNumber", typeof(int)),
+			});
+			dataTable.Rows.Add("Tables", "Catalog", "TABLE_CATALOG", 1);
+			dataTable.Rows.Add("Tables", "Schema", "TABLE_SCHEMA", 2);
+			dataTable.Rows.Add("Tables", "Table", "TABLE_NAME", 3);
+			dataTable.Rows.Add("Tables", "TableType", "TABLE_TYPE", 4);
+			dataTable.Rows.Add("Columns", "Catalog", "TABLE_CATALOG", 1);
+			dataTable.Rows.Add("Columns", "Schema", "TABLE_SCHEMA", 2);
+			dataTable.Rows.Add("Columns", "TableName", "TABLE_NAME", 3);
+			dataTable.Rows.Add("Columns", "Column", "COLUMN_NAME", 4);
+			dataTable.Rows.Add("Views", "Catalog", "TABLE_CATALOG", 1);
+			dataTable.Rows.Add("Views", "Schema", "TABLE_SCHEMA", 2);
+			dataTable.Rows.Add("Views", "Table", "TABLE_NAME", 3);
+			dataTable.Rows.Add("Indexes", "Catalog", "TABLE_CATALOG", 1);
+			dataTable.Rows.Add("Indexes", "Schema", "TABLE_SCHEMA", 2);
+			dataTable.Rows.Add("Indexes", "Table", "TABLE_NAME", 3);
+			dataTable.Rows.Add("Indexes", "Index", "INDEX_NAME", 4);
+			dataTable.Rows.Add("IndexColumns", "Catalog", "TABLE_CATALOG", 1);
+			dataTable.Rows.Add("IndexColumns", "Schema", "TABLE_SCHEMA", 2);
+			dataTable.Rows.Add("IndexColumns", "Table", "TABLE_NAME", 3);
+			dataTable.Rows.Add("IndexColumns", "Index", "INDEX_NAME", 4);
+			dataTable.Rows.Add("IndexColumns", "Column", "COLUMN_NAME", 5);
+		}
+
+		private void FillColumns(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -106,10 +144,10 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("SPANNER_STATE", typeof(string)),
 			});
 
-			FillDataTable(dataTable, "COLUMNS");
+			FillDataTable(dataTable, "COLUMNS", ColumnRestrictions, restrictionValues);
 		}
 
-		private void FillColumnOptions(DataTable dataTable)
+		private void FillColumnOptions(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -122,10 +160,10 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("OPTION_VALUE", typeof(string)),
 			});
 
-			FillDataTable(dataTable, "COLUMN_OPTIONS");
+			FillDataTable(dataTable, "COLUMN_OPTIONS", null, restrictionValues);
 		}
 
-		private void FillKeyColumnUsage(DataTable dataTable)
+		private void FillKeyColumnUsage(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -140,11 +178,11 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("POSITION_IN_UNIQUE_CONSTRAINT", typeof(string)),
 			});
 
-			FillDataTable(dataTable, "KEY_COLUMN_USAGE");
+			FillDataTable(dataTable, "KEY_COLUMN_USAGE", null, restrictionValues);
 		}
 
 
-		private void FillReferentialConstraints(DataTable dataTable)
+		private void FillReferentialConstraints(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -160,10 +198,10 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("SPANNER_STATE", typeof(string)),
 			});
 
-			FillDataTable(dataTable, "REFERENTIAL_CONSTRAINTS");
+			FillDataTable(dataTable, "REFERENTIAL_CONSTRAINTS", null, restrictionValues);
 		}
 
-		private void FillIndexes(DataTable dataTable)
+		private void FillIndexes(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -179,10 +217,10 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("SPANNER_IS_MANAGED", typeof(bool)),
 			});
 
-			FillDataTable(dataTable, "INDEXES");
+			FillDataTable(dataTable, "INDEXES", IndexRestrictions, restrictionValues);
 		}
 
-		private void FillIndexColumns(DataTable dataTable)
+		private void FillIndexColumns(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -198,10 +236,10 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("SPANNER_TYPE", typeof(string)),
 			});
 
-			FillDataTable(dataTable, "INDEX_COLUMNS");
+			FillDataTable(dataTable, "INDEX_COLUMNS", IndexColumnRestrictions, restrictionValues);
 		}
 
-		private void FillTables(DataTable dataTable)
+		private void FillTables(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -213,10 +251,10 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("SPANNER_STATE", typeof(string)),
 			});
 
-			FillDataTable(dataTable, "TABLES");
+			FillDataTable(dataTable, "TABLES", TableRestrictions, restrictionValues);
 		}
 
-		private void FillTableConstraints(DataTable dataTable)
+		private void FillTableConstraints(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -231,10 +269,10 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("ENFORCED", typeof(string)),
 			});
 
-			FillDataTable(dataTable, "TABLE_CONSTRAINTS");
+			FillDataTable(dataTable, "TABLE_CONSTRAINTS", null, restrictionValues);
 		}
 
-		private void FillViews(DataTable dataTable)
+		private void FillViews(DataTable dataTable, string[] restrictionValues = null)
 		{
 			dataTable.Columns.AddRange(new []
 			{
@@ -244,10 +282,10 @@ namespace Google.Cloud.Spanner.Connection
 				new DataColumn("VIEW_DEFINITION", typeof(string)),
 			});
 
-			FillDataTable(dataTable, "VIEWS");
+			FillDataTable(dataTable, "VIEWS", ViewRestrictions, restrictionValues);
 		}
 
-		private void FillDataTable(DataTable dataTable, string tableName)
+		private void FillDataTable(DataTable dataTable, string tableName, string[] restrictionColumns, string[] restrictionValues)
 		{
 			Action close = null;
 			if (_connection.State != ConnectionState.Open)
@@ -260,6 +298,7 @@ namespace Google.Cloud.Spanner.Connection
 			{
 				command.CommandText = $"SELECT {string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(x => x!.ColumnName.Replace("COLUMN_DEFAULT", "CAST(COLUMN_DEFAULT AS STRING) AS COLUMN_DEFAULT")))}\n"
 				                      + $"FROM INFORMATION_SCHEMA.{tableName}\n"
+				                      + BuildWhereClause(command, restrictionColumns, restrictionValues)
 				                      + $"ORDER BY {string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(x => x!.ColumnName))}";
 				using var reader = command.ExecuteReader();
 				while (reader.Read())
@@ -271,6 +310,32 @@ namespace Google.Cloud.Spanner.Connection
 			}
 
 			close?.Invoke();
+		}
+
+		private static string BuildWhereClause(DbCommand command, string[] restrictionColumns, string[] restrictionValues)
+		{
+			if (restrictionValues == null || restrictionColumns == null || restrictionValues.Length == 0)
+			{
+				return "";
+			}
+			GaxPreconditions.CheckArgument(restrictionColumns.Length >= restrictionValues.Length, nameof(restrictionValues), $"Unsupported number of restriction values supplied: {restrictionValues.Length}. Expected at most {restrictionColumns.Length} values.");
+			var builder = new StringBuilder();
+			var first = true;
+			for (var i = 0; i < restrictionValues.Length; i++)
+			{
+				if (restrictionValues[i] != null)
+				{
+					builder.Append(first ? "WHERE " : "AND ");
+					builder.Append(restrictionColumns[i]).Append("=@p").Append(i).Append("\n");
+					first = false;
+					
+					var param = command.CreateParameter();
+					param.ParameterName = $"@p{i}";
+					param.Value = restrictionValues[i];
+					command.Parameters.Add(param);
+				}
+			}
+			return builder.ToString();
 		}
 	}
 }
