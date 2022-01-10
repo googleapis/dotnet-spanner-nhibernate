@@ -110,10 +110,10 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
             _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(0L));
             _fixture.SpannerMock.AddOrUpdateStatementResult(selectSql, StatementResult.CreateResultSet(new List<Tuple<V1.TypeCode, string>>
             {
-                Tuple.Create(V1.TypeCode.Int64, "singerid1_4_0_"),
-                Tuple.Create(V1.TypeCode.Int64, "version2_4_0_"),
-                Tuple.Create(V1.TypeCode.String, "firstname3_4_0_"),
-                Tuple.Create(V1.TypeCode.String, "lastname4_4_0_")
+                Tuple.Create(TypeCode.Int64, "singerid1_4_0_"),
+                Tuple.Create(TypeCode.Int64, "version2_4_0_"),
+                Tuple.Create(TypeCode.String, "firstname3_4_0_"),
+                Tuple.Create(TypeCode.String, "lastname4_4_0_")
             }, new List<object[]>
             {
                 new object[]{"1", "1", "Pete", "Allison"}
@@ -125,7 +125,7 @@ namespace Google.Cloud.Spanner.NHibernate.Tests
                 {
                     var singer = await session.LoadAsync<SingerWithVersion>(1L);
                     singer.LastName = "Allison - Peterson";
-                    await Assert.ThrowsAsync<StaleObjectStateException>(() => session.FlushAsync());
+                    await Assert.ThrowsAsync<StaleStateException>(() => session.FlushAsync());
                     // Update the update count to 1 to simulate a resolved version conflict.
                     _fixture.SpannerMock.AddOrUpdateStatementResult(updateSql, StatementResult.CreateUpdateCount(1L));
                     await transaction.CommitAsync();
