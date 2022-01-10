@@ -31,7 +31,12 @@ namespace Google.Cloud.Spanner.NHibernate
         public SpannerDialect()
         {
 			DefaultProperties[Environment.ConnectionDriver] = typeof(SpannerDriver).AssemblyQualifiedName;
+			// Set BatchSize to 100 by default to ensure that batching is used unless the user explicitly turns it off.
+			// This will ensure that Batch DML is used as much as possible, and that mutations can be used.
 			DefaultProperties[Environment.BatchSize] = "100";
+			// Enable batching of versioned data. Batch DML returns the update count for each DML statement (including
+			// UPDATE and DELETE statements), which makes it safe to batch these statements as well.
+			DefaultProperties[Environment.BatchVersionedData] = "true";
 
 			RegisterDateTimeTypeMappings();
 			RegisterColumnType(DbType.AnsiStringFixedLength, "STRING(MAX)");

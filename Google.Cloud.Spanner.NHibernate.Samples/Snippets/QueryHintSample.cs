@@ -16,7 +16,6 @@ using Google.Cloud.Spanner.NHibernate.Samples.SampleModel;
 using NHibernate.Criterion;
 using NHibernate.Linq;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Environment = NHibernate.Cfg.Environment;
