@@ -1,0 +1,122 @@
+﻿// Copyright 2022 Google Inc. All Rights Reserved.
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+using NHibernate.Mapping.ByCode;
+using NHibernate.Mapping.ByCode.Conformist;
+using System;
+using System.Linq;
+
+namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
+{
+    public class AllTypesEntity
+    {
+        public virtual long ColInt64 { get; set; }
+        public virtual double? ColFloat64 { get; set; }
+        public virtual SpannerNumeric ColNumeric { get; set; }
+        public virtual bool? ColBool { get; set; }
+        public virtual string ColString { get; set; }
+        public virtual byte[] ColBytes { get; set; }
+        public virtual SpannerJson ColJson { get; set; }
+        public virtual SpannerDate ColDate { get; set; }
+        public virtual DateTime? ColTimestamp { get; set; }
+        public virtual DateTime? ColCommitTs { get; set; }
+        public virtual SpannerInt64Array ColInt64Array { get; set; }
+        public virtual SpannerFloat64Array ColFloat64Array { get; set; }
+        public virtual SpannerNumericArray ColNumericArray { get; set; }
+        public virtual SpannerBoolArray ColBoolArray { get; set; }
+        public virtual SpannerStringArray ColStringArray { get; set; }
+        public virtual SpannerBytesArray ColBytesArray { get; set; }
+        public virtual SpannerJsonArray ColJsonArray { get; set; }
+        public virtual SpannerDateArray ColDateArray { get; set; }
+        public virtual SpannerTimestampArray ColTimestampArray { get; set; }
+        public virtual string ColComputed { get; set; }
+
+        public override bool Equals(object other)
+        {
+            if (other is AllTypesEntity o)
+            {
+                return Equals(ColInt64, o.ColInt64)
+                       && Equals(ColFloat64, o.ColFloat64)
+                       && Equals(ColNumeric, o.ColNumeric)
+                       && Equals(ColBool, o.ColBool)
+                       && Equals(ColString, o.ColString)
+                       && Equals(ColBytes, o.ColBytes)
+                       && Equals(ColDate, o.ColDate)
+                       && Equals(ColTimestamp, o.ColTimestamp)
+                       && Equals(ColJson, o.ColJson)
+                       && Equals(ColCommitTs, o.ColCommitTs)
+                       && Equals(ColComputed, o.ColComputed)
+                       && Equals(ColInt64Array?.Array, o.ColInt64Array?.Array) || ColInt64Array != null && o.ColInt64Array != null && ColInt64Array.Array.SequenceEqual(o.ColInt64Array.Array)
+                       && Equals(ColFloat64Array?.Array, o.ColFloat64Array?.Array) || ColFloat64Array != null && o.ColFloat64Array != null && ColFloat64Array.Array.SequenceEqual(o.ColFloat64Array.Array)
+                       && Equals(ColNumericArray?.Array, o.ColNumericArray?.Array) || ColNumericArray != null && o.ColNumericArray != null && ColNumericArray.Array.SequenceEqual(o.ColNumericArray.Array)
+                       && Equals(ColBoolArray?.Array, o.ColBoolArray?.Array) || ColBoolArray != null && o.ColBoolArray != null && ColBoolArray.Array.SequenceEqual(o.ColBoolArray.Array)
+                       && Equals(ColStringArray?.Array, o.ColStringArray?.Array) || ColStringArray != null && o.ColStringArray != null && ColStringArray.Array.SequenceEqual(o.ColStringArray.Array)
+                       && Equals(ColBytesArray?.Array, o.ColBytesArray?.Array) || ColBytesArray != null && o.ColBytesArray != null && ColBytesArray.Array.SequenceEqual(o.ColBytesArray.Array)
+                       && Equals(ColDateArray?.Array, o.ColDateArray?.Array) || ColDateArray != null && o.ColDateArray != null && ColDateArray.Array.SequenceEqual(o.ColDateArray.Array)
+                       && Equals(ColTimestampArray?.Array, o.ColTimestampArray?.Array) || ColTimestampArray != null && o.ColTimestampArray != null && ColTimestampArray.Array.SequenceEqual(o.ColTimestampArray.Array)
+                       && Equals(ColJsonArray?.Array, o.ColJsonArray?.Array) || ColJsonArray != null && o.ColJsonArray != null && ColJsonArray.Array.SequenceEqual(o.ColJsonArray.Array)
+                    ;
+            }
+            return false;
+        }
+
+        public override int GetHashCode() => ColInt64.GetHashCode();
+    }
+
+    public class AllTypesEntityMapping : ClassMapping<AllTypesEntity>
+    {
+        public AllTypesEntityMapping()
+        {
+            Table("TableWithAllColumnTypes");
+            Persister<SpannerSingleTableEntityPersister>();
+            DynamicUpdate(true);
+            Id(x => x.ColInt64);
+            Property(x => x.ColFloat64);
+            Property(x => x.ColNumeric);
+            Property(x => x.ColBool);
+            Property(x => x.ColString, m => m.Length(100));
+            Property(x => x.ColBytes, m => m.Length(100));
+            Property(x => x.ColJson);
+            Property(x => x.ColDate, m => m.Index("IDX_TableWithAllColumnTypes_ColDate_ColCommitTs"));
+            Property(x => x.ColTimestamp);
+            Property(x => x.ColCommitTs, m =>
+            {
+                // This ensures that `OPTIONS (allow_commit_timestamp=true)` is added to the column definition.
+                m.Column(c => c.SqlType(SpannerCommitTimestampSqlType.NullableInstance));
+                // The following ensures that the SpannerSingleTableWithFixedValuesEntityPersister will set the column
+                // to the default value for both inserts and updates.
+                m.Insert(false); // This will prevent Hibernate from assigning a value to the column during inserts.
+                m.Update(false); // This will prevent Hibernate from assigning a value to the column during updates.
+                // This will automatically set the value of the column to the commit timestamp of the transaction
+                // when the record is updated/inserted.
+                m.Column(c => c.Default("PENDING_COMMIT_TIMESTAMP()"));
+                m.Index("IDX_TableWithAllColumnTypes_ColDate_ColCommitTs");
+            });
+            Property(x => x.ColInt64Array);
+            Property(x => x.ColFloat64Array);
+            Property(x => x.ColNumericArray);
+            Property(x => x.ColBoolArray);
+            Property(x => x.ColStringArray, m => m.Length(100));
+            Property(x => x.ColBytesArray, m => m.Length(100));
+            Property(x => x.ColJsonArray);
+            Property(x => x.ColDateArray);
+            Property(x => x.ColTimestampArray);
+            Property(x => x.ColComputed, mapper =>
+            {
+                mapper.Generated(PropertyGeneration.Always);
+                mapper.Column(c => c.SqlType("STRING(MAX) AS (ARRAY_TO_STRING(ColStringArray, ',')) STORED"));
+            });
+        }
+    }
+}
