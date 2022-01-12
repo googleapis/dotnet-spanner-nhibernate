@@ -202,8 +202,8 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
             var codeBasePath = Uri.UnescapeDataString(codeBaseUrl.AbsolutePath);
             var dirPath = Path.GetDirectoryName(codeBasePath) ?? "";
             var fileName = Path.Combine(dirPath, "SampleModel/SampleDataModel.sql");
-            var script = await File.ReadAllTextAsync(fileName);
-            var statements = script.Split(";");
+            var script = File.ReadAllText(fileName);
+            var statements = script.Split(';');
             for (var i = 0; i < statements.Length; i++)
             {
                 // Remove license header from script

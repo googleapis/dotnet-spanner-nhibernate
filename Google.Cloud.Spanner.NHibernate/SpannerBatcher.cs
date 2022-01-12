@@ -318,7 +318,7 @@ namespace Google.Cloud.Spanner.NHibernate
             }
             if (ownTransaction)
             {
-                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                transaction.Commit();
             }
             return rowsAffected;
         }

@@ -20,6 +20,7 @@ using NHibernate.Dialect;
 using NHibernate.Id;
 using NHibernate.Mapping;
 using NHibernate.Tool.hbm2ddl;
+using NHibernate.Util;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
@@ -365,8 +366,9 @@ namespace Google.Cloud.Spanner.NHibernate
             // We cannot get the auxiliary objects that have already been added to the config, so we have to use a
             // custom property to remember that.
             // We also convert all unique keys into unique indexes.
-            if (configuration.Properties.TryAdd("spanner.auxiliary.indexes", "true"))
+            if (!configuration.Properties.ContainsKey("spanner.auxiliary.indexes"))
             {
+                configuration.Properties.Add("spanner.auxiliary.indexes", "true");
                 foreach (var mapping in configuration.ClassMappings)
                 {
                     foreach (var index in mapping.Table.IndexIterator)

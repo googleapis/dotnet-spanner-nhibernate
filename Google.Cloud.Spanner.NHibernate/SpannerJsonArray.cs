@@ -37,7 +37,7 @@ namespace Google.Cloud.Spanner.NHibernate
         public override System.Type ReturnedType => typeof(SpannerJsonArray);
 
         public override object NullSafeGet(DbDataReader rs, string[] names, ISessionImplementor session, object owner) => 
-            rs.IsDBNull(names[0]) ? null : new SpannerJsonArray(rs.GetFieldValue<List<string>>(names[0]));
+            rs.IsDBNull(rs.GetOrdinal(names[0])) ? null : new SpannerJsonArray(rs.GetFieldValue<List<string>>(rs.GetOrdinal(names[0])));
 
         public override object DeepCopy(object value)
         {

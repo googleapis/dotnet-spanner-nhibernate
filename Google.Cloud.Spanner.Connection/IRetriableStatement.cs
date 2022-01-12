@@ -22,6 +22,6 @@ namespace Google.Cloud.Spanner.Connection
     /// </summary>
     internal interface IRetriableStatement
     {
-        internal Task RetryAsync(SpannerRetriableTransaction transaction, CancellationToken cancellationToken, int timeoutSeconds);
+        Task RetryAsync(SpannerRetriableTransaction transaction, CancellationToken cancellationToken, int timeoutSeconds);
     }
 }
