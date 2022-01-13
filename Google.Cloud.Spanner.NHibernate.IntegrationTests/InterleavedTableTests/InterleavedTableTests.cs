@@ -197,5 +197,56 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
                 Assert.Null(track);
             }
         }
+
+        [InlineData(MutationUsage.Never)]
+        [InlineData(MutationUsage.Always)]
+        [Theory]
+        public void CanUseCascadeDelete(MutationUsage mutationUsage)
+        {
+            object singerId, albumId, trackId;
+            using (var session = _fixture.SessionFactory.OpenSession())
+            {
+                using var transaction = session.BeginTransaction(mutationUsage);
+                var singer = new Singer
+                {
+                    FirstName = "Pete",
+                    LastName = "Allison",
+                };
+                singerId = session.Save(singer);
+                var album = new Album
+                {
+                    AlbumIdentifier = new AlbumIdentifier(singer),
+                    Title = "My first album"
+                };
+                albumId = session.Save(album);
+                trackId = session.Save(new Track
+                {
+                    TrackIdentifier = new TrackIdentifier(album),
+                    Title = "My first track",
+                });
+                transaction.Commit();
+            }
+
+            using (var session = _fixture.SessionFactory.OpenSession())
+            {
+                using var transaction = session.BeginTransaction(mutationUsage);
+                var album = session.Load<Album>(albumId);
+
+                // We can delete an album without first deleting its tracks, as the INTERLEAVE IN relationship has been
+                // created with ON DELETE CASCADE.
+                session.Delete(album);
+                transaction.Commit();
+            }
+            
+            using (var session = _fixture.SessionFactory.OpenSession())
+            {
+                var singer = session.Get<Singer>(singerId);
+                var album = session.Get<Album>(albumId);
+                var track = session.Get<Track>(trackId);
+                Assert.NotNull(singer);
+                Assert.Null(album);
+                Assert.Null(track);
+            }
+        }
     }
 }

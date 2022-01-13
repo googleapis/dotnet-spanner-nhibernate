@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using NHibernate.Mapping.ByCode;
 using NHibernate.Mapping.ByCode.Conformist;
 using System;
 using System.Collections.Generic;
@@ -87,7 +88,12 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
                     // Make sure to set Inverse(true) to prevent NHibernate from trying to break the association between
                     // an Album and a Track by setting Track.AlbumId = NULL.
                     c.Inverse(true);
-                    c.Key(k => k.Columns(c => c.Name("SingerId"), c => c.Name("AlbumId")));
+                    c.Key(k =>
+                    {
+                        // This will add the ON DELETE CASCADE option to the INTERLEAVE IN PARENT definition.
+                        k.OnDelete(OnDeleteAction.Cascade);
+                        k.Columns(c => c.Name("SingerId"), c => c.Name("AlbumId"));
+                    });
                 },
                 r => r.OneToMany());
         }
