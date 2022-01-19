@@ -12,6 +12,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.NHiber
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.NHibernate.Samples", "Google.Cloud.Spanner.NHibernate.Samples\Google.Cloud.Spanner.NHibernate.Samples.csproj", "{C7F653BD-ADFA-45EB-93E0-C609316D3604}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Cloud.Spanner.NHibernate.Benchmarks", "Google.Cloud.Spanner.NHibernate.Benchmarks\Google.Cloud.Spanner.NHibernate.Benchmarks.csproj", "{E99B8ADB-877E-4E0A-BF01-99A0CC1E19D1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,5 +44,9 @@ Global
 		{C7F653BD-ADFA-45EB-93E0-C609316D3604}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7F653BD-ADFA-45EB-93E0-C609316D3604}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7F653BD-ADFA-45EB-93E0-C609316D3604}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E99B8ADB-877E-4E0A-BF01-99A0CC1E19D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E99B8ADB-877E-4E0A-BF01-99A0CC1E19D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E99B8ADB-877E-4E0A-BF01-99A0CC1E19D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E99B8ADB-877E-4E0A-BF01-99A0CC1E19D1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
