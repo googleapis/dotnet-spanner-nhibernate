@@ -44,7 +44,10 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             Property(x => x.Active, m => m.NotNullable(true));
             Property(x => x.Capacity);
             Property(x => x.Ratings);
-            Bag(x => x.Concerts, c => { }, r => r.OneToMany());
+            Bag(x => x.Concerts, c =>
+            {
+                c.Inverse(true);
+            }, r => r.OneToMany());
         }
     }
 }

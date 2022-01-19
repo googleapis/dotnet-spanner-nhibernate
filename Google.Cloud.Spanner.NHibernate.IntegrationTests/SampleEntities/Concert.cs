@@ -59,7 +59,10 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
                 m.ForeignKey("FK_Concerts_Singers");
             });
             Property(x => x.Title, m => m.Length(200));
-            Bag(x => x.Performances, c => { }, r => r.OneToMany());
+            Bag(x => x.Performances, c =>
+            {
+                c.Inverse(true);
+            }, r => r.OneToMany());
         }
     }
 }
