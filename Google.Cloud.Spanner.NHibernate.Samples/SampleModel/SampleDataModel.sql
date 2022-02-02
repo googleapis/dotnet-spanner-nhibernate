@@ -50,7 +50,7 @@ CREATE TABLE Tracks (
   Version         INT64 NOT NULL,
   CreatedAt       TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
   LastUpdatedAt   TIMESTAMP OPTIONS (allow_commit_timestamp=true),
-) PRIMARY KEY (Id, TrackNumber), INTERLEAVE IN PARENT Albums;
+) PRIMARY KEY (Id, TrackNumber), INTERLEAVE IN PARENT Albums ON DELETE CASCADE;
 
 CREATE UNIQUE INDEX Idx_Tracks_AlbumId_Title ON Tracks (Id, Title);
 

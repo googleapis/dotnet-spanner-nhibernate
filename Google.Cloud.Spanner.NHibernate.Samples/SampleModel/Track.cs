@@ -89,6 +89,10 @@ namespace Google.Cloud.Spanner.NHibernate.Samples.SampleModel
                     // therefore automatically translate unique key constraint definitions to unique indexes.
                     // Add each column that should be included in a unique index to the unique key definition.
                     albumMapper.UniqueKey("Idx_Tracks_AlbumId_Title");
+                    // Giving the foreign key exactly the name 'INTERLEAVE IN PARENT' tells the Cloud Spanner NHibernate
+                    // dialect that it should see this relationship as an interleaved child table and not a normal
+                    // foreign key constraint. This relationship also supports cascade deletes. This is enabled on the
+                    // parent side of the relationship (in the Album mapping).
                     albumMapper.ForeignKey(InterleavedTableForeignKey.InterleaveInParent);
                 });
                 m.Property(id => id.TrackNumber, propertyMapper => propertyMapper.NotNullable(true));
