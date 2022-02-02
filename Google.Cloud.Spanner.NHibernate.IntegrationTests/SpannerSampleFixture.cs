@@ -130,7 +130,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests
             const string sampleModel = "SampleDataModel.sql";
             var fileName = Path.Combine(dirPath, sampleModel);
             var script = File.ReadAllText(fileName);
-            var statements = script.Split(";");
+            var statements = script.Split(';');
             for (var i = 0; i < statements.Length; i++)
             {
                 // Remove license header from script

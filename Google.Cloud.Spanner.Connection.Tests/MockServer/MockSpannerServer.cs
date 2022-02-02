@@ -706,13 +706,13 @@ namespace Google.Cloud.Spanner.Connection.MockServer
 
     public class MockDatabaseAdminService : DatabaseAdmin.DatabaseAdminBase
     {
-        private readonly ConcurrentQueue<IMessage> _requests = new ConcurrentQueue<IMessage>();
+        private ConcurrentQueue<IMessage> _requests = new ConcurrentQueue<IMessage>();
 
         public IEnumerable<IMessage> Requests => new List<IMessage>(_requests).AsReadOnly();
         
         public void Reset()
         {
-            _requests.Clear();
+            _requests = new ConcurrentQueue<IMessage>();
         }
 
         public override Task<Operation> CreateDatabase(CreateDatabaseRequest request, ServerCallContext context)

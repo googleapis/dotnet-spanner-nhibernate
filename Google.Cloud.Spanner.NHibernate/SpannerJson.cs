@@ -56,7 +56,7 @@ namespace Google.Cloud.Spanner.NHibernate
         public int GetHashCode(object x) => x?.GetHashCode() ?? 0;
 
         public object NullSafeGet(DbDataReader rs, string[] names, ISessionImplementor session, object owner) => 
-            rs.IsDBNull(names[0]) ? null : new SpannerJson(rs.GetFieldValue<string>(names[0]));
+            rs.IsDBNull(rs.GetOrdinal(names[0])) ? null : new SpannerJson(rs.GetFieldValue<string>(rs.GetOrdinal(names[0])));
 
         public void NullSafeSet(DbCommand cmd, object value, int index, ISessionImplementor session)
         {

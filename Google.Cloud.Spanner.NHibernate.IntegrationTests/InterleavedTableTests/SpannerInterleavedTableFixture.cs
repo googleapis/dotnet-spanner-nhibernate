@@ -92,7 +92,7 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.InterleavedTableTests
             var sampleModel = "InterleavedTableTests/InterleavedTableDataModel.sql";
             var fileName = Path.Combine(dirPath, sampleModel);
             var script = File.ReadAllText(fileName);
-            var statements = script.Split(";");
+            var statements = script.Split(';');
             for (var i = 0; i < statements.Length; i++)
             {
                 // Remove license header from script

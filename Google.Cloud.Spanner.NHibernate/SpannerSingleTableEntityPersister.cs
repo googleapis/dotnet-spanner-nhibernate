@@ -260,7 +260,7 @@ namespace Google.Cloud.Spanner.NHibernate
 		        }
 		        if (inWhereClause)
 		        {
-			        if (content.EndsWith('='))
+			        if (content.EndsWith("="))
 			        {
 				        var column = ExtractColumnNameFromUpdateStatementPart(content, table);
 				        if (!column.Equals(VersionColumnName, StringComparison.InvariantCultureIgnoreCase))
@@ -280,7 +280,7 @@ namespace Google.Cloud.Spanner.NHibernate
 		        }
 		        else
 		        {
-			        if (content.EndsWith('='))
+			        if (content.EndsWith("="))
 			        {
 				        columns.Add(ExtractColumnNameFromUpdateStatementPart(content, table));
 			        }
@@ -357,19 +357,19 @@ namespace Google.Cloud.Spanner.NHibernate
 	        var updatePrefix = $"UPDATE {table} SET ";
 	        var wherePrefix = "WHERE ";
 	        var andPrefix = "AND ";
-	        if (part.StartsWith(',') && part.EndsWith('='))
+	        if (part.StartsWith(",") && part.EndsWith("="))
 	        {
 		        column = part.Substring(1, part.Length-2);
 	        }
-	        else if (part.StartsWith(wherePrefix) && part.EndsWith('='))
+	        else if (part.StartsWith(wherePrefix) && part.EndsWith("="))
 	        {
 		        column = part.Substring(wherePrefix.Length, part.Length - wherePrefix.Length - 1);
 	        }
-	        else if (part.StartsWith(andPrefix) && part.EndsWith('='))
+	        else if (part.StartsWith(andPrefix) && part.EndsWith("="))
 	        {
 		        column = part.Substring(andPrefix.Length, part.Length - andPrefix.Length - 1);
 	        }
-	        else if (part.EndsWith('=') && (index = part.LastIndexOf(updatePrefix, StringComparison.InvariantCultureIgnoreCase)) > -1)
+	        else if (part.EndsWith("=") && (index = part.LastIndexOf(updatePrefix, StringComparison.InvariantCultureIgnoreCase)) > -1)
 	        {
 		        column = part.Substring(index + updatePrefix.Length, part.Length - updatePrefix.Length - index - 1);
 	        }

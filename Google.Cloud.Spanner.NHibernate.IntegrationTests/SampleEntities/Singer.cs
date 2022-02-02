@@ -63,8 +63,14 @@ namespace Google.Cloud.Spanner.NHibernate.IntegrationTests.SampleEntities
             });
             Property(x => x.BirthDate);
             Property(x => x.Picture);
-            Bag(x => x.Albums, c => { }, r => r.OneToMany());
-            Bag(x => x.Concerts, c => { }, r => r.OneToMany());
+            Bag(x => x.Albums, c =>
+            {
+                c.Inverse(true);
+            }, r => r.OneToMany());
+            Bag(x => x.Concerts, c =>
+            {
+                c.Inverse(true);
+            }, r => r.OneToMany());
         }
     }
 }
