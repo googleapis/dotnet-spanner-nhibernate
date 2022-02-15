@@ -31,7 +31,13 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
         
         public Configuration Configuration { get; }
 
-        public SampleConfiguration(string connectionString)
+        public string ProjectId { get; }
+
+        public string InstanceId { get; }
+
+        public string DatabaseId { get; }
+        
+        public SampleConfiguration(string connectionString, string projectId, string instanceId, string databaseId)
         {
             Configuration = new Configuration().DataBaseIntegration(db =>
             {
@@ -65,6 +71,11 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
             Configuration.Properties[Environment.BatchVersionedData] = "true";
             
             SessionFactory = Configuration.BuildSessionFactory();
+
+
+            ProjectId = projectId;
+            InstanceId = instanceId;
+            DatabaseId = databaseId;
         }
     }
 }

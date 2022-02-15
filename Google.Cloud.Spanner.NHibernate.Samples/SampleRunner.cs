@@ -92,7 +92,7 @@ namespace Google.Cloud.Spanner.NHibernate.Samples
                 await MaybeCreateDatabaseOnEmulatorAsync(databaseName);
 
                 // Create the NHibernate configuration and pass this into the sample.
-                var configuration = new SampleConfiguration(connectionStringBuilder.ConnectionString);
+                var configuration = new SampleConfiguration(connectionStringBuilder.ConnectionString, projectId, instanceId, databaseId);
                 await sampleMethod.Invoke(configuration);
             }
             catch (Exception e)
