@@ -2,11 +2,23 @@
 
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
+        <AssemblyName>Google.Cloud.Spanner.NHibernate</AssemblyName>
+        <RootNamespace>Google.Cloud.Spanner.NHibernate</RootNamespace>
         <LangVersion>latest</LangVersion>
+        <Authors>Google LLC</Authors>
+        <Copyright>Copyright 2022 Google LLC</Copyright>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageProjectUrl>https://github.com/googleapis/dotnet-spanner-nhibernate</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/googleapis/dotnet-spanner-nhibernate</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>spanner;nhibernate;Google;Cloud</PackageTags>
+        <PackageIcon>NuGetIcon.png</PackageIcon>
+        <PackageIconUrl>https://cloud.google.com/images/gcp-icon-64x64.png</PackageIconUrl>
+        <Version>0.1.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Google.Cloud.Spanner.Connection\Google.Cloud.Spanner.Connection.csproj" />
+        <ProjectReference Include="..\Google.Cloud.Spanner.Connection\Google.Cloud.Spanner.Connection.csproj" />
     </ItemGroup>
 
     <ItemGroup>
