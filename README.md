@@ -1,16 +1,13 @@
 # Cloud Spanner Dialect for NHibernate
 [Google Cloud Spanner](https://cloud.google.com/spanner/docs/) dialect and driver for [NHibernate](https://nhibernate.info/).
 
-__NOTE: This project is still in DEVELOPMENT. It may make breaking changes without prior notice and should not yet be used for production purposes.__
-
 All supported features have been tested and verified to work with the test configurations. There may be
 configurations and/or data model variations that have not  yet been covered by the tests and that show
 unexpected behavior. Please report any problems that you might encounter by
 [creating a new issue](https://github.com/googleapis/dotnet-spanner-nhibernate/issues/new/choose).
 
 # Getting started
-Add a reference to the Google.Cloud.Spanner.NHibernate project.
-TODO: Add a reference to the nuget package.
+Add a reference to the Google.Cloud.Spanner.NHibernate nuget package.
 
 Set the Cloud Spanner NHibernate Dialect and a valid Cloud Spanner connection string in your NHibernate
 configuration to connect to a Cloud Spanner database using NHibernate:
