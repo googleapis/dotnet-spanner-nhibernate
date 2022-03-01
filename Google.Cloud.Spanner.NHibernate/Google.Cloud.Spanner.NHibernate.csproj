@@ -25,4 +25,14 @@
       <PackageReference Include="NHibernate" Version="5.3.10" />
     </ItemGroup>
 
+    <ItemGroup>
+        <None Include="..\LICENSE">
+            <Pack>True</Pack>
+            <PackagePath></PackagePath>
+        </None>
+        <None Include="..\NuGetIcon.png">
+            <Pack>True</Pack>
+            <PackagePath></PackagePath>
+        </None>
+    </ItemGroup>
 </Project>
