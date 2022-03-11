@@ -22,7 +22,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="NHibernate" Version="5.3.10" />
+      <PackageReference Include="NHibernate" Version="5.3.11" />
     </ItemGroup>
 
     <ItemGroup>
