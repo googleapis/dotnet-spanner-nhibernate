@@ -294,9 +294,7 @@ Property(x => x.CreatedAt, m =>
     m.Insert(false);
     m.Column(c =>
     {
-        // Cloud Spanner currently does not support default values for columns. This mapping is therefore
-        // picked up by the SpannerEntityPersister, which will assign the value to the column when a new
-        // record is inserted.
+        // This will add the PENDING_COMMIT_TIMESTAMP() as the default value for the column.
         c.Default("PENDING_COMMIT_TIMESTAMP()");
         // This ensures that `OPTIONS (allow_commit_timestamp=true)` is added to the column definition.
         c.SqlType(SpannerCommitTimestampSqlType.NotNullInstance);
@@ -311,9 +309,7 @@ Property(x => x.LastUpdatedAt, m =>
     m.Update(false);
     m.Column(c =>
     {
-        // Cloud Spanner currently does not support default values for columns. This mapping is therefore
-        // picked up by the SpannerEntityPersister, which will assign the value to the column when a
-        // record is updated.
+        // This will add the PENDING_COMMIT_TIMESTAMP() as the default value for the column.
         c.Default("PENDING_COMMIT_TIMESTAMP()");
         // This ensures that `OPTIONS (allow_commit_timestamp=true)` is added to the column definition.
         c.SqlType(SpannerCommitTimestampSqlType.NullableInstance);
@@ -394,9 +390,6 @@ will cause all inserts to happen at the end of the key space. Cloud Spanner divi
 key ranges, and using a monotonically increasing primary key value will cause one server to receive all
 inserts. See https://cloud.google.com/spanner/docs/schema-design#primary-key-prevent-hotspots for more information.
 
-## Default Values
-Cloud Spanner does not support default values for columns. The `SpannerSingleTableEntityPersister` is however able
-to simulate this. See the example above for commit timestamps that use this feature.
 
 # Performance Recommendations
 NHibernate supports a wide range of different configurations and mappings. Some of these can lead to a large number
