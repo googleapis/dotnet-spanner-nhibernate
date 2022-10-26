@@ -27,4 +27,4 @@ sed -i "s/python3/$PYTHON3/g" /tmp/publisher-script
 source /tmp/publisher-script
 
 # Secrets are already populated, let's not do that again
-./release.sh --skippopulatesecrets#!/bin/bash
+./release.sh --skippopulatesecrets
